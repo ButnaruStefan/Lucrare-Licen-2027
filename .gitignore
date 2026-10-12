@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Editor
+.vscode/
+
+# Context Claude (local, nu se publica)
+CLAUDE.md
