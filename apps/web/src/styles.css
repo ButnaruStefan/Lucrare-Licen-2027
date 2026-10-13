@@ -1,0 +1,122 @@
+/*
+ * Stilurile de bază ale aplicației.
+ * Culorile sunt variabile CSS (tokeni), cu contrast de cel puțin 4.5:1 (WCAG 1.4.3),
+ * și au variantă pentru modul întunecat. Focusul de la tastatură e mereu vizibil (WCAG 2.4.7).
+ */
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --text: #1c1c1a;
+  --muted: #55554f;
+  --border: #d4d4ce;
+  --accent: #1f4fd1;
+  --ok: #19703a;
+  --error: #b3261e;
+  --focus: #1f4fd1;
+  color-scheme: light dark;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #151514;
+    --surface: #1f1f1d;
+    --text: #ededea;
+    --muted: #b4b4ad;
+    --border: #3a3a36;
+    --accent: #8fb0ff;
+    --ok: #6fd394;
+    --error: #ff9b94;
+    --focus: #8fb0ff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.page {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.lead {
+  color: var(--muted);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.card h2 {
+  margin-top: 0;
+}
+
+.status-list div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.status-list dt {
+  font-weight: 600;
+}
+
+.status-list dt::after {
+  content: ':';
+}
+
+.status-list dd {
+  margin: 0;
+}
+
+.status--ok {
+  color: var(--ok);
+}
+
+.status--error {
+  color: var(--error);
+}
+
+button {
+  margin-top: 1rem;
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--surface);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

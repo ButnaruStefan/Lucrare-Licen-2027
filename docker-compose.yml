@@ -1,0 +1,26 @@
+# OPȚIONAL: pornește PostgreSQL într-un container Docker, în loc de o instalare locală.
+# Utilizatorul, parola și numele bazei sunt aceleași ca în apps/api/.env.example,
+# deci aplicația funcționează identic cu ambele variante.
+#
+#   docker compose up -d     # pornește baza de date
+#   docker compose down      # o oprește (datele rămân în volumul `pgdata`)
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ro_a11y
+      POSTGRES_PASSWORD: ro_a11y
+      POSTGRES_DB: ro_a11y
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ro_a11y -d ro_a11y']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

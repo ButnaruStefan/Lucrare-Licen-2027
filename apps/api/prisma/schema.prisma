@@ -1,0 +1,24 @@
+// Schema bazei de date: descrie tabelele (modelele) și relațiile dintre ele.
+// Din acest fișier, Prisma generează:
+//   1) migrațiile SQL (prisma/migrations/) care creează tabelele în PostgreSQL;
+//   2) clientul TypeScript (src/generated/prisma/) cu care API-ul citește și scrie date.
+// Adresa bazei de date NU e aici, ci în prisma.config.ts (citită din .env).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Un proiect = un site analizat (ex. site-ul unei universități).
+// Primul model; restul (Scan, Finding etc.) se adaugă în etapa următoare.
+model Project {
+  id        String   @id @default(uuid())
+  name      String
+  baseUrl   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,27 @@
+{
+  "name": "ro-a11y-observatory",
+  "private": true,
+  "description": "Platformă de audit al accesibilității web pentru site-uri românești (lucrare de licență).",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @ro-a11y/api",
+    "dev:web": "npm run dev -w @ro-a11y/web",
+    "db:migrate": "npm run db:migrate -w @ro-a11y/api",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "prettier": "^3.9.10",
+    "typescript": "^7.0.2"
+  }
+}
