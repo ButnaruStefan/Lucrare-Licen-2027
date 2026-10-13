@@ -14,6 +14,7 @@ const db = createPrismaClient(env.DATABASE_URL);
 
 const app = createApp({
   logger,
+  db,
   checkDatabase: () => pingDatabase(db),
 });
 

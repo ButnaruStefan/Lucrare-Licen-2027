@@ -7,17 +7,25 @@
  *   loguri; clientul nu vede niciodată stack trace-ul.
  */
 import type { ErrorRequestHandler, RequestHandler } from 'express';
-import type { ApiError } from '@ro-a11y/shared';
+import type { ApiError, FieldError } from '@ro-a11y/shared';
 
-/** Eroare „așteptată”, cu cod HTTP și cod intern clar (ex. 400 INVALID_URL). */
+/** Eroare „așteptată”, cu cod HTTP și cod intern clar (ex. 400 VALIDATION_ERROR). */
 export class HttpError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: string,
     message: string,
+    public readonly details?: FieldError[],
   ) {
     super(message);
   }
+}
+
+/** Corpul cererii nu e JSON valid (eroare aruncată de express.json()). */
+function isInvalidJson(err: unknown): boolean {
+  return (
+    typeof err === 'object' && err !== null && 'type' in err && err.type === 'entity.parse.failed'
+  );
 }
 
 export const notFoundHandler: RequestHandler = (req, res) => {
@@ -32,16 +40,22 @@ export const notFoundHandler: RequestHandler = (req, res) => {
 };
 
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
-  const isKnown = err instanceof HttpError;
-  if (!isKnown) {
+  const known = isInvalidJson(err)
+    ? new HttpError(400, 'INVALID_JSON', 'Corpul cererii nu este JSON valid.')
+    : err instanceof HttpError
+      ? err
+      : null;
+
+  if (!known) {
     req.log.error({ err }, 'Eroare neașteptată');
   }
   const body: ApiError = {
     error: {
-      code: isKnown ? err.code : 'INTERNAL_ERROR',
-      message: isKnown ? err.message : 'A apărut o eroare internă.',
+      code: known ? known.code : 'INTERNAL_ERROR',
+      message: known ? known.message : 'A apărut o eroare internă.',
       requestId: String(req.id),
+      ...(known?.details ? { details: known.details } : {}),
     },
   };
-  res.status(isKnown ? err.status : 500).json(body);
+  res.status(known ? known.status : 500).json(body);
 };

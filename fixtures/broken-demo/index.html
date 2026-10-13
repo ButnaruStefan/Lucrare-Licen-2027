@@ -1,0 +1,167 @@
+<!doctype html>
+<!--
+  SITE DE ANTRENAMENT — VARIANTA CU PROBLEME INTENȚIONATE
+  Același conținut ca accessible-demo, dar cu greșeli de accesibilitate puse intenționat.
+  Fiecare greșeală are un comentariu „PROBLEMA Bxx” și atributul data-problema="Bxx".
+  Lista completă, cu rezultatul așteptat de la scanner: probleme.json și README.md.
+
+  PROBLEMA B01: lipsește atributul lang pe <html>         (detectabilă automat)
+-->
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- PROBLEMA B02: zoom-ul este blocat (maximum-scale=1, user-scalable=no) -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <!-- PROBLEMA B03: lipsește <title> -->
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- PROBLEMA B12: lipsesc reperele (header/nav/main/footer); totul e în <div>-uri -->
+    <div class="site-header" data-problema="B12">
+      <a class="brand" href="./">
+        <img src="/assets/stema.svg" alt="" width="48" height="56" />
+        <span>Primăria Comunei Valea Verde</span>
+      </a>
+      <ul class="nav">
+        <li><a href="./">Acasă</a></li>
+        <li><a href="#anunturi">Anunțuri</a></li>
+        <li><a href="#program">Program cu publicul</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </div>
+
+    <div class="main">
+      <h1>Bine ați venit pe site-ul Primăriei Valea Verde</h1>
+
+      <!-- PROBLEMA B04: imagine informativă fără text alternativ -->
+      <img src="/assets/sediu.svg" width="640" height="280" data-problema="B04" />
+
+      <!-- PROBLEMA B05: contrast insuficient (gri deschis pe alb) -->
+      <p class="intro" data-problema="B05">
+        Pe acest site găsiți anunțurile publice, programul cu publicul și datele de contact ale
+        primăriei.
+      </p>
+
+      <!-- PROBLEMA M02: text alternativ prezent, dar fără sens (numele fișierului) -->
+      <img
+        class="ornament"
+        src="/assets/ornament.svg"
+        alt="IMG_2041.jpg"
+        width="200"
+        height="20"
+        data-problema="M02"
+      />
+
+      <!-- PROBLEMA B06: text peste o imagine de fundal (contrastul nu poate fi calculat sigur) -->
+      <div class="banner" data-problema="B06">
+        <p>Ședința consiliului local: joi, ora 14:00</p>
+      </div>
+
+      <div id="anunturi">
+        <h2>Anunțuri</h2>
+        <div class="article">
+          <!-- PROBLEMA B11: nivel de titlu sărit (h2 → h4) -->
+          <h4 data-problema="B11">Program special de sărbători</h4>
+          <p class="meta">Publicat pe 1 decembrie 2026</p>
+          <p>
+            În perioada 24 decembrie – 2 ianuarie, registratura funcționează între orele 9 și 12.
+            <!-- PROBLEMA M03: link cu text ambiguu („aici”) -->
+            Pentru programul complet, apăsați <a href="#program" data-problema="M03">aici</a>.
+          </p>
+        </div>
+        <div class="article">
+          <h4>Impozitele locale pentru anul 2027</h4>
+          <p class="meta">Publicat pe 15 noiembrie 2026</p>
+          <p>
+            Plata se poate face la ghișeu sau online.
+            <!-- PROBLEMA M01: „buton” făcut dintr-un <div>, care nu poate fi folosit din tastatură -->
+            <span class="fake-button" onclick="alert('Serviciul de taxe')" data-problema="M01"
+              >Contactați serviciul de taxe</span
+            >
+          </p>
+        </div>
+      </div>
+
+      <div id="program">
+        <h2>Program cu publicul</h2>
+        <!-- PROBLEMA M06: tabel de date fără celule de antet (<th>) — doar text îngroșat -->
+        <table data-problema="M06">
+          <tr>
+            <td><b>Zi</b></td>
+            <td><b>Interval orar</b></td>
+          </tr>
+          <tr>
+            <td>Luni – Joi</td>
+            <td>08:00 – 16:00</td>
+          </tr>
+          <tr>
+            <td>Vineri</td>
+            <td>08:00 – 13:00</td>
+          </tr>
+        </table>
+      </div>
+
+      <div id="contact">
+        <h2>Trimiteți o solicitare</h2>
+        <form action="#" method="post">
+          <!-- PROBLEMA M05: câmp fără etichetă vizibilă, doar cu placeholder (axe îl acceptă, verificarea umană nu) -->
+          <div class="field">
+            <input name="nume" type="text" placeholder="Nume și prenume" data-problema="M05" />
+          </div>
+          <div class="field">
+            <label for="email">Adresă de e-mail</label>
+            <!-- PROBLEMA B09: atribut ARIA scris greșit (aria-labeledby în loc de aria-labelledby) -->
+            <input
+              id="email"
+              name="email"
+              type="email"
+              aria-labeledby="email"
+              data-problema="B09"
+            />
+          </div>
+          <!-- PROBLEMA B07: listă de selecție fără etichetă -->
+          <div class="field">
+            <select name="departament" data-problema="B07">
+              <option>Registratură</option>
+              <option>Taxe și impozite</option>
+              <option>Urbanism</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="mesaj">Mesaj</label>
+            <textarea id="mesaj" name="mesaj" rows="4"></textarea>
+          </div>
+          <button type="submit">Trimite solicitarea</button>
+        </form>
+      </div>
+
+      <div>
+        <h2>Căutare pe site</h2>
+        <form action="#">
+          <label for="cautare">Caută</label>
+          <input id="cautare" name="q" type="search" />
+          <!-- PROBLEMA B08: buton doar cu iconiță, fără nume accesibil -->
+          <button type="submit" data-problema="B08">
+            <svg aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 16 16">
+              <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2" />
+              <line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" stroke-width="2" />
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="site-footer">
+      <p>© 2026 Primăria Comunei Valea Verde (site fictiv, creat pentru testare)</p>
+      <!-- PROBLEMA B10: link doar cu iconiță, fără nume accesibil -->
+      <a href="#" class="social" data-problema="B10">
+        <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 20 20">
+          <rect width="20" height="20" rx="4" fill="currentColor" />
+        </svg>
+      </a>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,150 @@
+{
+  "descriere": "Problemele intenționate din broken-demo și rezultatul așteptat de la scanner. Sursa de adevăr pentru testele scannerului.",
+  "verificatCu": {
+    "motor": "axe-core 4.13.0",
+    "browser": "Google Chrome 155.0.8059.40",
+    "data": "2026-10-13"
+  },
+  "detectabileAutomat": [
+    {
+      "id": "B01",
+      "regulaAxe": "html-has-lang",
+      "categorie": "violation",
+      "wcag": ["3.1.1"],
+      "nivel": "A",
+      "descriere": "Elementul <html> nu declară limba paginii."
+    },
+    {
+      "id": "B02",
+      "regulaAxe": "meta-viewport",
+      "categorie": "violation",
+      "wcag": ["1.4.4"],
+      "nivel": "AA",
+      "descriere": "Zoom-ul este blocat (maximum-scale=1, user-scalable=no)."
+    },
+    {
+      "id": "B03",
+      "regulaAxe": "document-title",
+      "categorie": "violation",
+      "wcag": ["2.4.2"],
+      "nivel": "A",
+      "descriere": "Pagina nu are titlu (<title>)."
+    },
+    {
+      "id": "B04",
+      "regulaAxe": "image-alt",
+      "categorie": "violation",
+      "wcag": ["1.1.1"],
+      "nivel": "A",
+      "descriere": "Imaginea informativă a sediului nu are text alternativ."
+    },
+    {
+      "id": "B05",
+      "regulaAxe": "color-contrast",
+      "categorie": "violation",
+      "wcag": ["1.4.3"],
+      "nivel": "AA",
+      "descriere": "Paragraful introductiv are contrast insuficient (gri deschis pe alb)."
+    },
+    {
+      "id": "B06",
+      "regulaAxe": "color-contrast",
+      "categorie": "incomplete",
+      "wcag": ["1.4.3"],
+      "nivel": "AA",
+      "descriere": "Text peste o imagine de fundal: motorul nu poate calcula contrastul, cere verificare umană."
+    },
+    {
+      "id": "B07",
+      "regulaAxe": "select-name",
+      "categorie": "violation",
+      "wcag": ["4.1.2"],
+      "nivel": "A",
+      "descriere": "Lista de selecție „Departament” nu are etichetă."
+    },
+    {
+      "id": "B08",
+      "regulaAxe": "button-name",
+      "categorie": "violation",
+      "wcag": ["4.1.2"],
+      "nivel": "A",
+      "descriere": "Butonul de căutare conține doar o iconiță, fără nume accesibil."
+    },
+    {
+      "id": "B09",
+      "regulaAxe": "aria-valid-attr",
+      "categorie": "violation",
+      "wcag": ["4.1.2"],
+      "nivel": "A",
+      "descriere": "Atribut ARIA scris greșit: aria-labeledby în loc de aria-labelledby."
+    },
+    {
+      "id": "B10",
+      "regulaAxe": "link-name",
+      "categorie": "violation",
+      "wcag": ["2.4.4", "4.1.2"],
+      "nivel": "A",
+      "descriere": "Linkul de rețea socială conține doar o iconiță, fără nume accesibil."
+    },
+    {
+      "id": "B11",
+      "regulaAxe": "heading-order",
+      "categorie": "violation",
+      "wcag": [],
+      "nivel": "best-practice",
+      "descriere": "Nivel de titlu sărit (h2 → h4). Bună practică, nu criteriu WCAG obligatoriu."
+    },
+    {
+      "id": "B12",
+      "regulaAxe": ["landmark-one-main", "region"],
+      "categorie": "violation",
+      "wcag": [],
+      "nivel": "best-practice",
+      "descriere": "Pagina nu folosește repere (header, nav, main, footer). Bună practică, nu criteriu WCAG obligatoriu."
+    }
+  ],
+  "doarVerificareManuala": [
+    {
+      "id": "M01",
+      "wcag": ["2.1.1"],
+      "nivel": "A",
+      "descriere": "„Buton” făcut dintr-un <span> cu onclick: nu poate fi accesat sau activat din tastatură.",
+      "deCeNuEDetectat": "Motorul nu poate ști că un element oarecare are un comportament de buton."
+    },
+    {
+      "id": "M02",
+      "wcag": ["1.1.1"],
+      "nivel": "A",
+      "descriere": "Text alternativ fără sens („IMG_2041.jpg”). Imaginea e decorativă și ar trebui să aibă alt gol.",
+      "deCeNuEDetectat": "Motorul verifică doar existența textului alternativ, nu și sensul lui."
+    },
+    {
+      "id": "M03",
+      "wcag": ["2.4.4"],
+      "nivel": "A",
+      "descriere": "Link cu text ambiguu („aici”), de neînțeles în afara contextului.",
+      "deCeNuEDetectat": "Sensul textului nu poate fi evaluat automat."
+    },
+    {
+      "id": "M04",
+      "wcag": ["2.4.7"],
+      "nivel": "AA",
+      "descriere": "Conturul de focus e eliminat din CSS (outline: none): nu se vede unde e focusul de la tastatură.",
+      "deCeNuEDetectat": "Focusul vizibil se verifică doar interacționând cu pagina din tastatură."
+    },
+    {
+      "id": "M05",
+      "wcag": ["3.3.2", "1.3.1"],
+      "nivel": "A",
+      "descriere": "Câmpul „Nume și prenume” are doar placeholder, fără etichetă vizibilă; textul dispare la tastare.",
+      "deCeNuEDetectat": "axe acceptă placeholder-ul ca nume accesibil, deci regula „label” trece."
+    },
+    {
+      "id": "M06",
+      "wcag": ["1.3.1"],
+      "nivel": "A",
+      "descriere": "Tabel de date fără celule de antet (<th>); antetul e simulat cu text îngroșat.",
+      "deCeNuEDetectat": "Motorul nu poate deosebi sigur un tabel de date de unul folosit pentru aranjare."
+    }
+  ]
+}
