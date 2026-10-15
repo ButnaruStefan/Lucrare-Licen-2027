@@ -35,7 +35,7 @@ const INDEX_PAGE = `<!doctype html>
   <head><meta charset="UTF-8" /><title>Site-uri de antrenament</title></head>
   <body>
     <main>
-      <h1>Site-uri de antrenament RO-A11y</h1>
+      <h1>Site-uri de antrenament W4A</h1>
       <ul>
         <li><a href="/accessible/">Varianta accesibilă</a></li>
         <li><a href="/broken/">Varianta cu probleme intenționate</a></li>

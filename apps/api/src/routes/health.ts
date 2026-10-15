@@ -21,7 +21,7 @@ export function healthRouter({ checkDatabase }: HealthDeps): Router {
   router.get('/health', (_req, res) => {
     const body: HealthResponse = {
       status: 'ok',
-      service: 'ro-a11y-api',
+      service: 'w4a-api',
       uptimeSeconds: Math.round(process.uptime()),
     };
     res.json(body);

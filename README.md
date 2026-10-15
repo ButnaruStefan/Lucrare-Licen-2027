@@ -1,4 +1,4 @@
-# RO-A11y Observatory
+# W4A — Web For All
 
 Platforma de audit al accesibilitatii web pentru site-uri romanesti. Combina scanarea automata
 (Playwright + axe-core), trasabilitatea catre WCAG, EN 301 549 si legislatia romaneasca,
@@ -60,7 +60,10 @@ Deschide http://localhost:5173. Pagina trebuie sa arate "API: functioneaza" si "
 
 ### 3. Prima scanare
 
-Cu API-ul, worker-ul si site-urile de antrenament pornite:
+**Din interfata:** deschide http://localhost:5173, alege proiectul "Demo: Valea Verde (cu probleme)"
+si apasa "Scaneaza pagina". Pagina scanarii se actualizeaza singura pana la rezultat.
+
+**Din linia de comanda** (cu API-ul, worker-ul si site-urile de antrenament pornite):
 
 ```bash
 # id-ul proiectului demo "cu probleme"
@@ -75,7 +78,8 @@ curl "http://localhost:3000/api/v1/scans/<ID_SCANARE>/results?category=violation
 ```
 
 **Testele** folosesc o baza de date separata, `ro_a11y_test`, creata automat la prima rulare
-(PostgreSQL trebuie sa fie pornit). Testele scannerului deschid browserul real (Chrome).
+(PostgreSQL trebuie sa fie pornit). Testele scannerului si ale interfetei deschid browserul real (Chrome); testele interfetei
+ruleaza axe-core pe propriile ecrane si cer zero probleme de accesibilitate.
 
 ## Securitate
 
