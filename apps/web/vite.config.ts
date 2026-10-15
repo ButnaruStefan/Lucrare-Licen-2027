@@ -1,8 +1,8 @@
 /**
- * Configurarea Vite (serverul de dezvoltare și build-ul frontendului).
+ * Configurarea Vite (serverul de dezvoltare si build-ul frontendului).
  *
- * `proxy`: în dezvoltare, cererile către /api și /health sunt trimise mai departe la
- * API (portul 3000). Browserul vorbește doar cu Vite (portul 5173), deci nu e nevoie de CORS.
+ * `proxy`: in dezvoltare, cererile catre /api si /health sunt trimise mai departe la
+ * API (portul 3000). Browserul vorbeste doar cu Vite (portul 5173), deci nu e nevoie de CORS.
  */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';

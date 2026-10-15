@@ -1,15 +1,15 @@
 /**
- * Tratarea centralizată a erorilor.
+ * Tratarea centralizata a erorilor.
  *
- * - `notFoundHandler`: răspunde cu 404 pentru orice rută inexistentă.
- * - `errorHandler`: prinde orice eroare aruncată în rute și o transformă în formatul
- *   standard { error: { code, message, requestId } }. Detaliile tehnice ajung doar în
- *   loguri; clientul nu vede niciodată stack trace-ul.
+ * - `notFoundHandler`: raspunde cu 404 pentru orice ruta inexistenta.
+ * - `errorHandler`: prinde orice eroare aruncata in rute si o transforma in formatul
+ *   standard { error: { code, message, requestId } }. Detaliile tehnice ajung doar in
+ *   loguri; clientul nu vede niciodata stack trace-ul.
  */
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import type { ApiError, FieldError } from '@ro-a11y/shared';
 
-/** Eroare „așteptată”, cu cod HTTP și cod intern clar (ex. 400 VALIDATION_ERROR). */
+/** Eroare "asteptata", cu cod HTTP si cod intern clar (ex. 400 VALIDATION_ERROR). */
 export class HttpError extends Error {
   constructor(
     public readonly status: number,
@@ -21,7 +21,7 @@ export class HttpError extends Error {
   }
 }
 
-/** Corpul cererii nu e JSON valid (eroare aruncată de express.json()). */
+/** Corpul cererii nu e JSON valid (eroare aruncata de express.json()). */
 function isInvalidJson(err: unknown): boolean {
   return (
     typeof err === 'object' && err !== null && 'type' in err && err.type === 'entity.parse.failed'
@@ -47,7 +47,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
       : null;
 
   if (!known) {
-    req.log.error({ err }, 'Eroare neașteptată');
+    req.log.error({ err }, 'Eroare neasteptata');
   }
   const body: ApiError = {
     error: {

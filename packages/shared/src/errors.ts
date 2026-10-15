@@ -1,9 +1,9 @@
 /**
  * Formatul unic al erorilor returnate de API.
  *
- * Orice eroare arată la fel: { "error": { "code", "message", "requestId", "details"? } }.
- * `requestId` leagă răspunsul de linia corespunzătoare din logurile serverului.
- * `details` apare la erorile de validare: ce câmp e greșit și de ce.
+ * Orice eroare arata la fel: { "error": { "code", "message", "requestId", "details"? } }.
+ * `requestId` leaga raspunsul de linia corespunzatoare din logurile serverului.
+ * `details` apare la erorile de validare: ce camp e gresit si de ce.
  */
 import { z } from 'zod';
 

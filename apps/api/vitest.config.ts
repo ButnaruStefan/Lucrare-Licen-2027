@@ -1,10 +1,10 @@
 /**
  * Configurarea testelor (Vitest).
  *
- * Testele care folosesc baza de date lucrează pe o bază SEPARATĂ, `ro_a11y_test`, ca datele
- * de lucru din `ro_a11y` să nu fie niciodată atinse. Adresa poate fi schimbată cu variabila
- * TEST_DATABASE_URL. Înainte de teste, `global-setup.ts` creează baza (dacă lipsește) și îi
- * aplică migrațiile.
+ * Testele care folosesc baza de date lucreaza pe o baza SEPARATA, `ro_a11y_test`, ca datele
+ * de lucru din `ro_a11y` sa nu fie niciodata atinse. Adresa poate fi schimbata cu variabila
+ * TEST_DATABASE_URL. Inainte de teste, `global-setup.ts` creeaza baza (daca lipseste) si ii
+ * aplica migratiile.
  */
 import { defineConfig } from 'vitest/config';
 
@@ -18,7 +18,7 @@ export default defineConfig({
       DATABASE_URL: TEST_DATABASE_URL,
     },
     globalSetup: ['tests/helpers/global-setup.ts'],
-    // Fișierele de test împart aceeași bază de date, deci rulează pe rând, nu în paralel.
+    // Fisierele de test impart aceeasi baza de date, deci ruleaza pe rand, nu in paralel.
     fileParallelism: false,
   },
 });

@@ -1,8 +1,8 @@
 /**
- * Atribuie fiecărei cereri HTTP un identificator unic (request ID) și o loghează.
+ * Atribuie fiecarei cereri HTTP un identificator unic (request ID) si o logheaza.
  *
- * ID-ul apare în loguri, în antetul de răspuns `X-Request-Id` și în orice mesaj de eroare.
- * Dacă un utilizator raportează o eroare, ID-ul arată exact ce s-a întâmplat în server.
+ * ID-ul apare in loguri, in antetul de raspuns `X-Request-Id` si in orice mesaj de eroare.
+ * Daca un utilizator raporteaza o eroare, ID-ul arata exact ce s-a intamplat in server.
  */
 import { randomUUID } from 'node:crypto';
 import { pinoHttp } from 'pino-http';

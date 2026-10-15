@@ -1,27 +1,23 @@
 /**
- * Teste pentru rutele de sănătate și pentru formatul erorilor.
+ * Teste pentru rutele de sanatate si pentru formatul erorilor.
  *
- * Aplicația e creată cu dependențe false: un logger silențios și o verificare a bazei
- * de date care reușește sau eșuează la comandă. Testele nu au nevoie de PostgreSQL:
- * `db` e un obiect gol, pentru că rutele testate aici nu îl folosesc.
+ * Aplicatia e creata cu dependente false: un logger silentios si o verificare a bazei
+ * de date care reuseste sau esueaza la comanda. Testele nu au nevoie de PostgreSQL:
+ * rutele testate aici nu folosesc baza de date.
  */
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { apiErrorSchema, healthResponseSchema, readyResponseSchema } from '@ro-a11y/shared';
-import { createApp } from '../src/app';
-import type { Database } from '../src/db/prisma';
-import { createLogger } from '../src/lib/logger';
+import { createTestApp } from './helpers/test-app';
 
-const logger = createLogger('silent');
-const db = {} as Database;
 const dbOk = async () => {};
 const dbDown = async () => {
   throw new Error('connection refused');
 };
 
 describe('GET /health', () => {
-  it('răspunde 200 cu formatul din contract', async () => {
-    const res = await request(createApp({ logger, db, checkDatabase: dbOk })).get('/health');
+  it('raspunde 200 cu formatul din contract', async () => {
+    const res = await request(createTestApp({ checkDatabase: dbOk })).get('/health');
 
     expect(res.status).toBe(200);
     expect(healthResponseSchema.parse(res.body).status).toBe('ok');
@@ -29,10 +25,8 @@ describe('GET /health', () => {
 });
 
 describe('GET /api/v1/health/ready', () => {
-  it('răspunde 200 „ready” când baza de date funcționează', async () => {
-    const res = await request(createApp({ logger, db, checkDatabase: dbOk })).get(
-      '/api/v1/health/ready',
-    );
+  it('raspunde 200 "ready" cand baza de date functioneaza', async () => {
+    const res = await request(createTestApp({ checkDatabase: dbOk })).get('/api/v1/health/ready');
 
     expect(res.status).toBe(200);
     expect(readyResponseSchema.parse(res.body)).toEqual({
@@ -41,10 +35,8 @@ describe('GET /api/v1/health/ready', () => {
     });
   });
 
-  it('răspunde 503 „not_ready” când baza de date nu răspunde', async () => {
-    const res = await request(createApp({ logger, db, checkDatabase: dbDown })).get(
-      '/api/v1/health/ready',
-    );
+  it('raspunde 503 "not_ready" cand baza de date nu raspunde', async () => {
+    const res = await request(createTestApp({ checkDatabase: dbDown })).get('/api/v1/health/ready');
 
     expect(res.status).toBe(503);
     expect(readyResponseSchema.parse(res.body)).toEqual({
@@ -55,8 +47,8 @@ describe('GET /api/v1/health/ready', () => {
 });
 
 describe('Rute inexistente', () => {
-  it('răspund 404 în formatul standard de eroare, cu request ID', async () => {
-    const res = await request(createApp({ logger, db, checkDatabase: dbOk })).get('/nu-exista');
+  it('raspund 404 in formatul standard de eroare, cu request ID', async () => {
+    const res = await request(createTestApp({ checkDatabase: dbOk })).get('/nu-exista');
 
     expect(res.status).toBe(404);
     const body = apiErrorSchema.parse(res.body);

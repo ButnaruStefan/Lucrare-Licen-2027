@@ -1,7 +1,7 @@
 /**
- * Configurarea uneltei Prisma (folosită de comenzile `prisma migrate` și `prisma generate`).
- * Spune unde e schema, unde se salvează migrațiile, ce script adaugă datele demo
- * (`prisma db seed`) și de unde se ia adresa bazei de date.
+ * Configurarea uneltei Prisma (folosita de comenzile `prisma migrate` si `prisma generate`).
+ * Spune unde e schema, unde se salveaza migratiile, ce script adauga datele demo
+ * (`prisma db seed`) si de unde se ia adresa bazei de date.
  */
 import 'dotenv/config';
 import { defineConfig, env } from 'prisma/config';

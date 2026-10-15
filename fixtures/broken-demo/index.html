@@ -1,11 +1,11 @@
 <!doctype html>
 <!--
-  SITE DE ANTRENAMENT — VARIANTA CU PROBLEME INTENȚIONATE
-  Același conținut ca accessible-demo, dar cu greșeli de accesibilitate puse intenționat.
-  Fiecare greșeală are un comentariu „PROBLEMA Bxx” și atributul data-problema="Bxx".
-  Lista completă, cu rezultatul așteptat de la scanner: probleme.json și README.md.
+  SITE DE ANTRENAMENT — VARIANTA CU PROBLEME INTENTIONATE
+  Acelasi continut ca accessible-demo, dar cu greseli de accesibilitate puse intentionat.
+  Fiecare greseala are un comentariu "PROBLEMA Bxx" si atributul data-problema="Bxx".
+  Lista completa, cu rezultatul asteptat de la scanner: probleme.json si README.md.
 
-  PROBLEMA B01: lipsește atributul lang pe <html>         (detectabilă automat)
+  PROBLEMA B01: lipseste atributul lang pe <html>         (detectabila automat)
 -->
 <html>
   <head>
@@ -15,11 +15,11 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
     />
-    <!-- PROBLEMA B03: lipsește <title> -->
+    <!-- PROBLEMA B03: lipseste <title> -->
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <!-- PROBLEMA B12: lipsesc reperele (header/nav/main/footer); totul e în <div>-uri -->
+    <!-- PROBLEMA B12: lipsesc reperele (header/nav/main/footer); totul e in <div>-uri -->
     <div class="site-header" data-problema="B12">
       <a class="brand" href="./">
         <img src="/assets/stema.svg" alt="" width="48" height="56" />
@@ -36,7 +36,7 @@
     <div class="main">
       <h1>Bine ați venit pe site-ul Primăriei Valea Verde</h1>
 
-      <!-- PROBLEMA B04: imagine informativă fără text alternativ -->
+      <!-- PROBLEMA B04: imagine informativa fara text alternativ -->
       <img src="/assets/sediu.svg" width="640" height="280" data-problema="B04" />
 
       <!-- PROBLEMA B05: contrast insuficient (gri deschis pe alb) -->
@@ -45,7 +45,7 @@
         primăriei.
       </p>
 
-      <!-- PROBLEMA M02: text alternativ prezent, dar fără sens (numele fișierului) -->
+      <!-- PROBLEMA M02: text alternativ prezent, dar fara sens (numele fisierului) -->
       <img
         class="ornament"
         src="/assets/ornament.svg"
@@ -63,12 +63,12 @@
       <div id="anunturi">
         <h2>Anunțuri</h2>
         <div class="article">
-          <!-- PROBLEMA B11: nivel de titlu sărit (h2 → h4) -->
+          <!-- PROBLEMA B11: nivel de titlu sarit (h2 → h4) -->
           <h4 data-problema="B11">Program special de sărbători</h4>
           <p class="meta">Publicat pe 1 decembrie 2026</p>
           <p>
             În perioada 24 decembrie – 2 ianuarie, registratura funcționează între orele 9 și 12.
-            <!-- PROBLEMA M03: link cu text ambiguu („aici”) -->
+            <!-- PROBLEMA M03: link cu text ambiguu ("aici") -->
             Pentru programul complet, apăsați <a href="#program" data-problema="M03">aici</a>.
           </p>
         </div>
@@ -77,7 +77,7 @@
           <p class="meta">Publicat pe 15 noiembrie 2026</p>
           <p>
             Plata se poate face la ghișeu sau online.
-            <!-- PROBLEMA M01: „buton” făcut dintr-un <div>, care nu poate fi folosit din tastatură -->
+            <!-- PROBLEMA M01: "buton" facut dintr-un <div>, care nu poate fi folosit din tastatura -->
             <span class="fake-button" onclick="alert('Serviciul de taxe')" data-problema="M01"
               >Contactați serviciul de taxe</span
             >
@@ -87,7 +87,7 @@
 
       <div id="program">
         <h2>Program cu publicul</h2>
-        <!-- PROBLEMA M06: tabel de date fără celule de antet (<th>) — doar text îngroșat -->
+        <!-- PROBLEMA M06: tabel de date fara celule de antet (<th>) — doar text ingrosat -->
         <table data-problema="M06">
           <tr>
             <td><b>Zi</b></td>
@@ -107,13 +107,13 @@
       <div id="contact">
         <h2>Trimiteți o solicitare</h2>
         <form action="#" method="post">
-          <!-- PROBLEMA M05: câmp fără etichetă vizibilă, doar cu placeholder (axe îl acceptă, verificarea umană nu) -->
+          <!-- PROBLEMA M05: camp fara eticheta vizibila, doar cu placeholder (axe il accepta, verificarea umana nu) -->
           <div class="field">
             <input name="nume" type="text" placeholder="Nume și prenume" data-problema="M05" />
           </div>
           <div class="field">
             <label for="email">Adresă de e-mail</label>
-            <!-- PROBLEMA B09: atribut ARIA scris greșit (aria-labeledby în loc de aria-labelledby) -->
+            <!-- PROBLEMA B09: atribut ARIA scris gresit (aria-labeledby in loc de aria-labelledby) -->
             <input
               id="email"
               name="email"
@@ -122,7 +122,7 @@
               data-problema="B09"
             />
           </div>
-          <!-- PROBLEMA B07: listă de selecție fără etichetă -->
+          <!-- PROBLEMA B07: lista de selectie fara eticheta -->
           <div class="field">
             <select name="departament" data-problema="B07">
               <option>Registratură</option>
@@ -143,7 +143,7 @@
         <form action="#">
           <label for="cautare">Caută</label>
           <input id="cautare" name="q" type="search" />
-          <!-- PROBLEMA B08: buton doar cu iconiță, fără nume accesibil -->
+          <!-- PROBLEMA B08: buton doar cu iconita, fara nume accesibil -->
           <button type="submit" data-problema="B08">
             <svg aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 16 16">
               <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2" />
@@ -156,7 +156,7 @@
 
     <div class="site-footer">
       <p>© 2026 Primăria Comunei Valea Verde (site fictiv, creat pentru testare)</p>
-      <!-- PROBLEMA B10: link doar cu iconiță, fără nume accesibil -->
+      <!-- PROBLEMA B10: link doar cu iconita, fara nume accesibil -->
       <a href="#" class="social" data-problema="B10">
         <svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 20 20">
           <rect width="20" height="20" rx="4" fill="currentColor" />

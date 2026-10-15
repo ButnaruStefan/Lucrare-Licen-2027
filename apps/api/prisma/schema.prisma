@@ -1,8 +1,8 @@
-// Schema bazei de date: descrie tabelele (modelele) și relațiile dintre ele.
-// Din acest fișier, Prisma generează:
-//   1) migrațiile SQL (prisma/migrations/) care creează tabelele în PostgreSQL;
-//   2) clientul TypeScript (src/generated/prisma/) cu care API-ul citește și scrie date.
-// Adresa bazei de date NU e aici, ci în prisma.config.ts (citită din .env).
+// Schema bazei de date: descrie tabelele (modelele) si relatiile dintre ele.
+// Din acest fisier, Prisma genereaza:
+//   1) migratiile SQL (prisma/migrations/) care creeaza tabelele in PostgreSQL;
+//   2) clientul TypeScript (src/generated/prisma/) cu care API-ul citeste si scrie date.
+// Adresa bazei de date NU e aici, ci in prisma.config.ts (citita din .env).
 
 generator client {
   provider = "prisma-client"
@@ -13,39 +13,39 @@ datasource db {
   provider = "postgresql"
 }
 
-// Convenția de denumire:
-//   - în cod (TypeScript), numele sunt în stilul camelCase: Scan, pageUrl, createdAt;
-//   - în baza de date (ce vezi în Prisma Studio și în SQL), în stilul snake_case, la plural
-//     pentru tabele: scans, page_url, created_at. Legătura e făcută de @map și @@map.
+// Conventia de denumire:
+//   - in cod (TypeScript), numele sunt in stilul camelCase: Scan, pageUrl, createdAt;
+//   - in baza de date (ce vezi in Prisma Studio si in SQL), in stilul snake_case, la plural
+//     pentru tabele: scans, page_url, created_at. Legatura e facuta de @map si @@map.
 //
-// Relațiile, pe scurt:
+// Relatiile, pe scurt:
 //   Project 1 ── N Scan 1 ── N RuleResult 1 ── N AffectedElement
-//   (un proiect are mai multe scanări; o scanare are câte un rezultat pentru fiecare regulă
-//    verificată; un rezultat poate afecta mai multe elemente din pagină)
+//   (un proiect are mai multe scanari; o scanare are cate un rezultat pentru fiecare regula
+//    verificata; un rezultat poate afecta mai multe elemente din pagina)
 
 // ─── Liste de valori permise (enum) ─────────────────────────────────────────────
 
-// Starea unei scanări. Scanările „queued” formează coada de lucru a worker-ului (S2).
+// Starea unei scanari. Scanarile "queued" formeaza coada de lucru a worker-ului care ruleaza scanarile.
 enum ScanStatus {
-  queued // în așteptare
-  running // în curs
-  completed // terminată cu rezultate
-  failed // eșuată (eroare tehnică, NU înseamnă că site-ul e inaccesibil)
+  queued // in asteptare
+  running // in curs
+  completed // terminata cu rezultate
+  failed // esuata (eroare tehnica, NU inseamna ca site-ul e inaccesibil)
 
   @@map("scan_status")
 }
 
-// Cele patru categorii de rezultate ale axe-core pentru o regulă.
+// Cele patru categorii de rezultate ale axe-core pentru o regula.
 enum ResultCategory {
-  violation // problemă detectată
-  incomplete // motorul nu poate decide: cere verificare umană
-  pass // regulă trecută (NU înseamnă conformitate generală)
-  inapplicable // regula nu se aplică acestei pagini
+  violation // problema detectata
+  incomplete // motorul nu poate decide: cere verificare umana
+  pass // regula trecuta (NU inseamna conformitate generala)
+  inapplicable // regula nu se aplica acestei pagini
 
   @@map("result_category")
 }
 
-// Gravitatea raportată de axe-core (nu e risc juridic și nici scor de conformitate).
+// Gravitatea raportata de axe-core (nu e risc juridic si nici scor de conformitate).
 enum Impact {
   minor
   moderate
@@ -57,11 +57,11 @@ enum Impact {
 
 // ─── Tabele ─────────────────────────────────────────────────────────────────────
 
-// Un proiect = un site analizat (ex. site-ul unei universități).
+// Un proiect = un site analizat (ex. site-ul unei universitati).
 model Project {
   id        String   @id @default(uuid())
-  name      String // numele afișat, ex. „Primăria Valea Verde”
-  baseUrl   String   @map("base_url") // adresa principală a site-ului
+  name      String // numele afisat, ex. "Primaria Valea Verde"
+  baseUrl   String   @map("base_url") // adresa principala a site-ului
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -70,21 +70,23 @@ model Project {
   @@map("projects")
 }
 
-// O scanare = o rulare a motorului axe-core pe o pagină, la un moment dat,
-// cu o configurație fixată (ca rezultatele să fie reproductibile și comparabile).
+// O scanare = o rulare a motorului axe-core pe o pagina, la un moment dat,
+// cu o configuratie fixata (ca rezultatele sa fie reproductibile si comparabile).
 model Scan {
   id             String     @id @default(uuid())
-  projectId      String     @map("project_id") // proiectul căruia îi aparține
+  projectId      String     @map("project_id") // proiectul caruia ii apartine
   project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   pageUrl        String     @map("page_url") // adresa paginii scanate
+  finalUrl       String?    @map("final_url") // adresa reala dupa redirectionari
+  httpStatus     Int?       @map("http_status") // codul HTTP primit la incarcarea paginii
   status         ScanStatus @default(queued)
   wcagProfile    String     @default("WCAG_2_2_AA") @map("wcag_profile") // standardul verificat
-  config         Json // viewport, limbă, timeout etc. — fixate la creare
+  config         Json // viewport, limba, timeout etc. — fixate la creare
   engineName     String?    @map("engine_name") // ex. "axe-core"
   engineVersion  String?    @map("engine_version") // ex. "4.13.0"
   browserVersion String?    @map("browser_version") // ex. "Chrome 155.0.8059.40"
-  rawAxeResult   Json?      @map("raw_axe_result") // rezultatul brut, păstrat neschimbat ca dovadă
-  errorCode      String?    @map("error_code") // ex. "TIMEOUT" (doar dacă a eșuat)
+  rawAxeResult   Json?      @map("raw_axe_result") // rezultatul brut, pastrat neschimbat ca dovada
+  errorCode      String?    @map("error_code") // ex. "NAVIGATION_TIMEOUT" (doar daca a esuat)
   errorMessage   String?    @map("error_message")
   createdAt      DateTime   @default(now()) @map("created_at")
   startedAt      DateTime?  @map("started_at")
@@ -93,21 +95,21 @@ model Scan {
   ruleResults RuleResult[]
 
   @@index([projectId, createdAt])
-  @@index([status, createdAt]) // worker-ul caută rapid următoarea scanare „queued”
+  @@index([status, createdAt]) // worker-ul cauta rapid urmatoarea scanare "queued"
   @@map("scans")
 }
 
-// Rezultatul unei reguli axe-core într-o scanare (ex. „image-alt: violation”).
+// Rezultatul unei reguli axe-core intr-o scanare (ex. "image-alt: violation").
 model RuleResult {
   id           String         @id @default(uuid())
-  scanId       String         @map("scan_id") // scanarea căreia îi aparține
+  scanId       String         @map("scan_id") // scanarea careia ii apartine
   scan         Scan           @relation(fields: [scanId], references: [id], onDelete: Cascade)
   axeRuleId    String         @map("axe_rule_id") // identificatorul regulii, ex. "image-alt"
   category     ResultCategory // violation / incomplete / pass / inapplicable
-  impact       Impact? // gravitatea, doar pentru violation și incomplete
-  title        String // titlul scurt al regulii (câmpul „help” din axe)
-  description  String // ce verifică regula
-  docsUrl      String         @map("docs_url") // documentația oficială a regulii
+  impact       Impact? // gravitatea, doar pentru violation si incomplete
+  title        String // titlul scurt al regulii (campul "help" din axe)
+  description  String // ce verifica regula
+  docsUrl      String         @map("docs_url") // documentatia oficiala a regulii
   axeTags      String[]       @map("axe_tags") // etichetele axe, ex. ["wcag2a", "wcag111"]
   wcagCriteria String[]       @map("wcag_criteria") // criteriile WCAG deduse, ex. ["1.1.1"]
   createdAt    DateTime       @default(now()) @map("created_at")
@@ -119,16 +121,16 @@ model RuleResult {
   @@map("rule_results")
 }
 
-// Un element concret din pagină afectat de o regulă (ex. o anumită imagine).
+// Un element concret din pagina afectat de o regula (ex. o anumita imagine).
 model AffectedElement {
   id             String     @id @default(uuid())
-  ruleResultId   String     @map("rule_result_id") // rezultatul căruia îi aparține
+  ruleResultId   String     @map("rule_result_id") // rezultatul caruia ii apartine
   ruleResult     RuleResult @relation(fields: [ruleResultId], references: [id], onDelete: Cascade)
-  cssSelector    Json       @map("css_selector") // cum găsești elementul, ex. ["img.hero"]
-  htmlSnippet    String     @map("html_snippet") // fragmentul HTML (trunchiat), afișat sanitizat
-  failureSummary String?    @map("failure_summary") // explicația axe: ce anume e greșit
-  // Amprenta elementului: aceeași problemă, pe același element, are aceeași amprentă
-  // în scanări diferite. Folosită la comparația înainte/după (Fix & Re-scan).
+  cssSelector    Json       @map("css_selector") // cum gasesti elementul, ex. ["img.hero"]
+  htmlSnippet    String     @map("html_snippet") // fragmentul HTML (trunchiat), afisat sanitizat
+  failureSummary String?    @map("failure_summary") // explicatia axe: ce anume e gresit
+  // Amprenta elementului: aceeasi problema, pe acelasi element, are aceeasi amprenta
+  // in scanari diferite. Folosita la comparatia inainte/dupa (Fix & Re-scan).
   fingerprint    String
 
   @@index([ruleResultId])

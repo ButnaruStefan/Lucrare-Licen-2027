@@ -10,7 +10,7 @@
 # Context Claude (local, nu se publica)
 CLAUDE.md
 
-# Documente de idee și plan (locale, nu se publică)
+# Documente de idee si plan (locale, nu se publica)
 Idee_Licenta.md
 PLAN_LICENTA.md
 
@@ -20,12 +20,12 @@ dist/
 coverage/
 *.log
 
-# Variabile de mediu (secretele nu intră în Git; .env.example da)
+# Variabile de mediu (secretele nu intra in Git; .env.example da)
 .env
 !.env.example
 
-# Cod generat automat de Prisma (se regenerează la `npm install`)
+# Cod generat automat de Prisma (se regenereaza la `npm install`)
 apps/api/src/generated/
 
-# Documentația personală de învățare (doar locală)
+# Documentatia personala de invatare (doar locala)
 docs/

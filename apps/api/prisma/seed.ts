@@ -1,8 +1,8 @@
 /**
- * Datele demo („seed”): adaugă în baza de date cele două proiecte care corespund
- * site-urilor de antrenament din `fixtures/`. Rulează cu `npm run db:seed`.
+ * Datele demo ("seed"): adauga in baza de date cele doua proiecte care corespund
+ * site-urilor de antrenament din `fixtures/`. Ruleaza cu `npm run db:seed`.
  *
- * Poate fi rulat de mai multe ori: un proiect existent (aceeași adresă) nu e dublat.
+ * Poate fi rulat de mai multe ori: un proiect existent (aceeasi adresa) nu e dublat.
  */
 import 'dotenv/config';
 import { createPrismaClient } from '../src/db/prisma';
@@ -17,10 +17,10 @@ const db = createPrismaClient(process.env.DATABASE_URL!);
 for (const project of DEMO_PROJECTS) {
   const existing = await db.project.findFirst({ where: { baseUrl: project.baseUrl } });
   if (existing) {
-    console.log(`Există deja: ${project.name}`);
+    console.log(`Exista deja: ${project.name}`);
   } else {
     await db.project.create({ data: project });
-    console.log(`Adăugat:     ${project.name}`);
+    console.log(`Adaugat:     ${project.name}`);
   }
 }
 

@@ -6,5 +6,9 @@
   "scripts": {
     "dev": "tsx server.ts",
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "exports": {
+    ".": "./create-server.ts",
+    "./probleme.json": "./broken-demo/probleme.json"
   }
 }

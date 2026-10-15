@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["server.ts"]
+  "include": ["server.ts", "create-server.ts"]
 }

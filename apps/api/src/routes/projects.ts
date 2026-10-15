@@ -1,12 +1,12 @@
 /**
  * Rutele pentru proiecte (un proiect = un site analizat):
  *
- * - POST /api/v1/projects            — creează un proiect (nume + adresă), răspunde 201
+ * - POST /api/v1/projects            — creeaza un proiect (nume + adresa), raspunde 201
  * - GET  /api/v1/projects            — lista proiectelor, cele mai noi primele
- * - GET  /api/v1/projects/:projectId — un singur proiect, sau 404 dacă nu există
+ * - GET  /api/v1/projects/:projectId — un singur proiect, sau 404 daca nu exista
  *
- * Datele primite sunt validate cu schemele din `@ro-a11y/shared`, iar răspunsurile
- * respectă aceleași contracte (datele calendaristice trimise ca text ISO).
+ * Datele primite sunt validate cu schemele din `@ro-a11y/shared`, iar raspunsurile
+ * respecta aceleasi contracte (datele calendaristice trimise ca text ISO).
  */
 import { Router } from 'express';
 import { z } from 'zod';
@@ -19,12 +19,12 @@ export interface ProjectsDeps {
   db: Database;
 }
 
-/** Cât de multe proiecte returnează lista (suficient pentru o aplicație locală). */
+/** Cat de multe proiecte returneaza lista (suficient pentru o aplicatie locala). */
 const LIST_LIMIT = 100;
 
 type ProjectRow = { id: string; name: string; baseUrl: string; createdAt: Date; updatedAt: Date };
 
-/** Transformă rândul din baza de date în forma din contract. */
+/** Transforma randul din baza de date in forma din contract. */
 function toProjectDto(row: ProjectRow): Project {
   return {
     id: row.id,
@@ -55,7 +55,7 @@ export function projectsRouter({ db }: ProjectsDeps): Router {
   });
 
   router.get('/api/v1/projects/:projectId', async (req, res) => {
-    // Un ID care nu are forma unui UUID nu poate exista: răspundem direct 404.
+    // Un ID care nu are forma unui UUID nu poate exista: raspundem direct 404.
     if (!z.uuid().safeParse(req.params.projectId).success) throw projectNotFound();
 
     const row = await db.project.findUnique({ where: { id: req.params.projectId } });

@@ -1,12 +1,12 @@
 /**
- * Rutele de „sănătate” ale API-ului:
+ * Rutele de "sanatate" ale API-ului:
  *
- * - GET /health — procesul rulează? Răspunde mereu 200 cât timp serverul e pornit.
- * - GET /api/v1/health/ready — API-ul poate lucra? Verifică și baza de date.
- *   200 dacă totul e în regulă, 503 (Service Unavailable) dacă baza de date nu răspunde.
+ * - GET /health — procesul ruleaza? Raspunde mereu 200 cat timp serverul e pornit.
+ * - GET /api/v1/health/ready — API-ul poate lucra? Verifica si baza de date.
+ *   200 daca totul e in regula, 503 (Service Unavailable) daca baza de date nu raspunde.
  *
- * Verificarea bazei de date vine din exterior (`checkDatabase`), ca testele să o poată
- * înlocui fără o bază de date reală.
+ * Verificarea bazei de date vine din exterior (`checkDatabase`), ca testele sa o poata
+ * inlocui fara o baza de date reala.
  */
 import { Router } from 'express';
 import type { HealthResponse, ReadyResponse } from '@ro-a11y/shared';
@@ -32,7 +32,7 @@ export function healthRouter({ checkDatabase }: HealthDeps): Router {
     try {
       await checkDatabase();
     } catch (err) {
-      req.log.warn({ err }, 'Baza de date nu răspunde');
+      req.log.warn({ err }, 'Baza de date nu raspunde');
       database = 'error';
     }
     const body: ReadyResponse = {

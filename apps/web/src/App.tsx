@@ -1,9 +1,9 @@
 /**
- * Componenta principală. Deocamdată arată doar starea sistemului (API + bază de date),
- * ca dovadă că frontendul, API-ul și PostgreSQL comunică între ele.
+ * Componenta principala. Deocamdata arata doar starea sistemului (API + baza de date),
+ * ca dovada ca frontendul, API-ul si PostgreSQL comunica intre ele.
  *
- * Accesibilitate: zona de stare are `aria-live="polite"`, deci un cititor de ecran anunță
- * schimbarea stării fără să întrerupă utilizatorul. Starea e transmisă prin text, nu doar prin culoare.
+ * Accesibilitate: zona de stare are `aria-live="polite"`, deci un cititor de ecran anunta
+ * schimbarea starii fara sa intrerupa utilizatorul. Starea e transmisa prin text, nu doar prin culoare.
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { ReadyResponse } from '@ro-a11y/shared';

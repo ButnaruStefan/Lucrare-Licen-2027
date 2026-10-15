@@ -1,9 +1,9 @@
-# OPȚIONAL: pornește PostgreSQL într-un container Docker, în loc de o instalare locală.
-# Utilizatorul, parola și numele bazei sunt aceleași ca în apps/api/.env.example,
-# deci aplicația funcționează identic cu ambele variante.
+# OPTIONAL: porneste PostgreSQL intr-un container Docker, in loc de o instalare locala.
+# Utilizatorul, parola si numele bazei sunt aceleasi ca in apps/api/.env.example,
+# deci aplicatia functioneaza identic cu ambele variante.
 #
-#   docker compose up -d     # pornește baza de date
-#   docker compose down      # o oprește (datele rămân în volumul `pgdata`)
+#   docker compose up -d     # porneste baza de date
+#   docker compose down      # o opreste (datele raman in volumul `pgdata`)
 
 services:
   postgres:

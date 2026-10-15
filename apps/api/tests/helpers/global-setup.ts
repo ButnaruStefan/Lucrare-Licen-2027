@@ -1,9 +1,9 @@
 /**
- * Rulează o singură dată, înainte de toate testele:
- *   1. creează baza de date de test (`ro_a11y_test`), dacă nu există;
- *   2. îi aplică toate migrațiile (`prisma migrate deploy`), ca structura să fie la zi.
+ * Ruleaza o singura data, inainte de toate testele:
+ *   1. creeaza baza de date de test (`ro_a11y_test`), daca nu exista;
+ *   2. ii aplica toate migratiile (`prisma migrate deploy`), ca structura sa fie la zi.
  *
- * Dacă PostgreSQL nu e pornit, testele se opresc cu un mesaj clar.
+ * Daca PostgreSQL nu e pornit, testele se opresc cu un mesaj clar.
  */
 import { execSync } from 'node:child_process';
 import pg from 'pg';
@@ -13,7 +13,7 @@ export default async function setup() {
   const testUrl = new URL(TEST_DATABASE_URL);
   const testDbName = testUrl.pathname.slice(1);
 
-  // Ne conectăm la baza principală a utilizatorului ca să putem crea baza de test.
+  // Ne conectam la baza principala a utilizatorului ca sa putem crea baza de test.
   const adminUrl = new URL(TEST_DATABASE_URL);
   adminUrl.pathname = '/ro_a11y';
   const client = new pg.Client({ connectionString: adminUrl.toString() });
@@ -21,7 +21,7 @@ export default async function setup() {
     await client.connect();
   } catch (err) {
     throw new Error(
-      `Nu mă pot conecta la PostgreSQL (${adminUrl.host}). Este pornit? ` +
+      `Nu ma pot conecta la PostgreSQL (${adminUrl.host}). Este pornit? ` +
         `Pe Mac: brew services start postgresql@17. Detalii: ${String(err)}`,
     );
   }

@@ -1,9 +1,9 @@
 /**
- * Loggerul aplicației (biblioteca Pino): scrie loguri structurate, în format JSON.
+ * Loggerul aplicatiei (biblioteca Pino): scrie loguri structurate, in format JSON.
  *
- * Câmpurile sensibile (parole, cookie-uri, token-uri) sunt înlocuite automat cu
- * „[REDACTAT]”, ca să nu ajungă niciodată în loguri.
- * În dezvoltare (`pretty = true`), logurile sunt afișate colorat și lizibil, prin pino-pretty.
+ * Campurile sensibile (parole, cookie-uri, token-uri) sunt inlocuite automat cu
+ * "[REDACTAT]", ca sa nu ajunga niciodata in loguri.
+ * In dezvoltare (`pretty = true`), logurile sunt afisate colorat si lizibil, prin pino-pretty.
  */
 import { pino } from 'pino';
 

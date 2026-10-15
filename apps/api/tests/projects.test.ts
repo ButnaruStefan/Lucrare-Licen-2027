@@ -1,41 +1,36 @@
 /**
  * Teste pentru rutele de proiecte. Folosesc baza de date de test (`ro_a11y_test`),
- * golită înainte de fiecare test.
+ * golita inainte de fiecare test.
  */
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { apiErrorSchema, projectListSchema, projectSchema } from '@ro-a11y/shared';
-import { createApp } from '../src/app';
-import { createLogger } from '../src/lib/logger';
+import { createTestApp } from './helpers/test-app';
 import { resetDatabase, testDb } from './helpers/test-db';
 
-const app = createApp({
-  logger: createLogger('silent'),
-  db: testDb,
-  checkDatabase: async () => {},
-});
+const app = createTestApp({ db: testDb });
 
 beforeEach(resetDatabase);
 afterAll(() => testDb.$disconnect());
 
 describe('POST /api/v1/projects', () => {
-  it('creează un proiect și răspunde 201, cu datele curățate', async () => {
+  it('creeaza un proiect si raspunde 201, cu datele curatate', async () => {
     const res = await request(app)
       .post('/api/v1/projects')
-      .send({ name: '  Primăria Valea Verde  ', baseUrl: 'https://exemplu.ro#sus' });
+      .send({ name: '  Primaria Valea Verde  ', baseUrl: 'https://exemplu.ro#sus' });
 
     expect(res.status).toBe(201);
     const project = projectSchema.parse(res.body);
-    expect(project.name).toBe('Primăria Valea Verde');
+    expect(project.name).toBe('Primaria Valea Verde');
     expect(project.baseUrl).toBe('https://exemplu.ro/');
     expect(await testDb.project.count()).toBe(1);
   });
 
   it.each([
-    ['fără protocol', 'exemplu.ro'],
+    ['fara protocol', 'exemplu.ro'],
     ['protocol nepermis', 'ftp://exemplu.ro'],
     ['javascript:', 'javascript:alert(1)'],
-    ['cu utilizator și parolă', 'https://admin:parola@exemplu.ro'],
+    ['cu utilizator si parola', 'https://admin:parola@exemplu.ro'],
   ])('respinge adresa %s cu 400 VALIDATION_ERROR', async (_caz, baseUrl) => {
     const res = await request(app).post('/api/v1/projects').send({ name: 'Test', baseUrl });
 
@@ -46,7 +41,7 @@ describe('POST /api/v1/projects', () => {
     expect(await testDb.project.count()).toBe(0);
   });
 
-  it('respinge un nume gol și arată ambele câmpuri greșite', async () => {
+  it('respinge un nume gol si arata ambele campuri gresite', async () => {
     const res = await request(app).post('/api/v1/projects').send({ name: '   ' });
 
     expect(res.status).toBe(400);
@@ -66,14 +61,14 @@ describe('POST /api/v1/projects', () => {
 });
 
 describe('GET /api/v1/projects', () => {
-  it('returnează lista goală când nu există proiecte', async () => {
+  it('returneaza lista goala cand nu exista proiecte', async () => {
     const res = await request(app).get('/api/v1/projects');
 
     expect(res.status).toBe(200);
     expect(projectListSchema.parse(res.body).items).toEqual([]);
   });
 
-  it('returnează proiectele, cele mai noi primele', async () => {
+  it('returneaza proiectele, cele mai noi primele', async () => {
     await testDb.project.create({
       data: { name: 'Vechi', baseUrl: 'https://vechi.ro/', createdAt: new Date('2026-01-01') },
     });
@@ -88,7 +83,7 @@ describe('GET /api/v1/projects', () => {
 });
 
 describe('GET /api/v1/projects/:projectId', () => {
-  it('returnează proiectul cerut', async () => {
+  it('returneaza proiectul cerut', async () => {
     const created = await testDb.project.create({
       data: { name: 'Demo', baseUrl: 'https://demo.ro/' },
     });
@@ -101,8 +96,8 @@ describe('GET /api/v1/projects/:projectId', () => {
 
   it.each([
     ['un ID valid, dar inexistent', '00000000-0000-4000-8000-000000000000'],
-    ['un ID cu formă greșită', 'nu-e-uuid'],
-  ])('răspunde 404 PROJECT_NOT_FOUND pentru %s', async (_caz, id) => {
+    ['un ID cu forma gresita', 'nu-e-uuid'],
+  ])('raspunde 404 PROJECT_NOT_FOUND pentru %s', async (_caz, id) => {
     const res = await request(app).get(`/api/v1/projects/${id}`);
 
     expect(res.status).toBe(404);

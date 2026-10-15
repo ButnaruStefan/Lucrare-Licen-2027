@@ -1,9 +1,9 @@
 /**
- * Validarea datelor primite de API cu o schemă Zod.
+ * Validarea datelor primite de API cu o schema Zod.
  *
- * Dacă datele sunt corecte, returnează varianta curățată (ex. spații eliminate, adresa
- * normalizată). Dacă nu, aruncă o eroare 400 VALIDATION_ERROR cu lista câmpurilor greșite,
- * pe care middleware-ul de erori o trimite clientului în formatul standard.
+ * Daca datele sunt corecte, returneaza varianta curatata (ex. spatii eliminate, adresa
+ * normalizata). Daca nu, arunca o eroare 400 VALIDATION_ERROR cu lista campurilor gresite,
+ * pe care middleware-ul de erori o trimite clientului in formatul standard.
  */
 import type { z } from 'zod';
 import { HttpError } from '../middleware/errors';

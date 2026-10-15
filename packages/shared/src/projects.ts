@@ -1,17 +1,17 @@
 /**
  * Contractul pentru proiecte (un proiect = un site analizat).
  *
- * - `createProjectSchema` validează ce trimite utilizatorul când creează un proiect.
- * - `projectSchema` descrie un proiect, așa cum îl returnează API-ul.
+ * - `createProjectSchema` valideaza ce trimite utilizatorul cand creeaza un proiect.
+ * - `projectSchema` descrie un proiect, asa cum il returneaza API-ul.
  *
- * Validarea adresei de aici e doar de formă (http/https, fără parolă în adresă). Verificarea
- * de securitate completă (fără rețele interne, fără localhost) se face înainte de scanare (S2).
+ * Validarea adresei de aici e doar de forma (http/https, fara parola in adresa). Verificarea
+ * de securitate completa (fara retele interne, fara localhost) se face separat, inainte de fiecare scanare.
  */
 import { z } from 'zod';
 
 const MAX_URL_LENGTH = 2048;
 
-/** O adresă web acceptabilă ca adresă de bază a unui proiect. */
+/** O adresa web acceptabila ca adresa de baza a unui proiect. */
 export const projectUrlSchema = z
   .string()
   .trim()
@@ -32,7 +32,7 @@ export const projectUrlSchema = z
       ctx.addIssue({ code: 'custom', message: 'Adresa nu poate conține utilizator sau parolă.' });
       return z.NEVER;
     }
-    url.hash = ''; // fragmentul (#...) nu schimbă pagina încărcată
+    url.hash = ''; // fragmentul (#...) nu schimba pagina incarcata
     return url.toString();
   });
 

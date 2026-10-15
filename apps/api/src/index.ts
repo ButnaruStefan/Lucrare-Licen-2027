@@ -1,8 +1,8 @@
 /**
  * Punctul de pornire al API-ului (`npm run dev:api`).
  *
- * Citește configurarea, se conectează la baza de date, creează aplicația și o pornește
- * pe portul din .env. La oprire (Ctrl+C), închide curat serverul și conexiunea la baza de date.
+ * Citeste configurarea, se conecteaza la baza de date, creeaza aplicatia si o porneste
+ * pe portul din .env. La oprire (Ctrl+C), inchide curat serverul si conexiunea la baza de date.
  */
 import { createApp } from './app';
 import { env } from './config/env';
@@ -16,6 +16,8 @@ const app = createApp({
   logger,
   db,
   checkDatabase: () => pingDatabase(db),
+  guardOptions: { allowedLocalOrigins: env.SCAN_ALLOWED_LOCAL_ORIGINS },
+  scanTimeoutMs: env.SCAN_PAGE_TIMEOUT_MS,
 });
 
 const server = app.listen(env.PORT, () => {

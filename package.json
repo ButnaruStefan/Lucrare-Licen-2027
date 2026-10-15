@@ -1,7 +1,7 @@
 {
   "name": "ro-a11y-observatory",
   "private": true,
-  "description": "Platformă de audit al accesibilității web pentru site-uri românești (lucrare de licență).",
+  "description": "Platforma de audit al accesibilitatii web pentru site-uri romanesti (lucrare de licenta).",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "dev:api": "npm run dev -w @ro-a11y/api",
+    "dev:worker": "npm run dev:worker -w @ro-a11y/api",
     "dev:web": "npm run dev -w @ro-a11y/web",
     "dev:fixtures": "npm run dev -w @ro-a11y/fixtures",
     "db:migrate": "npm run db:migrate -w @ro-a11y/api",

@@ -1,6 +1,6 @@
--- Migrație scrisă manual: REDENUMEȘTE tabelele, coloanele, tipurile și indexurile la nume
--- clare, în stilul snake_case (ex. "Finding" -> "rule_results", "baseUrl" -> "base_url").
--- Folosim RENAME, nu DROP + CREATE, ca datele existente (proiectele) să nu se piardă.
+-- Migratie scrisa manual: REDENUMESTE tabelele, coloanele, tipurile si indexurile la nume
+-- clare, in stilul snake_case (ex. "Finding" -> "rule_results", "baseUrl" -> "base_url").
+-- Folosim RENAME, nu DROP + CREATE, ca datele existente (proiectele) sa nu se piarda.
 
 -- 1. Tipurile enum
 ALTER TYPE "ScanStatus" RENAME TO "scan_status";
@@ -14,7 +14,7 @@ ALTER TABLE "projects" RENAME COLUMN "createdAt" TO "created_at";
 ALTER TABLE "projects" RENAME COLUMN "updatedAt" TO "updated_at";
 ALTER TABLE "projects" RENAME CONSTRAINT "Project_pkey" TO "projects_pkey";
 
--- 3. Tabelul scanărilor
+-- 3. Tabelul scanarilor
 ALTER TABLE "Scan" RENAME TO "scans";
 ALTER TABLE "scans" RENAME COLUMN "projectId" TO "project_id";
 ALTER TABLE "scans" RENAME COLUMN "url" TO "page_url";

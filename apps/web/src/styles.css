@@ -1,7 +1,7 @@
 /*
- * Stilurile de bază ale aplicației.
- * Culorile sunt variabile CSS (tokeni), cu contrast de cel puțin 4.5:1 (WCAG 1.4.3),
- * și au variantă pentru modul întunecat. Focusul de la tastatură e mereu vizibil (WCAG 2.4.7).
+ * Stilurile de baza ale aplicatiei.
+ * Culorile sunt variabile CSS (tokeni), cu contrast de cel putin 4.5:1 (WCAG 1.4.3),
+ * si au varianta pentru modul intunecat. Focusul de la tastatura e mereu vizibil (WCAG 2.4.7).
  */
 :root {
   --bg: #f7f7f5;

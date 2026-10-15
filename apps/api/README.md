@@ -1,46 +1,80 @@
-# apps/api — serverul (backend)
+# apps/api — serverul (backend) si worker-ul de scanare
 
-**Ce e:** aplicația Node.js + Express care expune API-ul REST. Frontendul îi trimite cereri
-HTTP, iar ea citește și scrie în baza de date PostgreSQL.
+**Ce e:** aplicatia Node.js + Express care expune API-ul REST, plus worker-ul care ruleaza
+scanarile de accesibilitate (Playwright + axe-core). Ambele folosesc aceeasi baza de date
+PostgreSQL si acelasi cod, dar ruleaza ca procese separate.
 
-**Cum circulă o cerere:**
+**Cum circula o cerere:**
 
 ```text
-browser ──HTTP──> index.ts (serverul pornit)
-                    └─> app.ts (aplicația Express)
-                          ├─> middleware/request-id.ts  (ID unic + log pentru fiecare cerere)
-                          ├─> routes/*.ts               (logica fiecărui endpoint)
-                          │     └─> db/prisma.ts        (citire/scriere în PostgreSQL)
-                          └─> middleware/errors.ts      (orice eroare → format standard)
+browser ──HTTP──> index.ts (API)
+                    └─> app.ts
+                          ├─> middleware/request-id.ts   (ID unic + log pentru fiecare cerere)
+                          ├─> routes/*.ts                (logica fiecarui endpoint)
+                          │     ├─> safety/url-guard.ts  (adresa e sigura?)
+                          │     └─> db/prisma.ts         (citire/scriere in PostgreSQL)
+                          └─> middleware/errors.ts       (orice eroare → format standard)
+
+worker.ts (proces separat)
+  └─> scans/queue.ts             (rezerva urmatoarea scanare "queued")
+  └─> scans/process-scan.ts
+        ├─> scanner/page-scan.ts (Chrome + axe-core; fiecare cerere trece prin paznic)
+        ├─> scanner/normalize.ts (rezultatul brut → tabelele noastre)
+        └─> scans/queue.ts       (salveaza rezultatele sau motivul esecului)
 ```
 
-## Conținut
+## Continut
 
-| Cale                    | Rol                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| `src/index.ts`          | Punctul de pornire: citește configurarea, conectează DB, pornește serverul           |
-| `src/app.ts`            | Construiește aplicația Express (middleware + rute). Separat de pornire, pentru teste |
-| `src/config/env.ts`     | Validează variabilele din `.env` la pornire                                          |
-| `src/db/prisma.ts`      | Conexiunea la PostgreSQL prin Prisma                                                 |
-| `src/lib/logger.ts`     | Loguri structurate (Pino), cu date sensibile ascunse                                 |
-| `src/middleware/`       | Funcții care rulează pentru fiecare cerere (ID, loguri, erori)                       |
-| `src/routes/`           | Endpointurile API, grupate pe domenii (`health`, `projects`)                         |
-| `src/lib/validation.ts` | Validează datele primite; la eroare răspunde 400 cu lista câmpurilor greșite         |
-| `src/generated/`        | Cod **generat automat** de Prisma. Nu se editează și nu e în Git                     |
-| `prisma/schema.prisma`  | Schema bazei de date (tabelele)                                                      |
-| `prisma/migrations/`    | Istoricul modificărilor de schemă, ca fișiere SQL                                    |
-| `prisma/seed.ts`        | Adaugă proiectele demo (cele două site-uri de antrenament)                           |
-| `prisma.config.ts`      | Configurarea uneltei Prisma                                                          |
-| `tests/`                | Teste automate (Vitest + Supertest), pe baza de date separată `ro_a11y_test`         |
-| `vitest.config.ts`      | Configurarea testelor (adresa bazei de test, pregătirea ei)                          |
-| `.env.example`          | Model pentru `.env` (configurarea locală)                                            |
+| Cale                        | Rol                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| `src/index.ts`              | Pornirea API-ului: citeste configurarea, conecteaza DB, porneste serverul                  |
+| `src/worker.ts`             | Pornirea worker-ului: porneste browserul, preia scanarile din coada si le proceseaza       |
+| `src/app.ts`                | Construieste aplicatia Express (middleware + rute). Separat de pornire, pentru teste       |
+| `src/config/env.ts`         | Valideaza variabilele din `.env` la pornire                                                |
+| `src/db/prisma.ts`          | Conexiunea la PostgreSQL prin Prisma                                                       |
+| `src/lib/logger.ts`         | Loguri structurate (Pino), cu date sensibile ascunse                                       |
+| `src/lib/validation.ts`     | Valideaza datele primite; la eroare raspunde 400 cu lista campurilor gresite               |
+| `src/middleware/`           | Functii care ruleaza pentru fiecare cerere (ID, loguri, erori)                             |
+| `src/routes/`               | Endpointurile API, grupate pe domenii (`health`, `projects`, `scans`)                      |
+| `src/safety/url-guard.ts`   | Paznicul adreselor (protectie SSRF), folosit in API si pentru fiecare cerere a browserului |
+| `src/scanner/browser.ts`    | Pornirea browserului (Chrome instalat, Edge sau Chromium)                                  |
+| `src/scanner/page-scan.ts`  | Scanarea unei pagini: incarcare sigura (inclusiv redirectionari) + axe-core                |
+| `src/scanner/normalize.ts`  | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`     |
+| `src/scans/queue.ts`        | Coada de scanari din PostgreSQL: rezervare, finalizare, esec                               |
+| `src/scans/process-scan.ts` | Procesarea completa a unei scanari (verificare, scanare, salvare)                          |
+| `src/generated/`            | Cod **generat automat** de Prisma. Nu se editeaza si nu e in Git                           |
+| `prisma/schema.prisma`      | Schema bazei de date (tabelele)                                                            |
+| `prisma/migrations/`        | Istoricul modificarilor de schema, ca fisiere SQL                                          |
+| `prisma/seed.ts`            | Adauga proiectele demo (cele doua site-uri de antrenament)                                 |
+| `prisma.config.ts`          | Configurarea uneltei Prisma                                                                |
+| `tests/`                    | Teste automate (Vitest + Supertest), pe baza de date separata `ro_a11y_test`               |
+| `vitest.config.ts`          | Configurarea testelor (adresa bazei de test, pregatirea ei)                                |
+| `.env.example`              | Model pentru `.env` (configurarea locala, inclusiv setarile scannerului)                   |
 
 ## Endpointuri existente
 
-| Metodă | Rută                          | Răspuns                                                               |
-| ------ | ----------------------------- | --------------------------------------------------------------------- |
-| GET    | `/health`                     | 200 cât timp procesul rulează                                         |
-| GET    | `/api/v1/health/ready`        | 200 dacă și baza de date răspunde, altfel 503                         |
-| POST   | `/api/v1/projects`            | Creează un proiect (`name`, `baseUrl`); 201, sau 400 la date invalide |
-| GET    | `/api/v1/projects`            | Lista proiectelor, cele mai noi primele                               |
-| GET    | `/api/v1/projects/:projectId` | Un proiect; 404 dacă nu există                                        |
+| Metoda | Ruta                                | Raspuns                                                                      |
+| ------ | ----------------------------------- | ---------------------------------------------------------------------------- |
+| GET    | `/health`                           | 200 cat timp procesul ruleaza                                                |
+| GET    | `/api/v1/health/ready`              | 200 daca si baza de date raspunde, altfel 503                                |
+| POST   | `/api/v1/projects`                  | Creeaza un proiect (`name`, `baseUrl`); 201, sau 400 la date invalide        |
+| GET    | `/api/v1/projects`                  | Lista proiectelor, cele mai noi primele                                      |
+| GET    | `/api/v1/projects/:projectId`       | Un proiect; 404 daca nu exista                                               |
+| POST   | `/api/v1/projects/:projectId/scans` | Pune o scanare in coada (202); 400 daca adresa e nesigura sau de pe alt site |
+| GET    | `/api/v1/projects/:projectId/scans` | Scanarile proiectului, cu sumar                                              |
+| GET    | `/api/v1/scans/:scanId`             | O scanare: stare, configuratie, versiuni, sumar                              |
+| GET    | `/api/v1/scans/:scanId/results`     | Rezultatele pe reguli, cu elementele afectate (filtru `?category=violation`) |
+
+## Coduri de eroare ale unei scanari esuate
+
+| Cod                  | Cand apare                                                                    |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `UNSAFE_URL`         | Adresa (sau o redirectionare) duce spre o retea interna sau rezervata         |
+| `NAVIGATION_TIMEOUT` | Pagina nu s-a incarcat in timpul permis                                       |
+| `NAVIGATION_FAILED`  | Pagina nu a putut fi deschisa (domeniu inexistent, prea multe redirectionari) |
+| `HTTP_ERROR`         | Serverul a raspuns cu un cod de eroare (ex. 404, 500)                         |
+| `ANALYSIS_FAILED`    | axe-core nu a putut analiza pagina                                            |
+| `WORKER_INTERRUPTED` | Worker-ul s-a oprit in timpul scanarii                                        |
+| `INTERNAL_ERROR`     | Eroare neprevazuta                                                            |
+
+O scanare esuata inseamna o problema tehnica, **nu** ca site-ul e inaccesibil.
