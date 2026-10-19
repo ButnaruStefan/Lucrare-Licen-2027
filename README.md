@@ -11,12 +11,13 @@ Lucrare de licenta, Stefan Butnaru, 2027.
 
 ## Structura pe scurt
 
-| Folder                               | Rol                                                           |
-| ------------------------------------ | ------------------------------------------------------------- |
-| [`apps/api`](apps/api)               | Serverul (backend): API REST, baza de date, logica aplicatiei |
-| [`apps/web`](apps/web)               | Interfata (frontend): aplicatia React din browser             |
-| [`packages/shared`](packages/shared) | Contracte comune API ↔ web (scheme Zod, tipuri)               |
-| [`fixtures`](fixtures)               | Site-uri de antrenament: unul accesibil, unul cu probleme     |
+| Folder                                 | Rol                                                                   |
+| -------------------------------------- | --------------------------------------------------------------------- |
+| [`apps/api`](apps/api)                 | Serverul (backend): API REST, baza de date, logica aplicatiei         |
+| [`apps/web`](apps/web)                 | Interfata (frontend): aplicatia React din browser                     |
+| [`packages/shared`](packages/shared)   | Contracte comune API ↔ web (scheme Zod, tipuri)                       |
+| [`packages/catalog`](packages/catalog) | Catalogul normativ (WCAG, EN 301 549, OUG 112/2018) si trasabilitatea |
+| [`fixtures`](fixtures)                 | Site-uri de antrenament: unul accesibil, unul cu probleme             |
 
 ## Cerinte
 

@@ -1,0 +1,21 @@
+{
+  "name": "@ro-a11y/catalog",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "genereaza:wcag": "tsx scripts/genereaza-wcag.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ro-a11y/shared": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "axe-core": "~4.13.0"
+  }
+}

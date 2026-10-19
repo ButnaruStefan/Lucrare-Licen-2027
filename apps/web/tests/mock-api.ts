@@ -4,6 +4,7 @@
  * Testele interfetei nu au nevoie de server, baza de date sau worker reale.
  */
 import type { Page } from 'playwright';
+import { buildTrace } from '@ro-a11y/catalog';
 import {
   projectSchema,
   ruleResultSchema,
@@ -33,6 +34,7 @@ export function makeScan(overrides: Partial<Scan> = {}): Scan {
     httpStatus: 200,
     status: 'completed',
     config,
+    catalogVersion: '2026-10-16',
     engineName: 'axe-core',
     engineVersion: '4.13.0',
     browserVersion: 'Chrome 155',
@@ -65,7 +67,7 @@ export const RESULTS: RuleResult[] = [
     title: 'Images must have alternative text',
     description: 'Ensure <img> elements have alternative text',
     docsUrl: 'https://dequeuniversity.com/rules/axe/4.13/image-alt',
-    axeTags: ['wcag2a', 'wcag111'],
+    axeTags: ['wcag2a', 'wcag111', 'EN-301-549', 'EN-9.1.1.1'],
     wcagCriteria: ['1.1.1'],
     isBestPractice: false,
     affectedElements: [
@@ -108,7 +110,7 @@ export const RESULTS: RuleResult[] = [
     title: 'Elements must meet minimum color contrast ratio thresholds',
     description: 'Ensure the contrast between foreground and background colors meets WCAG 2 AA',
     docsUrl: 'https://dequeuniversity.com/rules/axe/4.13/color-contrast',
-    axeTags: ['wcag2aa', 'wcag143'],
+    axeTags: ['wcag2aa', 'wcag143', 'EN-301-549', 'EN-9.1.4.3'],
     wcagCriteria: ['1.4.3'],
     isBestPractice: false,
     affectedElements: [
@@ -134,7 +136,19 @@ export const RESULTS: RuleResult[] = [
     isBestPractice: false,
     affectedElements: [],
   },
-].map((r) => ruleResultSchema.parse(r));
+].map((r) =>
+  ruleResultSchema.parse({
+    ...r,
+    // Lantul de trasabilitate e construit de motorul real din catalog, ca in API.
+    trace: buildTrace({
+      axeRuleId: r.axeRuleId,
+      axeTags: r.axeTags,
+      wcagCriteria: r.wcagCriteria,
+      docsUrl: r.docsUrl,
+      engineVersion: '4.13.0',
+    }),
+  }),
+);
 
 export interface MockApiOptions {
   projects?: Project[];

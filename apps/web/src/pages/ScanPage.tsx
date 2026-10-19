@@ -169,6 +169,8 @@ function ScanDetails({ scan }: { scan: Scan }) {
           {scan.config.viewport.width} × {scan.config.viewport.height} pixeli, limba{' '}
           {scan.config.locale}
         </dd>
+        <dt>Versiunea catalogului normativ</dt>
+        <dd>{scan.catalogVersion ?? '—'}</dd>
         <dt>Motor</dt>
         <dd>
           {scan.engineName ?? '—'} {scan.engineVersion ?? ''}

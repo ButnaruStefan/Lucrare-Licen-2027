@@ -81,6 +81,7 @@ model Scan {
   httpStatus     Int?       @map("http_status") // codul HTTP primit la incarcarea paginii
   status         ScanStatus @default(queued)
   wcagProfile    String     @default("WCAG_2_2_AA") @map("wcag_profile") // standardul verificat
+  catalogVersion String?    @map("catalog_version") // versiunea catalogului normativ (WCAG, EN, legislatie) folosit
   config         Json // viewport, limba, timeout etc. — fixate la creare
   engineName     String?    @map("engine_name") // ex. "axe-core"
   engineVersion  String?    @map("engine_version") // ex. "4.13.0"

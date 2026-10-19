@@ -5,7 +5,8 @@
  *   scanarea intra in coada, iar worker-ul o va procesa separat
  * - GET  /api/v1/projects/:projectId/scans  — scanarile unui proiect, cele mai noi primele
  * - GET  /api/v1/scans/:scanId              — o scanare: stare, configuratie, versiuni, sumar
- * - GET  /api/v1/scans/:scanId/results      — rezultatele pe reguli, cu elementele afectate
+ * - GET  /api/v1/scans/:scanId/results      — rezultatele pe reguli, cu elementele afectate si
+ *                                             lantul de trasabilitate (WCAG -> EN -> OUG 112/2018)
  *                                             (filtru optional: ?category=violation)
  *
  * Inainte de a crea scanarea, adresa trece prin paznic (protectie SSRF) si trebuie sa apartina
@@ -28,6 +29,7 @@ import type { Database } from '../db/prisma';
 import { HttpError } from '../middleware/errors';
 import { validate } from '../lib/validation';
 import { checkUrl, type UrlGuardOptions } from '../safety/url-guard';
+import { buildTrace, CATALOG_VERSION } from '@ro-a11y/catalog';
 import { isBestPractice } from '../scanner/normalize';
 
 export interface ScansDeps {
@@ -54,6 +56,7 @@ function toScanDto(row: ScanRow, summary: ScanSummary | null): Scan {
     httpStatus: row.httpStatus,
     status: row.status,
     config: scanConfigSchema.parse(row.config),
+    catalogVersion: row.catalogVersion,
     engineName: row.engineName,
     engineVersion: row.engineVersion,
     browserVersion: row.browserVersion,
@@ -149,7 +152,9 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
       includeBestPractices: input.includeBestPractices,
       timeoutMs: scanTimeoutMs,
     });
-    const scan = await db.scan.create({ data: { projectId: project.id, pageUrl, config } });
+    const scan = await db.scan.create({
+      data: { projectId: project.id, pageUrl, config, catalogVersion: CATALOG_VERSION },
+    });
     res.status(202).json(toScanDto(scan, null));
   });
 
@@ -209,6 +214,13 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
       axeTags: r.axeTags,
       wcagCriteria: r.wcagCriteria,
       isBestPractice: isBestPractice(r.axeTags, r.wcagCriteria),
+      trace: buildTrace({
+        axeRuleId: r.axeRuleId,
+        axeTags: r.axeTags,
+        wcagCriteria: r.wcagCriteria,
+        docsUrl: r.docsUrl,
+        engineVersion: scan.engineVersion,
+      }),
       affectedElements: r.affectedElements.map((e) => ({
         id: e.id,
         cssSelector: e.cssSelector,

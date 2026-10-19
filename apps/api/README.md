@@ -41,6 +41,7 @@ worker.ts (proces separat)
 | `src/scanner/page-scan.ts`  | Scanarea unei pagini: incarcare sigura (inclusiv redirectionari) + axe-core                |
 | `src/scanner/normalize.ts`  | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`     |
 | `src/scans/queue.ts`        | Coada de scanari din PostgreSQL: rezervare, finalizare, esec                               |
+| `@ro-a11y/catalog` (pachet) | Lantul de trasabilitate adaugat fiecarui rezultat (`buildTrace`)                           |
 | `src/scans/process-scan.ts` | Procesarea completa a unei scanari (verificare, scanare, salvare)                          |
 | `src/generated/`            | Cod **generat automat** de Prisma. Nu se editeaza si nu e in Git                           |
 | `prisma/schema.prisma`      | Schema bazei de date (tabelele)                                                            |
@@ -67,14 +68,15 @@ worker.ts (proces separat)
 
 ## Coduri de eroare ale unei scanari esuate
 
-| Cod                  | Cand apare                                                                    |
-| -------------------- | ----------------------------------------------------------------------------- |
-| `UNSAFE_URL`         | Adresa (sau o redirectionare) duce spre o retea interna sau rezervata         |
-| `NAVIGATION_TIMEOUT` | Pagina nu s-a incarcat in timpul permis                                       |
-| `NAVIGATION_FAILED`  | Pagina nu a putut fi deschisa (domeniu inexistent, prea multe redirectionari) |
-| `HTTP_ERROR`         | Serverul a raspuns cu un cod de eroare (ex. 404, 500)                         |
-| `ANALYSIS_FAILED`    | axe-core nu a putut analiza pagina                                            |
-| `WORKER_INTERRUPTED` | Worker-ul s-a oprit in timpul scanarii                                        |
-| `INTERNAL_ERROR`     | Eroare neprevazuta                                                            |
+| Cod                  | Cand apare                                                                     |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `UNSAFE_URL`         | Adresa (sau o redirectionare) duce spre o retea interna sau rezervata          |
+| `NAVIGATION_TIMEOUT` | Pagina nu s-a incarcat in timpul permis                                        |
+| `NAVIGATION_FAILED`  | Pagina nu a putut fi deschisa (domeniu inexistent, prea multe redirectionari)  |
+| `HTTP_ERROR`         | Serverul a raspuns cu un cod de eroare (ex. 404, 500)                          |
+| `ANALYSIS_FAILED`    | axe-core nu a putut analiza pagina                                             |
+| `SCAN_TIMEOUT`       | Scanarea a depasit limita totala de timp (implicit 90 s); browserul e repornit |
+| `WORKER_INTERRUPTED` | Worker-ul s-a oprit in timpul scanarii                                         |
+| `INTERNAL_ERROR`     | Eroare neprevazuta                                                             |
 
 O scanare esuata inseamna o problema tehnica, **nu** ca site-ul e inaccesibil.

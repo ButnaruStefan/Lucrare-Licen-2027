@@ -154,7 +154,7 @@ describe('pagina scanarii', () => {
     await page.getByText('1 regulă afișată').waitFor();
 
     await page.getByRole('radio', { name: /De verificat manual/ }).check();
-    await page.getByText('color-contrast', { exact: true }).waitFor();
+    await page.locator('.rule__id', { hasText: 'color-contrast' }).waitFor();
     expect(page.url()).toContain('categorie=incomplete');
 
     await page.getByLabel('Caută regulă sau criteriu WCAG').fill('2.4.2');
@@ -177,6 +177,41 @@ describe('pagina scanarii', () => {
     expect(dialogOpened).toBe(false);
     // Si cu regula deschisa, pagina ramane accesibila
     expect(await axeViolations()).toEqual([]);
+  });
+
+  it('arata lantul de trasabilitate si remedierea in romana, fara probleme de accesibilitate', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    // Titlul regulii apare in romana (din catalogul de remedieri)
+    const rule = page.locator('.rule', { hasText: 'Imaginile trebuie să aibă text alternativ' });
+    await rule.locator('summary').click();
+
+    const trace = rule.getByRole('region', { name: 'Trasabilitate pentru regula image-alt' });
+    await trace.waitFor();
+    const text = await trace.innerText();
+    expect(text).toContain('1.1.1 Conținut non-text');
+    expect(text).toContain('Clauza 9.1.1.1');
+    expect(text).toContain('Confirmat (2 surse)');
+    expect(text).toContain('art. 3 alin. (2) lit. a)');
+    expect(text).toContain('art. 5 alin. (1)');
+    expect(text).toContain('Neevaluată');
+    expect(text).toContain('Nu reprezintă o concluzie juridică');
+
+    // Remedierea: exemplul "inainte / dupa"
+    await rule
+      .getByText('<img src="sediu.jpg" alt="Intrarea principală în sediul primăriei">')
+      .waitFor();
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('o regula de buna practica nu are legatura normativa', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    const rule = page.locator('.rule', { hasText: 'region' });
+    await rule.locator('summary').click();
+
+    await rule.getByText('Fără legătură normativă').waitFor();
+    expect(await rule.getByText('OUG nr. 112/2018').count()).toBe(0);
   });
 
   it('se actualizeaza singura cat timp scanarea ruleaza', async () => {

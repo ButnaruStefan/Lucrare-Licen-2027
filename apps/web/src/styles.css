@@ -683,6 +683,165 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+/* --- Trasabilitate si remediere --- */
+
+.rule__title-en {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.remediation {
+  margin-top: 1rem;
+}
+
+.remediation__heading {
+  font-size: 0.95rem;
+  margin: 1rem 0 0.35rem;
+}
+
+.remediation__example {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+
+.code {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-left: 4px solid var(--border);
+  background: var(--surface-2);
+}
+
+.code--before {
+  border-left-color: var(--error-text);
+}
+
+.code--after {
+  border-left-color: var(--ok-text);
+}
+
+.remediation__status {
+  font-size: 0.85rem;
+}
+
+.trace {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.trace .rule__subheading {
+  margin-top: 0;
+}
+
+.trace__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: pas;
+}
+
+.trace__step {
+  position: relative;
+  counter-increment: pas;
+  padding: 0 0 1rem 2.5rem;
+}
+
+/* Numarul pasului, intr-un cerc */
+.trace__step::before {
+  content: counter(pas);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+}
+
+/* Linia care leaga pasii */
+.trace__step:not(.trace__step--end)::after {
+  content: '';
+  position: absolute;
+  left: 0.85rem;
+  top: 1.9rem;
+  bottom: 0.1rem;
+  width: 2px;
+  background: var(--border);
+}
+
+.trace__kind {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.trace__main {
+  margin: 0.15rem 0;
+}
+
+.trace__source {
+  margin: 0.15rem 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.trace__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.trace__quote {
+  margin: 0.35rem 0;
+  padding: 0.4rem 0.75rem;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  font-style: italic;
+}
+
+.trace__disclaimer {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.badge--trace-confirmed {
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+.badge--trace-derived,
+.badge--trace-review {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.badge--trace-conflict {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.badge--trace-none {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

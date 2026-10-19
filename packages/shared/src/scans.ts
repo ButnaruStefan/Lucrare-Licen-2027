@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 import { projectUrlSchema } from './projects';
+import { traceSchema } from './traceability';
 
 export const WCAG_PROFILES = ['WCAG_2_1_AA', 'WCAG_2_2_AA'] as const;
 export type WcagProfile = (typeof WCAG_PROFILES)[number];
@@ -67,6 +68,8 @@ export const scanSchema = z.object({
   httpStatus: z.number().int().nullable(),
   status: z.enum(SCAN_STATUSES),
   config: scanConfigSchema,
+  /** Versiunea catalogului normativ (WCAG, EN 301 549, legislatie) fixata la crearea scanarii. */
+  catalogVersion: z.string().nullable(),
   engineName: z.string().nullable(),
   engineVersion: z.string().nullable(),
   browserVersion: z.string().nullable(),
@@ -104,6 +107,8 @@ export const ruleResultSchema = z.object({
   wcagCriteria: z.array(z.string()),
   isBestPractice: z.boolean(),
   affectedElements: z.array(affectedElementSchema),
+  /** Lantul de trasabilitate: WCAG -> EN 301 549 -> OUG 112/2018, plus remedierea in romana. */
+  trace: traceSchema,
 });
 export type RuleResult = z.infer<typeof ruleResultSchema>;
 

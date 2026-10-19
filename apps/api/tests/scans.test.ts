@@ -40,6 +40,8 @@ describe('POST /api/v1/projects/:projectId/scans', () => {
     expect(res.status).toBe(202);
     const scan = scanSchema.parse(res.body);
     expect(scan).toMatchObject({ status: 'queued', pageUrl: 'https://exemplu.ro/', summary: null });
+    // Versiunea catalogului normativ e fixata la crearea scanarii (normele "inghetate" la data auditului)
+    expect(scan.catalogVersion).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(scan.config).toEqual(scanConfigSchema.parse({}));
   });
 
@@ -192,6 +194,18 @@ describe('GET scanari si rezultate', () => {
     );
     expect(all.items.map((r) => r.axeRuleId)).toEqual(['image-alt', 'region', 'document-title']);
     expect(all.items[1]).toMatchObject({ isBestPractice: true, affectedElements: [{}, {}] });
+
+    // Lantul de trasabilitate: image-alt -> WCAG 1.1.1 -> EN 9.1.1.1 -> OUG 112/2018 art. 3 si 5
+    const imageAlt = all.items[0]!.trace;
+    expect(imageAlt.wcag.map((w) => w.number)).toEqual(['1.1.1']);
+    expect(imageAlt.en).toMatchObject([{ clause: '9.1.1.1' }]);
+    expect(imageAlt.legal.map((l) => l.articleRef)).toEqual([
+      'art. 3 alin. (2) lit. a)',
+      'art. 5 alin. (1)',
+    ]);
+    expect(imageAlt.remediation?.axeRuleId).toBe('image-alt');
+    // O buna practica nu are legatura normativa
+    expect(all.items[1]!.trace).toMatchObject({ isBestPractice: true, wcag: [], legal: [] });
 
     const violations = ruleResultListSchema.parse(
       (await request(app).get(`/api/v1/scans/${scan.id}/results?category=violation`)).body,

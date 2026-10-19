@@ -6,3 +6,4 @@ export * from './health';
 export * from './errors';
 export * from './projects';
 export * from './scans';
+export * from './traceability';

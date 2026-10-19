@@ -1,0 +1,75 @@
+Extras din OUG nr. 112/2018 (articolele 1-5), copiat din forma printabila de pe Portalul Legislativ:
+https://legislatie.just.ro/Public/FormaPrintabila/00000G02CM5N2ASUGXA03X7D7GGJ7I6F
+Consultat la: 2026-10-16. Textele normative nu fac obiectul dreptului de autor (Legea nr. 8/1996, art. 9).
+Folosit de teste pentru a verifica faptul ca citatele din legislatie.ts sunt exacte.
+----------------------------------------------------------------------------------------------------
+Articolul 1
+
+(1) Prezenta ordonanță de urgență are drept obiectiv stabilirea cerințelor privind accesibilitatea site-urilor web și a aplicațiilor mobile ale organismelor din sectorul public, pentru a permite ca site-urile web și aplicațiile mobile respective să fie accesibile utilizatorilor, în special persoanelor cu dizabilități.
+(2) Prezenta ordonanță de urgență stabilește normele prin care se asigură faptul că site-urile web, indiferent de dispozitivul utilizat pentru acces, precum și aplicațiile mobile ale organismelor din sectorul public îndeplinesc cerințele privind accesibilitatea prevăzute la art. 3.
+(3) Prezenta ordonanță de urgență nu se aplică următoarelor site-uri web și aplicații mobile:
+a) site-urile web și aplicațiile mobile ale serviciilor publice de radiodifuziune și ale filialelor societăților care prestează astfel de servicii, precum și ale altor organisme sau filiale ale acestora care îndeplinesc o misiune de serviciu public de radiodifuziune;
+b) site-urile web și aplicațiile mobile ale persoanelor juridice fără scop patrimonial care nu prestează servicii esențiale pentru public;
+c) site-urile web și aplicațiile mobile ale persoanelor juridice fără scop patrimonial care nu prestează servicii care vizează în mod specific nevoile persoanelor cu dizabilități sau care le sunt destinate acestora.
+(4) Prezenta ordonanță de urgență nu se aplică următoarelor tipuri de conținut al site-urilor web și al aplicațiilor mobile:
+a) formatele de fișiere asociate activităților de birou, publicate înainte de intrarea în vigoare a prezentei ordonanțe de urgență, cu excepția cazului în care un astfel de conținut este necesar pentru procesele administrative active aferente atribuțiilor exercitate de organismul din sectorul public în cauză;
+b) conținutul media cu dimensiune temporală preînregistrat, publicat înainte de 23 septembrie 2020;
+c) conținutul media cu dimensiune temporală în direct;
+d) hărți și servicii de cartografiere online, atât timp cât informațiile esențiale sunt furnizate într-un format digital accesibil pentru hărțile destinate navigației;
+e) conținutul terților care nu este nici finanțat, nici elaborat ori aflat sub controlul organismului din sectorul public;
+f) reproduceri ale unor elemente din colecțiile de patrimoniu care nu pot fi făcute accesibile integral, fie:
+(i) ca urmare a incompatibilității cerințelor privind accesibilitatea cu conservarea elementului în cauză sau cu autenticitatea reproducerii, de exemplu, contrastul; fie
+(ii) ca urmare a indisponibilității unor soluții automatizate și eficiente din punctul de vedere al costurilor, care să extragă cu ușurință textul manuscriselor sau alte elemente ale colecțiilor de patrimoniu și să le transforme în conținut compatibil cu cerințele privind accesibilitatea;
+
+g) conținutul site-urilor de tip extranet și intranet, și anume al site-urilor web disponibile numai pentru un grup restrâns de persoane, și nu publicului larg ca atare, publicat înainte de 23 septembrie 2019, până în momentul în care astfel de site-uri web fac obiectul unei revizuiri substanțiale;
+h) conținutul site-urilor web și al aplicațiilor mobile clasificate drept arhive, ceea ce înseamnă că acestea au un conținut care nu este nici necesar proceselor administrative active, nici actualizat sau editat după 23 septembrie 2019.
+
+
+Articolul 2
+
+În aplicarea prezentei ordonanțe de urgență, termenii și expresiile de mai jos semnifică după cum urmează:
+a) organism din sectorul public - autoritățile și instituțiile publice centrale sau locale, organismele de drept public, astfel cum sunt definite la art. 4 alin. (2) din Legea nr. 98/2016 privind achizițiile publice, cu modificările și completările ulterioare, asociațiile formate din una sau mai multe astfel de autorități ori din unul sau mai multe astfel de organisme de drept public, dacă respectivele asociații sunt instituite cu scopul explicit de a răspunde nevoilor de interes general, neavând un caracter industrial sau comercial;
+b) aplicație mobilă - software-ul pentru aplicații conceput și dezvoltat de către sau în numele organismelor din sectorul public, în vederea utilizării de către publicul larg, pe dispozitive mobile, cum ar fi telefoanele inteligente și tabletele, cu excepția software-ului care controlează respectivele dispozitive (sisteme de operare pentru dispozitivele mobile) sau echipamente hardware;
+c) standard - un standard astfel definit la art. 2 pct. 1 din Regulamentul (UE) nr. 1.025/2012, al Parlamentului European și al Consiliului din 25 octombrie 2012 privind standardizarea europeană, de modificare a Directivelor 89/686/CEE și 93/15/CEE ale Consiliului și a Directivelor 94/9/CE, 94/25/CE, 95/16/CE, 97/23/CE, 98/34/CE, 2004/22/CE, 2007/23/CE, 2009/23/CE și 2009/105/CE ale Parlamentului European și ale Consiliului și de abrogare a Deciziei 87/95/CEE a Consiliului și a Deciziei nr. 1.673/2006/CE a Parlamentului European și a Consiliului;
+d) standard european - un standard european astfel cum este definit la art. 2 pct. 1 lit. (b) din Regulamentul (UE) nr. 1.025/2012;
+e) standard armonizat - un standard armonizat astfel cum este definit la art. 2 pct. 1 lit. (c) din Regulamentul (UE) nr. 1.025/2012;
+f) conținut media cu dimensiune temporală - conținutul media de următoarele tipuri: numai audio, numai video, audiovideo, audio și/sau video combinat cu interacțiune;
+g) elemente ale colecțiilor de patrimoniu - bunuri aflate în proprietate privată sau publică, care prezintă un interes istoric, artistic, arheologic, estetic, științific sau tehnic și care fac parte din colecții conservate de instituții culturale, cum ar fi bibliotecile, arhivele și muzeele;
+h) datele privind măsurătorile - rezultatele cuantificate ale activității de monitorizare desfășurate pentru a verifica conformitatea site-urilor web și a aplicațiilor mobile ale organismelor din sectorul public cu cerințele privind accesibilitatea prevăzute la art. 3. Datele privind măsurătorile acoperă atât informații cantitative cu privire la eșantionul de site-uri web și de aplicații mobile testate (numărul de site-uri web și aplicații, eventual cu numărul lor de vizitatori sau utilizatori etc.), cât și informații cantitative cu privire la nivelul de accesibilitate;
+i) sarcina disproporționată - măsurile care impun o sarcină organizatorică sau financiară excesivă pentru un organism din sectorul public sau care pun în pericol capacitatea organismului de a-și îndeplini obiectivul sau de a publica informațiile necesare sau relevante pentru sarcinile și serviciile sale, luând în același timp în considerare posibilele beneficii rezultate sau prejudiciul care riscă să fie adus cetățenilor, în special persoanelor cu dizabilități, si care sunt determinate doar de un motiv legitim, ținând seama și de prevederile art. 4 alin. (3);
+j) accesibilitate - principii și tehnici care trebuie respectate la proiectarea, construirea, întreținerea și actualizarea site-urilor web și a aplicațiilor mobile pentru a le face mai accesibile pentru utilizatori, în special pentru persoanele cu dizabilități;
+k) motiv legitim - dreptul de a justifica o acțiune prin raportare la un temei juridic
+
+Capitolul II Domeniul de aplicare
+
+Articolul 3
+
+(1) Organismele din sectorul public asigură accesibilitatea site-urilor lor web și ale aplicațiilor lor mobile, făcându-le ușor de identificat, funcționale, ușor de înțeles și stabile.
+(2) Principiile care stau la baza accesibilității sunt:
+a) perceptibilitatea - informațiile și componentele interfeței de utilizare trebuie să poată fi prezentate utilizatorilor în moduri pe care aceștia le pot percepe;
+b) operabilitatea - componentele interfeței de utilizare și navigarea trebuie să poată fi utilizate;
+c) inteligibilitatea - informațiile și exploatarea interfeței de utilizare trebuie să poată fi înțelese;
+d) robustețea - întreg conținutul trebuie să fie suficient de robust încât să poată fi interpretat în mod fiabil de o gamă largă de agenți utilizatori, inclusiv de tehnologiile de asistare.
+
+
+Articolul 4
+
+(1) Organismele din sectorul public aplică cerințele privind accesibilitatea prevăzute la art. 3, în măsura în care aplicarea acestor cerințe nu impune o sarcină disproporționată.
+(2) Pentru a stabili măsura în care conformitatea cu cerințele privind accesibilitatea prevăzute la art. 3 impune o sarcină disproporționată, organismul din sectorul public vizat efectuează, în prealabil, o evaluare inițială.
+(3) Pentru realizarea evaluării prevăzute la alin. (2), organismul din sectorul public vizat ține seama de toate circumstanțele relevante, incluzând și următoarele aspecte:
+a) dimensiunea, resursele și domeniul de interes al organismului din sectorul public vizat;
+b) costurile și beneficiile estimate pentru organismul din sectorul public vizat în raport cu beneficiile estimate pentru persoanele cu dizabilități, luând în considerare frecvența de accesare și durata de utilizare a site-ului web sau a aplicației mobile specifice.
+(4) În scopul evaluării măsurii în care conformitatea cu cerințele privind accesibilitatea impune o sarcină disproporționată, sunt luate în considerare doar motivele legitime.
+(5) În sensul prezentei ordonanțe de urgență, lipsa încadrării acțiunii ca prioritară, constrângerea temporală sau lipsa cunoștințelor necesare în materie nu pot fi invocate ca motive legitime. De asemenea, achiziționarea sau lipsa dezvoltării sistemelor software de administrare a conținutului site-urilor web și a aplicațiilor mobile într-un mod accesibil nu poate fi invocată ca motiv legitim având în vedere existența tehnicilor adecvate pentru a face ca respectivele sisteme să respecte cerințele privind accesibilitatea prevăzute în prezenta ordonanță de urgență.
+(6) În urma evaluării prevăzute la alin. (2), organismul din sectorul public are obligația de a explica în declarația privind accesibilitatea prevăzută la art. 6 motivele nerespectării cerințelor privind accesibilitatea ori a acelor părți din aceste cerințe care nu au putut fi respectate, oferind alternative accesibile.
+(7) Organismul din sectorul public are obligația de a publica pe propriul site evaluarea prevăzută la alin. (2), împreună cu declarația privind accesibilitatea prevăzută la art. 6.
+(8) Conținutul site-urilor web și al aplicațiilor mobile puse la dispoziție de către un organism din sectorul public trebuie să ofere un cod intern comun de limbaj natural, structuri, relații și secvențe, precum și date ale oricărei componente integrate ale interfeței de utilizare, facilitându-se astfel utilizatorilor folosirea tehnologiilor de asistare pentru accesarea site-urilor web și a aplicațiilor mobile.
+
+
+Articolul 5
+
+(1) Conținutul site-urilor web și al aplicațiilor mobile care respectă standardele armonizate sau părți ale acestora, ale căror referințe au fost publicate de către Comisia Europeană în Jurnalul Oficial al Uniunii Europene, potrivit Regulamentului (UE) nr. 1.025/2012, este considerat a fi în conformitate cu cerințele privind accesibilitatea reglementate la art. 3, care sunt cuprinse în standardele respective sau în părți ale acestora.
+(2) În cazul în care nu a fost publicată nicio referință a standardelor armonizate prevăzute la alin. (1), conținutul aplicațiilor mobile care respectă specificațiile tehnice sau părți ale acestora adoptate de Comisia Europeană prin acte de punere în aplicare este considerat a fi în conformitate cu cerințele privind accesibilitatea prevăzute la art. 3, care fac obiectul respectivelor specificații tehnice sau al unor părți ale acestora. Specificațiile tehnice respective respectă cerințele de accesibilitate prevăzute la art. 3 și asigură cel puțin un nivel de accesibilitate echivalent celui asigurat prin standardul european EN 301 549 V1.1.2 (2015-04), respectiv v2.1.2 „Cerințele privind accesibilitatea pentru achizițiile publice de produse și servicii TIC în Europa“ (2015-04)“.
+(3) În cazul în care nu au fost publicate referințele standardelor armonizate prevăzute la alin. (1), conținutul site-urilor web care îndeplinește cerințele relevante din standardul european prevăzut la alin. (5) sau din părți ale acestuia este considerat a fi în conformitate cu cerințele privind accesibilitatea prevăzute la art. 3 care fac obiectul cerințelor relevante respective sau al unor părți ale acestora.
+(4) În cazul în care nu au fost publicate referințele standardelor armonizate prevăzute la alin. (1) și în lipsa specificațiilor tehnice prevăzute la alin. (2), conținutul aplicațiilor mobile care îndeplinește cerințele relevante din standardul european prevăzut la alin. (5) sau din părți ale acestuia este considerat a fi în conformitate cu cerințele privind accesibilitatea prevăzute la art. 3 care fac obiectul cerințelor relevante respective sau al unor părți ale acestora.
+(5) Standardul european este EN 301 549 V1.1.2 (2015-04), urmând ca eventualele sale versiuni ulterioare sau standardul european care îl înlocuiește să se stabilească prin acte delegate adoptate de Comisia Europeană, în conformitate cu art. 6 alin. (4) și art. 10 din Directiva (UE) 2016/2102.
