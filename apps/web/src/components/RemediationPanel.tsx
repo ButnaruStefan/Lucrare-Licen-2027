@@ -1,32 +1,19 @@
 /**
- * Explicatia si remedierea in romana pentru o regula: ce inseamna, pe cine afecteaza,
- * cum se repara (cu exemplu "inainte / dupa") si cum se verifica reparatia.
+ * Remedierea in romana pentru o regula, in doua parti afisate in sectiuni separate:
+ *   - `HowToFix`: pasii de reparare si exemplul "inainte / dupa";
+ *   - `HowToVerify`: cum se verifica reparatia, plus statusul continutului (de revizuit).
  * Codul din exemple e afisat ca text, niciodata interpretat.
  */
 import type { Remediation } from '@ro-a11y/shared';
 
-export function RemediationPanel({
-  remediation,
-  status,
-}: {
-  remediation: Remediation;
-  status: string;
-}) {
+export function HowToFix({ remediation }: { remediation: Remediation }) {
   return (
-    <section className="remediation" aria-label={`Cum repari: ${remediation.titleRo}`}>
-      <h3 className="rule__subheading">Ce înseamnă și cum repari</h3>
-      <p>{remediation.whatItMeans}</p>
-      <p>
-        <strong>Pe cine afectează:</strong> {remediation.whoIsAffected}
-      </p>
-
-      <h4 className="remediation__heading">Cum repari</h4>
+    <>
       <ul>
         {remediation.howToFix.map((step) => (
           <li key={step}>{step}</li>
         ))}
       </ul>
-
       <div className="remediation__example">
         <div>
           <p className="element__label">Înainte</p>
@@ -42,14 +29,19 @@ export function RemediationPanel({
         </div>
       </div>
       {remediation.example.note && <p className="muted">{remediation.example.note}</p>}
+    </>
+  );
+}
 
-      <h4 className="remediation__heading">Cum verifici reparația</h4>
+export function HowToVerify({ remediation, status }: { remediation: Remediation; status: string }) {
+  return (
+    <>
       <ul>
         {remediation.howToVerify.map((step) => (
           <li key={step}>{step}</li>
         ))}
       </ul>
       <p className="muted remediation__status">Conținut {status}.</p>
-    </section>
+    </>
   );
 }

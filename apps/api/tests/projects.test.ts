@@ -60,6 +60,58 @@ describe('POST /api/v1/projects', () => {
   });
 });
 
+describe('POST /api/v1/projects: proiecte duplicate', () => {
+  it('refuza aceeasi adresa (409 PROJECT_EXISTS) si trimite id-ul proiectului existent', async () => {
+    const first = await request(app)
+      .post('/api/v1/projects')
+      .send({ name: 'Primaria', baseUrl: 'https://exemplu.ro' });
+
+    const res = await request(app)
+      .post('/api/v1/projects')
+      .send({ name: 'Alt nume', baseUrl: 'https://exemplu.ro/' });
+
+    expect(res.status).toBe(409);
+    const { error } = apiErrorSchema.parse(res.body);
+    expect(error.code).toBe('PROJECT_EXISTS');
+    expect(error.existingId).toBe(first.body.id);
+    expect(error.details?.map((d) => d.field)).toEqual(['baseUrl']);
+    expect(await testDb.project.count()).toBe(1);
+  });
+
+  it('considera http si https acelasi site', async () => {
+    await request(app).post('/api/v1/projects').send({ name: 'A', baseUrl: 'https://exemplu.ro/' });
+
+    const res = await request(app)
+      .post('/api/v1/projects')
+      .send({ name: 'B', baseUrl: 'http://exemplu.ro/' });
+
+    expect(res.status).toBe(409);
+  });
+
+  it('considera aceeasi adresa cu si fara "/" la final', async () => {
+    await request(app)
+      .post('/api/v1/projects')
+      .send({ name: 'A', baseUrl: 'http://localhost:4000/broken/' });
+
+    const res = await request(app)
+      .post('/api/v1/projects')
+      .send({ name: 'B', baseUrl: 'https://localhost:4000/broken' });
+
+    expect(res.status).toBe(409);
+  });
+
+  it('permite acelasi nume pentru o alta adresa', async () => {
+    await request(app).post('/api/v1/projects').send({ name: 'Demo', baseUrl: 'https://a.ro/' });
+
+    const res = await request(app)
+      .post('/api/v1/projects')
+      .send({ name: 'Demo', baseUrl: 'https://b.ro/' });
+
+    expect(res.status).toBe(201);
+    expect(await testDb.project.count()).toBe(2);
+  });
+});
+
 describe('GET /api/v1/projects', () => {
   it('returneaza lista goala cand nu exista proiecte', async () => {
     const res = await request(app).get('/api/v1/projects');

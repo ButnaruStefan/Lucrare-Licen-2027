@@ -3,7 +3,9 @@
  */
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { scanConfigSchema } from '@ro-a11y/shared';
-import { claimNextScan, failScan, failStaleScans } from '../src/scans/queue';
+import type { AxeResults } from 'axe-core';
+import type { Database } from '../src/db/prisma';
+import { claimNextScan, completeScan, failScan, failStaleScans } from '../src/scans/queue';
 import { resetDatabase, testDb } from './helpers/test-db';
 
 const config = scanConfigSchema.parse({});
@@ -107,5 +109,68 @@ describe('failScan si failStaleScans', () => {
     expect((await testDb.scan.findUniqueOrThrow({ where: { id: fresh.id } })).status).toBe(
       'running',
     );
+  });
+});
+
+describe('completeScan', () => {
+  it('reincearca o data daca baza de date nu ofera la timp o conexiune (P2028)', async () => {
+    const project = await createProject();
+    const scan = await testDb.scan.create({
+      data: { projectId: project.id, pageUrl: 'https://exemplu.ro/', config, status: 'running' },
+    });
+    let attempts = 0;
+    // Prima tranzactie esueaza ca la un calculator incarcat; a doua merge normal.
+    const flakyDb = new Proxy(testDb, {
+      get(target, prop, receiver) {
+        if (prop === '$transaction') {
+          return (...args: Parameters<Database['$transaction']>) => {
+            attempts += 1;
+            if (attempts === 1) {
+              return Promise.reject(Object.assign(new Error('timeout'), { code: 'P2028' }));
+            }
+            return (target.$transaction as (...a: unknown[]) => unknown)(...args);
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    }) as Database;
+
+    await completeScan(flakyDb, scan.id, {
+      raw: { testEngine: { version: '4.13.0' } } as AxeResults,
+      results: [
+        {
+          axeRuleId: 'image-alt',
+          category: 'violation',
+          impact: 'critical',
+          title: 't',
+          description: 'd',
+          docsUrl: 'u',
+          axeTags: ['wcag2a', 'wcag111'],
+          wcagCriteria: ['1.1.1'],
+          elements: [
+            { cssSelector: ['img'], htmlSnippet: '<img>', failureSummary: null, fingerprint: 'f1' },
+            {
+              cssSelector: ['img.b'],
+              htmlSnippet: '<img>',
+              failureSummary: null,
+              fingerprint: 'f2',
+            },
+          ],
+        },
+      ],
+      finalUrl: 'https://exemplu.ro/',
+      httpStatus: 200,
+      engineVersion: '4.13.0',
+      browserVersion: 'Chrome test',
+    });
+
+    expect(attempts).toBe(2);
+    const row = await testDb.scan.findUniqueOrThrow({
+      where: { id: scan.id },
+      include: { ruleResults: { include: { affectedElements: true } } },
+    });
+    expect(row.status).toBe('completed');
+    expect(row.ruleResults).toHaveLength(1);
+    expect(row.ruleResults[0]!.affectedElements).toHaveLength(2);
   });
 });

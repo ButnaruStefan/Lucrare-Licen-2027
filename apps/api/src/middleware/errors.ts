@@ -16,6 +16,8 @@ export class HttpError extends Error {
     public readonly code: string,
     message: string,
     public readonly details?: FieldError[],
+    /** Id-ul resursei care exista deja (doar pentru 409 Conflict). */
+    public readonly existingId?: string,
   ) {
     super(message);
   }
@@ -55,6 +57,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
       message: known ? known.message : 'A apărut o eroare internă.',
       requestId: String(req.id),
       ...(known?.details ? { details: known.details } : {}),
+      ...(known?.existingId ? { existingId: known.existingId } : {}),
     },
   };
   res.status(known ? known.status : 500).json(body);

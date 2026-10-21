@@ -4,6 +4,7 @@
  * Orice eroare arata la fel: { "error": { "code", "message", "requestId", "details"? } }.
  * `requestId` leaga raspunsul de linia corespunzatoare din logurile serverului.
  * `details` apare la erorile de validare: ce camp e gresit si de ce.
+ * `existingId` apare cand resursa exista deja (409), ca interfata sa poata trimite spre ea.
  */
 import { z } from 'zod';
 
@@ -19,6 +20,7 @@ export const apiErrorSchema = z.object({
     message: z.string(),
     requestId: z.string().optional(),
     details: z.array(fieldErrorSchema).optional(),
+    existingId: z.string().optional(),
   }),
 });
 export type ApiError = z.infer<typeof apiErrorSchema>;

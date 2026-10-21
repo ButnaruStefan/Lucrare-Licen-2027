@@ -4,6 +4,10 @@
  * La trimiterea formularului, datele sunt validate de server. Daca un camp e gresit, mesajul
  * apare langa camp, iar focusul se muta pe primul camp gresit. Dupa creare, utilizatorul ajunge
  * direct pe pagina noului proiect.
+ *
+ * Duplicate: daca exista deja un proiect pentru aceeasi adresa, serverul refuza (409) si
+ * formularul ofera o legatura spre proiectul existent. Un nume deja folosit (la alta adresa) e
+ * permis, dar formularul avertizeaza din timp, in timp ce scrii.
  */
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -12,6 +16,7 @@ import { useCreateProject, useProjects } from '../api/queries';
 import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
 import { PageHeading } from '../components/PageHeading';
 import { TextField } from '../components/TextField';
+import type { Project } from '@ro-a11y/shared';
 import { formatDate } from '../lib/labels';
 
 export function ProjectsPage() {
@@ -59,12 +64,12 @@ export function ProjectsPage() {
         )}
       </section>
 
-      <NewProjectForm />
+      <NewProjectForm existingProjects={projects.data?.items ?? []} />
     </>
   );
 }
 
-function NewProjectForm() {
+function NewProjectForm({ existingProjects }: { existingProjects: Project[] }) {
   const navigate = useNavigate();
   const createProject = useCreateProject();
   const [name, setName] = useState('');
@@ -77,6 +82,15 @@ function NewProjectForm() {
       ? Object.fromEntries(error.details.map((d) => [d.field, d.message]))
       : {};
   const generalError = error && Object.keys(fieldErrors).length === 0 ? error : null;
+  const existingProjectId =
+    error instanceof ApiRequestError && error.code === 'PROJECT_EXISTS'
+      ? error.existingId
+      : undefined;
+
+  const typedName = name.trim().toLowerCase();
+  const sameName = typedName
+    ? existingProjects.find((p) => p.name.trim().toLowerCase() === typedName)
+    : undefined;
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -106,6 +120,11 @@ function NewProjectForm() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           error={fieldErrors.name}
+          warning={
+            sameName
+              ? `Există deja un proiect cu acest nume (${sameName.baseUrl}). Poți continua, dar alege un nume diferit ca să le deosebești ușor.`
+              : undefined
+          }
           autoComplete="off"
           required
         />
@@ -117,6 +136,13 @@ function NewProjectForm() {
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
           error={fieldErrors.baseUrl}
+          extra={
+            existingProjectId && (
+              <p className="field__extra">
+                <Link to={`/proiecte/${existingProjectId}`}>Deschide proiectul existent</Link>
+              </p>
+            )
+          }
           autoComplete="url"
           required
         />

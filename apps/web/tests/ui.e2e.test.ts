@@ -99,13 +99,61 @@ describe('pagina de proiecte', () => {
     await page.getByRole('button', { name: 'Adaugă proiectul' }).click();
 
     const name = page.getByLabel('Nume', { exact: true });
-    await page.getByText('Numele este obligatoriu.').waitFor();
-    expect(await name.getAttribute('aria-invalid')).toBe('true');
+    // Pe un calculator incarcat, actualizarea formularului si mutarea focusului pot dura mai
+    // mult: asteptam explicit fiecare pas, cu o limita generoasa, in loc sa verificam o singura data.
+    const patience = { timeout: 10_000 };
+    await page.locator('.field__error', { hasText: 'Numele este obligatoriu.' }).waitFor(patience);
+    await expect.poll(() => name.getAttribute('aria-invalid'), patience).toBe('true');
     // Mesajul de eroare e legat de camp (cititorul de ecran il citeste impreuna cu eticheta)
     const describedBy = (await name.getAttribute('aria-describedby')) ?? '';
     const errorText = await page.locator(`[id="${describedBy.split(' ').pop()}"]`).innerText();
     expect(errorText).toContain('Numele este obligatoriu.');
-    await expect.poll(() => name.evaluate((el) => el === document.activeElement)).toBe(true);
+    await expect
+      .poll(() => name.evaluate((el) => el === document.activeElement), patience)
+      .toBe(true);
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('pentru o adresa deja folosita ofera legatura spre proiectul existent', async () => {
+    await mockApi(page, {
+      createProject: {
+        status: 409,
+        body: {
+          error: {
+            code: 'PROJECT_EXISTS',
+            message: `Există deja un proiect pentru acest site: „${PROJECT.name}”.`,
+            details: [
+              {
+                field: 'baseUrl',
+                message: `Există deja un proiect pentru acest site: „${PROJECT.name}”.`,
+              },
+            ],
+            existingId: PROJECT.id,
+          },
+        },
+      },
+    });
+    await page.goto(`${baseUrl}/`);
+    await page.getByLabel('Nume', { exact: true }).fill('Alt nume');
+    await page.getByLabel('Adresa site-ului').fill(PROJECT.baseUrl);
+    await page.getByRole('button', { name: 'Adaugă proiectul' }).click();
+
+    const link = page.getByRole('link', { name: 'Deschide proiectul existent' });
+    await link.waitFor();
+    expect(await link.getAttribute('href')).toBe(`/proiecte/${PROJECT.id}`);
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('avertizeaza (fara sa blocheze) cand numele e deja folosit', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/`);
+    await page.getByRole('link', { name: PROJECT.name }).waitFor();
+    const name = page.getByLabel('Nume', { exact: true });
+    await name.fill(PROJECT.name.toUpperCase());
+
+    await page.getByText('Există deja un proiect cu acest nume').waitFor();
+    expect(await name.getAttribute('aria-invalid')).toBeNull();
+    expect(await name.getAttribute('aria-describedby')).toContain('avertisment');
     expect(await axeViolations()).toEqual([]);
   });
 
@@ -170,6 +218,7 @@ describe('pagina scanarii', () => {
     await mockApi(page);
     await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
     await page.locator('.rule summary').first().click();
+    await page.locator('.fold__summary', { hasText: 'Unde apare' }).first().click();
 
     await page.getByText(HOSTILE_HTML).waitFor();
     expect(await page.locator('.rule img').count()).toBe(0);
@@ -184,7 +233,11 @@ describe('pagina scanarii', () => {
     await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
     // Titlul regulii apare in romana (din catalogul de remedieri)
     const rule = page.locator('.rule', { hasText: 'Imaginile trebuie să aibă text alternativ' });
-    await rule.locator('summary').click();
+    await rule.locator(':scope > details > summary').click();
+    // Sectiunile sunt pliate; titlul sectiunii de trasabilitate arata deja rezumatul lantului
+    const traceFold = rule.locator('.fold__summary', { hasText: 'Trasabilitate normativă' });
+    expect(await traceFold.innerText()).toContain('WCAG 1.1.1 · EN 9.1.1.1 · OUG 112/2018');
+    await traceFold.click();
 
     const trace = rule.getByRole('region', { name: 'Trasabilitate pentru regula image-alt' });
     await trace.waitFor();
@@ -198,19 +251,42 @@ describe('pagina scanarii', () => {
     expect(text).toContain('Nu reprezintă o concluzie juridică');
 
     // Remedierea: exemplul "inainte / dupa"
+    await rule.locator('.fold__summary', { hasText: 'Cum repari' }).click();
     await rule
       .getByText('<img src="sediu.jpg" alt="Intrarea principală în sediul primăriei">')
       .waitFor();
     expect(await axeViolations()).toEqual([]);
   });
 
+  it('sectiunile unui rezultat sunt pliate implicit si se deschid din tastatura', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    const rule = page.locator('.rule').first();
+    await rule.locator(':scope > details > summary').click();
+
+    const folds = rule.locator('details.fold');
+    expect(await folds.count()).toBe(5);
+    for (const fold of await folds.all()) {
+      expect(await fold.getAttribute('open')).toBeNull();
+    }
+    // Enter pe titlul sectiunii o deschide
+    await rule.locator('.fold__summary', { hasText: 'Cum repari' }).focus();
+    await page.keyboard.press('Enter');
+    await expect
+      .poll(() => rule.locator('details.fold', { hasText: 'Cum repari' }).getAttribute('open'))
+      .not.toBeNull();
+  });
+
   it('o regula de buna practica nu are legatura normativa', async () => {
     await mockApi(page);
     await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
     const rule = page.locator('.rule', { hasText: 'region' });
-    await rule.locator('summary').click();
+    await rule.locator(':scope > details > summary').click();
+    const traceFold = rule.locator('.fold__summary', { hasText: 'Trasabilitate normativă' });
+    expect(await traceFold.innerText()).toContain('Bună practică: fără legătură normativă');
+    await traceFold.click();
 
-    await rule.getByText('Fără legătură normativă').waitFor();
+    await rule.getByText('Fără legătură normativă', { exact: true }).waitFor();
     expect(await rule.getByText('OUG nr. 112/2018').count()).toBe(0);
   });
 
@@ -257,6 +333,10 @@ describe('pagina scanarii', () => {
     await darkPage.goto(`${baseUrl}/scanari/${SCAN_ID}`);
     await darkPage.getByText('2 reguli afișate').waitFor();
     await darkPage.locator('.rule summary').first().click();
+    // Toate sectiunile deschise, ca axe sa verifice tot continutul
+    for (const fold of await darkPage.locator('.rule').first().locator('.fold__summary').all()) {
+      await fold.click();
+    }
 
     expect(await axeViolations(darkPage)).toEqual([]);
     await dark.close();

@@ -328,6 +328,16 @@ tbody th {
   font-size: 0.875rem;
 }
 
+.field__warning {
+  margin: 0.35rem 0 0;
+  color: var(--warn-text);
+  font-size: 0.9rem;
+}
+
+.field__extra {
+  margin: 0.35rem 0 0;
+}
+
 .field__error {
   margin: 0.35rem 0 0;
   color: var(--error-text);
@@ -610,13 +620,13 @@ button:disabled {
   gap: 0.5rem;
 }
 
-.rule details {
+.rule > details {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
-.rule summary {
+.rule > details > summary {
   cursor: pointer;
   padding: 0.75rem 1rem;
   display: flex;
@@ -681,6 +691,72 @@ button:disabled {
   border-radius: 6px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* --- Sectiuni pliabile in interiorul unui rezultat --- */
+
+.rule__intro {
+  padding-top: 0.75rem;
+}
+
+.rule__intro p {
+  margin: 0 0 0.5rem;
+}
+
+.fold {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 0.6rem;
+  background: var(--surface);
+}
+
+.fold__summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  padding: 0.6rem 0.9rem;
+  list-style: none;
+}
+
+.fold__summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Sageata care arata daca sectiunea e deschisa sau inchisa */
+.fold__summary::before {
+  content: '▸';
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1;
+  width: 1rem;
+  flex: none;
+}
+
+.fold[open] > .fold__summary::before {
+  content: '▾';
+}
+
+.fold__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.fold__hint {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.fold__body {
+  padding: 0 0.9rem 0.9rem 2.15rem;
+}
+
+.fold__body .trace {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
 /* --- Trasabilitate si remediere --- */

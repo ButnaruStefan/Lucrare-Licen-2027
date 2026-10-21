@@ -10,6 +10,7 @@
  * Datele calendaristice sunt pastrate in UTC (ca toate cele scrise de Prisma), de aceea
  * `NOW() AT TIME ZONE 'UTC'`: simplul NOW() ar folosi ora locala a serverului PostgreSQL.
  */
+import { randomUUID } from 'node:crypto';
 import type { AxeResults } from 'axe-core';
 import { scanConfigSchema, type ScanConfig } from '@ro-a11y/shared';
 import type { Database } from '../db/prisma';
@@ -48,13 +49,35 @@ export interface CompletedScanData {
   browserVersion: string;
 }
 
-/** Salveaza rezultatele si marcheaza scanarea "completed", totul intr-o singura tranzactie. */
+/** Cat asteptam, cel mult, o conexiune libera la baza de date pentru tranzactie. */
+const TRANSACTION_MAX_WAIT_MS = 10_000;
+/** Cat poate dura, cel mult, tranzactia de salvare. */
+const TRANSACTION_TIMEOUT_MS = 30_000;
+
+/** Prisma: "nu am putut porni tranzactia in timpul dat" (nicio conexiune libera la timp). */
+function isTransactionStartTimeout(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && err.code === 'P2028';
+}
+
+/**
+ * Salveaza rezultatele si marcheaza scanarea "completed", totul intr-o singura tranzactie.
+ *
+ * Randurile sunt scrise grupat (createMany): o comanda pentru toate rezultatele pe reguli si
+ * una pentru toate elementele afectate, in loc de cate o comanda pentru fiecare regula.
+ * Tranzactia ramane foarte scurta, chiar pe un calculator incarcat. Identificatorii (UUID) sunt
+ * generati aici, ca elementele sa poata fi legate de rezultatul lor inainte de scriere.
+ *
+ * Daca baza de date nu ofera la timp o conexiune (cod P2028), salvarea mai e incercata o data.
+ */
 export async function completeScan(db: Database, scanId: string, data: CompletedScanData) {
-  await db.$transaction(
-    async (tx) => {
-      for (const result of data.results) {
-        await tx.ruleResult.create({
-          data: {
+  const ruleRows = data.results.map((result) => ({ id: randomUUID(), result }));
+
+  const save = () =>
+    db.$transaction(
+      async (tx) => {
+        await tx.ruleResult.createMany({
+          data: ruleRows.map(({ id, result }) => ({
+            id,
             scanId,
             axeRuleId: result.axeRuleId,
             category: result.category,
@@ -64,33 +87,42 @@ export async function completeScan(db: Database, scanId: string, data: Completed
             docsUrl: result.docsUrl,
             axeTags: result.axeTags,
             wcagCriteria: result.wcagCriteria,
-            affectedElements: {
-              create: result.elements.map((el) => ({
-                cssSelector: el.cssSelector as object,
-                htmlSnippet: el.htmlSnippet,
-                failureSummary: el.failureSummary,
-                fingerprint: el.fingerprint,
-              })),
-            },
+          })),
+        });
+        await tx.affectedElement.createMany({
+          data: ruleRows.flatMap(({ id, result }) =>
+            result.elements.map((el) => ({
+              ruleResultId: id,
+              cssSelector: el.cssSelector as object,
+              htmlSnippet: el.htmlSnippet,
+              failureSummary: el.failureSummary,
+              fingerprint: el.fingerprint,
+            })),
+          ),
+        });
+        await tx.scan.update({
+          where: { id: scanId },
+          data: {
+            status: 'completed',
+            finishedAt: new Date(),
+            finalUrl: data.finalUrl,
+            httpStatus: data.httpStatus,
+            engineName: 'axe-core',
+            engineVersion: data.engineVersion,
+            browserVersion: data.browserVersion,
+            rawAxeResult: data.raw as unknown as object,
           },
         });
-      }
-      await tx.scan.update({
-        where: { id: scanId },
-        data: {
-          status: 'completed',
-          finishedAt: new Date(),
-          finalUrl: data.finalUrl,
-          httpStatus: data.httpStatus,
-          engineName: 'axe-core',
-          engineVersion: data.engineVersion,
-          browserVersion: data.browserVersion,
-          rawAxeResult: data.raw as unknown as object,
-        },
-      });
-    },
-    { timeout: 30_000 },
-  );
+      },
+      { maxWait: TRANSACTION_MAX_WAIT_MS, timeout: TRANSACTION_TIMEOUT_MS },
+    );
+
+  try {
+    await save();
+  } catch (err) {
+    if (!isTransactionStartTimeout(err)) throw err;
+    await save();
+  }
 }
 
 export interface FailedScanData {

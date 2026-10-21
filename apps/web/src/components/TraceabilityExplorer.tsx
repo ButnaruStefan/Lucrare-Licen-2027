@@ -3,7 +3,7 @@
  *
  *   regula axe -> criteriu WCAG -> clauza EN 301 549 -> prevederi OUG 112/2018 -> aplicabilitate
  *
- * afisat ca lista ordonata de pasi. Fiecare pas arata sursa si statusul verificarii (confirmat,
+ * afisat ca lista ordonata de pasi (in sectiunea pliabila "Trasabilitate normativa"). Fiecare pas arata sursa si statusul verificarii (confirmat,
  * dedus, conflict, de validat), ca utilizatorul sa vada clar ce e sigur si ce nu.
  * Lantul arata relevanta normativa POSIBILA, nu o incalcare a legii.
  */
@@ -42,7 +42,6 @@ export function TraceabilityExplorer({
 }) {
   return (
     <section className="trace" aria-label={`Trasabilitate pentru regula ${trace.axeRule.id}`}>
-      <h3 className="rule__subheading">Trasabilitate: de la problemă la normă</h3>
       <ol className="trace__steps">
         <li className="trace__step">
           <p className="trace__kind">Constatare tehnică</p>
@@ -167,4 +166,15 @@ export function TraceabilityExplorer({
       </p>
     </section>
   );
+}
+
+/** Rezumatul lantului, afisat in titlul sectiunii (ex. "WCAG 1.1.1 · EN 9.1.1.1 · OUG 112/2018"). */
+export function traceSummary(trace: Trace): string {
+  if (trace.isBestPractice || trace.wcag.length === 0)
+    return 'Bună practică: fără legătură normativă';
+  const parts = [`WCAG ${trace.wcag.map((c) => c.number).join(', ')}`];
+  const clauses = trace.en.filter((l) => l.clause).map((l) => l.clause);
+  parts.push(clauses.length > 0 ? `EN ${clauses.join(', ')}` : 'fără clauză EN');
+  if (trace.legal.length > 0) parts.push('OUG 112/2018');
+  return parts.join(' · ');
 }

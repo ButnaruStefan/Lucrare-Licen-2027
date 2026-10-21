@@ -16,6 +16,8 @@ export class ApiRequestError extends Error {
     public readonly code: string,
     message: string,
     public readonly details: FieldError[] = [],
+    /** Id-ul resursei care exista deja (la 409 Conflict), ca sa putem trimite spre ea. */
+    public readonly existingId?: string,
   ) {
     super(message);
   }
@@ -42,8 +44,8 @@ export async function apiRequest<S extends z.ZodType>(
   if (!res.ok) {
     const parsed = apiErrorSchema.safeParse(data);
     if (parsed.success) {
-      const { code, message, details } = parsed.data.error;
-      throw new ApiRequestError(res.status, code, message, details);
+      const { code, message, details, existingId } = parsed.data.error;
+      throw new ApiRequestError(res.status, code, message, details, existingId);
     }
     throw new ApiRequestError(
       res.status,
