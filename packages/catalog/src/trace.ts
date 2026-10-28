@@ -20,11 +20,11 @@ import { wcagCriterion } from './wcag';
 export const CATALOG_VERSION = '2026-10-16';
 
 export interface TraceInput {
-  axeRuleId: string;
-  axeTags: readonly string[];
-  wcagCriteria: readonly string[];
-  docsUrl: string;
-  engineVersion: string | null;
+  axeRuleId: string;                 // ex. "image-alt"
+  axeTags: readonly string[];       // ex. ["wcag2a", "wcag111", "EN-9.1.1.1"]
+  wcagCriteria: readonly string[]; // ex. ["1.1.1"]  ← extras din etichete de normalize.ts
+  docsUrl: string;                // ex. "https://dequeuniversity.com/rules/axe/4.10/image-alt"
+  engineVersion: string | null;  // ex. "axe-core 4.13.0"
 }
 
 const REMEDIATION_BY_RULE = new Map(REMEDIATIONS.map((r) => [r.axeRuleId, r]));

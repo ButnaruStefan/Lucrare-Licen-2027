@@ -95,11 +95,11 @@ function normalizeRule(
     wcagCriteria: wcagCriteriaFromTags(rule.tags),
     elements: keepElements
       ? rule.nodes.map((node: NodeResult) => ({
-          cssSelector: node.target,
-          htmlSnippet: truncate(node.html),
-          failureSummary: node.failureSummary ?? null,
-          fingerprint: elementFingerprint(pageUrl, rule.id, node.target),
-        }))
+        cssSelector: node.target,
+        htmlSnippet: truncate(node.html),
+        failureSummary: node.failureSummary ?? null,
+        fingerprint: elementFingerprint(pageUrl, rule.id, node.target),
+      }))
       : [],
   };
 }

@@ -186,16 +186,22 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     res.json(toScanDto(row, summaries.get(row.id) ?? null));
   });
 
+  //endpoint care returneaza rezultatele scanarii
   router.get('/api/v1/scans/:scanId/results', async (req, res) => {
+    //partea de validare (ca cererea este ok, scanId e valid, scan exista)
+    //Uuid = identificator unic universal (unice la nivel mondial folosim pentru securitate)
     if (!isUuid(req.params.scanId)) throw scanNotFound();
     const filter = validate(ruleResultFilterSchema, req.query);
     const scan = await db.scan.findUnique({ where: { id: req.params.scanId } });
     if (!scan) throw scanNotFound();
 
+    //mergem in tabelul rule_result si extragem din el datele
     const rows = await db.ruleResult.findMany({
       where: { scanId: scan.id, ...(filter.category ? { category: filter.category } : {}) },
       include: { affectedElements: true },
     });
+
+    //sortam rezultatele in ordinea corecta (categorie, impact, axeRuleId)
     rows.sort(
       (a, b) =>
         CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category) ||
@@ -203,6 +209,7 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
         a.axeRuleId.localeCompare(b.axeRuleId),
     );
 
+    //mapam rezultatele in formatul corect (RuleResult) ce e cu r e din baza de date, ce e fara r e ce vom returna catre frontend
     const items: RuleResult[] = rows.map((r) => ({
       id: r.id,
       axeRuleId: r.axeRuleId,
@@ -214,6 +221,7 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
       axeTags: r.axeTags,
       wcagCriteria: r.wcagCriteria,
       isBestPractice: isBestPractice(r.axeTags, r.wcagCriteria),
+      // apelam buildTrace cu acesti parametrii
       trace: buildTrace({
         axeRuleId: r.axeRuleId,
         axeTags: r.axeTags,

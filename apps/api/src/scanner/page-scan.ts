@@ -30,26 +30,33 @@ export function axeTagsFor(config: Pick<ScanConfig, 'wcagProfile' | 'includeBest
   return tags;
 }
 
-/** Codurile de eroare posibile ale unei scanari esuate. */
+/** Codurile de eroare posibile ale unei scanari esuate.
+ *  unSAFE_URL - adresa URL nu este sigura (este de tip localhost sau este o adresa IP)
+ *  navigation_TIMEOUT - pagina nu s-a incarcat in timp util
+ *  navigation_FAILED - navigarea paginii a esuat
+ *  HTTP_ERROR - eroarea HTTP la navigarea paginii
+ *  ANALYSIS_FAILED - analiza paginii a esuat
+ */
 export type ScanErrorCode =
   'UNSAFE_URL' | 'NAVIGATION_TIMEOUT' | 'NAVIGATION_FAILED' | 'HTTP_ERROR' | 'ANALYSIS_FAILED';
 
+// Cele 2 tipuri de rezultate ale unei scanari (fie reusita, fie esuata)
 export type PageScanOutcome =
   | {
-      ok: true;
-      raw: AxeResults;
-      finalUrl: string;
-      httpStatus: number;
-      blockedRequests: string[];
-    }
+    ok: true;
+    raw: AxeResults;
+    finalUrl: string;
+    httpStatus: number;
+    blockedRequests: string[];
+  }
   | {
-      ok: false;
-      errorCode: ScanErrorCode;
-      errorMessage: string;
-      finalUrl: string | null;
-      httpStatus: number | null;
-      blockedRequests: string[];
-    };
+    ok: false;
+    errorCode: ScanErrorCode;
+    errorMessage: string;
+    finalUrl: string | null;
+    httpStatus: number | null;
+    blockedRequests: string[];
+  };
 
 /** Cat asteptam, cel mult, evenimentul "load" (imagini, stiluri) dupa ce documentul e gata. */
 const LOAD_WAIT_MS = 10_000;
@@ -67,6 +74,8 @@ export async function scanPage(
   config: ScanConfig,
   guard: RequestGuard,
 ): Promise<PageScanOutcome> {
+
+  // Lista cu URL-urile blocate de paznic (pentru diagnosticare)
   const blockedRequests: string[] = [];
   /** Motivul pentru care navigarea paginii principale a fost blocata (daca a fost). */
   let mainNavigationBlocked: string | null = null;
@@ -74,10 +83,10 @@ export async function scanPage(
   let pendingMainRedirect: string | null = null;
 
   const context = await browser.newContext({
-    viewport: config.viewport,
-    locale: config.locale,
-    acceptDownloads: false,
-    serviceWorkers: 'block',
+    viewport: config.viewport, //dimensiunea ferestrei browserului 
+    locale: config.locale, //limba browserului
+    acceptDownloads: false, //nu descarcam fisiere
+    serviceWorkers: 'block', //blocam worker-ii (serviciile web)
   });
 
   try {
@@ -97,20 +106,21 @@ export async function scanPage(
       const isMainNavigation =
         request.isNavigationRequest() && request.frame().parentFrame() === null;
 
+      //Functia de la Paznic verifica daca URL-ul este sigur
       const check = await guard(url);
       if (!check.ok) {
-        blockedRequests.push(url);
+        blockedRequests.push(url); //punem intr-un array URL-urile blocate pt diagnostic
         if (isMainNavigation) mainNavigationBlocked = check.message;
-        return route.abort('blockedbyclient');
+        return route.abort('blockedbyclient'); //punem intr-un alt array motivul pt care a fost blocata cererea
       }
 
       try {
-        let response = await route.fetch({ maxRedirects: 0, timeout: config.timeoutMs });
-        let location = response.headers()['location'];
+        let response = await route.fetch({ maxRedirects: 0, timeout: config.timeoutMs }); //0 pt ca noi facem redirectionarile manual
+        let location = response.headers()['location'];  //header-ul de la raspunsul HTTP care ne indica daca s-a facut o redirectionare
 
         if (isRedirect(response.status()) && location && isMainNavigation) {
-          pendingMainRedirect = new URL(location, url).toString();
-          return await route.abort('aborted');
+          pendingMainRedirect = new URL(location, url).toString(); //se salveaza redirectarea pt a fi dusa mai tarziu la final
+          return await route.abort('aborted'); //se opreste cererea de la pagina principala pt a nu face redirectarile automat
         }
 
         let currentUrl = url;
@@ -130,7 +140,7 @@ export async function scanPage(
         }
         return await route.fulfill({ response });
       } catch {
-        return route.abort('failed').catch(() => {});
+        return route.abort('failed').catch(() => { });
       }
     });
     // Conexiunile WebSocket nu trec prin route(), deci le inchidem pe toate.
@@ -205,7 +215,7 @@ export async function scanPage(
     }
 
     // Lasam pagina sa termine de incarcat imaginile si stilurile, dar fara sa asteptam la nesfarsit.
-    await page.waitForLoadState('load', { timeout: LOAD_WAIT_MS }).catch(() => {});
+    await page.waitForLoadState('load', { timeout: LOAD_WAIT_MS }).catch(() => { });
     if (config.settleMs > 0) await page.waitForTimeout(config.settleMs);
 
     // Pagina a incercat, din JavaScript, sa navigheze spre o adresa interzisa.
@@ -228,7 +238,7 @@ export async function scanPage(
 
     return { ok: true, raw, finalUrl: page.url(), httpStatus, blockedRequests };
   } finally {
-    await context.close().catch(() => {});
+    await context.close().catch(() => { });
   }
 }
 

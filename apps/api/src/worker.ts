@@ -13,13 +13,13 @@
  * blocata (limita de timp depasita) inchide browserul si porneste altul. Astfel, o problema a
  * browserului (ex. Chrome actualizat automat in timp ce ruleaza) afecteaza cel mult o scanare.
  */
-import { env } from './config/env';
-import { createPrismaClient } from './db/prisma';
-import { createLogger } from './lib/logger';
-import { describeBrowser, launchBrowser } from './scanner/browser';
-import { processScan } from './scans/process-scan';
-import type { Browser } from 'playwright';
-import { claimNextScan, failStaleScans } from './scans/queue';
+import { env } from './config/env'; //variabile de mediu
+import { createPrismaClient } from './db/prisma'; //prisma client
+import { createLogger } from './lib/logger'; //logger
+import { describeBrowser, launchBrowser } from './scanner/browser'; //browser
+import { processScan } from './scans/process-scan'; //proces scanare
+import type { Browser } from 'playwright'; //tip browser
+import { claimNextScan, failStaleScans } from './scans/queue'; //coada de scanari
 
 /**
  * La pornire, scanarile ramase "running" mai vechi de atat sunt considerate intrerupte.
@@ -53,8 +53,9 @@ async function closeBrowser() {
   const current = browser;
   browser = null;
   if (!current) return;
+  //daca browserul e blocat, il inchidem dupa un anumit timp (intrecere intre inchidere si timeout)
   await Promise.race([
-    current.close().catch(() => {}),
+    current.close().catch(() => { }), // catch la eventuala eroare la inchidere
     new Promise((resolve) => setTimeout(resolve, BROWSER_CLOSE_TIMEOUT_MS)),
   ]);
 }
