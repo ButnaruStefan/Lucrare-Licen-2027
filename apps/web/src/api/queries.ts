@@ -6,9 +6,12 @@
  * (proiect nou, scanare noua), listele afectate sunt reincarcate automat.
  *
  * O scanare in curs ("queued" sau "running") este reverificata periodic, pana se termina.
+ * Profilul juridic (OUG 112/2018) al unui proiect se citeste si se salveaza tot de aici.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  legalProfileResponseSchema,
+  legalProfileSchema,
   projectListSchema,
   projectSchema,
   ruleResultListSchema,
@@ -16,6 +19,8 @@ import {
   scanSchema,
   type CreateProjectInput,
   type CreateScanInput,
+  type LegalProfileAnswers,
+  type LegalProfileResponse,
 } from '@ro-a11y/shared';
 import { apiRequest } from './client';
 
@@ -26,6 +31,7 @@ export const queryKeys = {
   projects: ['projects'] as const,
   project: (id: string) => ['projects', id] as const,
   projectScans: (id: string) => ['projects', id, 'scans'] as const,
+  legalProfile: (id: string) => ['projects', id, 'legal-profile'] as const,
   scan: (id: string) => ['scans', id] as const,
   scanResults: (id: string) => ['scans', id, 'results'] as const,
 };
@@ -101,5 +107,40 @@ export function useScanResults(scanId: string, enabled: boolean) {
         signal,
       }),
     enabled,
+  });
+}
+
+/** Intrebarile chestionarului OUG 112/2018 si profilul juridic salvat al proiectului (sau null). */
+export function useLegalProfile(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.legalProfile(projectId),
+    queryFn: ({ signal }) =>
+      apiRequest(
+        `/api/v1/projects/${encodeURIComponent(projectId)}/legal-profile`,
+        legalProfileResponseSchema,
+        { signal },
+      ),
+  });
+}
+
+/**
+ * Salveaza raspunsurile si primeste evaluarea. Dupa salvare, rezultatele scanarilor sunt
+ * reincarcate, pentru ca pasul "Aplicabilitate" din lantul de trasabilitate se schimba.
+ */
+export function useSaveLegalProfile(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (answers: LegalProfileAnswers) =>
+      apiRequest(
+        `/api/v1/projects/${encodeURIComponent(projectId)}/legal-profile`,
+        legalProfileSchema,
+        { method: 'PUT', body: answers },
+      ),
+    onSuccess: (profile) => {
+      queryClient.setQueryData<LegalProfileResponse>(queryKeys.legalProfile(projectId), (old) =>
+        old ? { ...old, profile } : old,
+      );
+      return queryClient.invalidateQueries({ queryKey: ['scans'] });
+    },
   });
 }

@@ -178,7 +178,96 @@ describe('pagina proiectului', () => {
 
     await page.getByRole('button', { name: 'Scanează pagina' }).waitFor();
     await page.getByRole('cell', { name: 'Finalizată' }).waitFor();
+    // Profilul juridic necompletat: statusul "Neevaluată" si legatura spre chestionar
+    await page.getByRole('link', { name: 'Completează profilul juridic' }).waitFor();
     expect(await axeViolations()).toEqual([]);
+  });
+});
+
+describe('profilul juridic (OUG 112/2018)', () => {
+  const profileUrl = () => `${baseUrl}/proiecte/${PROJECT.id}/profil-juridic`;
+  const patience = { timeout: 10_000 };
+
+  it('afiseaza intrebarile in functie de raspunsuri, fara probleme de accesibilitate', async () => {
+    await mockApi(page);
+    await page.goto(profileUrl());
+
+    const first = page.getByRole('group', { name: 'Cine administrează site-ul?' });
+    await first.waitFor(patience);
+    // La inceput apare doar prima intrebare
+    expect(await page.getByRole('group').count()).toBe(1);
+    expect(await axeViolations()).toEqual([]);
+
+    // Pentru un ONG apar si intrebarile despre servicii
+    await page.getByRole('radio', { name: /fără scop patrimonial/ }).check();
+    expect(await page.getByRole('group').count()).toBe(5);
+    // Pentru o firma privata nu mai e nevoie de alte intrebari
+    await page.getByRole('radio', { name: /firmă privată/ }).check();
+    expect(await page.getByRole('group').count()).toBe(1);
+  });
+
+  it('o intrebare fara raspuns e semnalata, iar focusul merge pe ea', async () => {
+    await mockApi(page);
+    await page.goto(profileUrl());
+    await page.getByRole('radio', { name: /autoritate sau instituție publică/ }).check(patience);
+
+    await page.getByRole('button', { name: 'Evaluează și salvează' }).click();
+
+    const broadcaster = page.getByRole('group', { name: /radiodifuziune/ });
+    await broadcaster.getByText('Alege un răspuns.').waitFor(patience);
+    const focused = await page.evaluate(() => document.activeElement?.getAttribute('name'));
+    expect(focused).toBe('publicBroadcaster');
+    expect(await page.getByRole('heading', { name: 'Rezultatul evaluării' }).count()).toBe(0);
+  });
+
+  it('evalueaza raspunsurile si arata temeiul, fara probleme de accesibilitate', async () => {
+    await mockApi(page);
+    await page.goto(profileUrl());
+    await page.getByRole('radio', { name: /autoritate sau instituție publică/ }).check(patience);
+    await page
+      .getByRole('group', { name: /radiodifuziune/ })
+      .getByLabel('Nu', { exact: true })
+      .check();
+    await page.getByRole('radio', { name: 'Publicului larg' }).check();
+
+    await page.getByRole('button', { name: 'Evaluează și salvează' }).click();
+
+    const heading = page.getByRole('heading', { name: 'Rezultatul evaluării' });
+    await heading.waitFor(patience);
+    await page.waitForFunction(() => document.activeElement?.id === 'rezultat-profil');
+    const result = await page.locator('.assessment').innerText();
+    expect(result).toContain('Aplicabilă, conform răspunsurilor');
+    expect(result).toContain('art. 2 lit. a)');
+    expect(result).toContain('De confirmat de un specialist');
+    expect(result).toContain('Nu este consultanță juridică');
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('pentru un ONG fara servicii esentiale sau pentru persoane cu dizabilitati arata exceptia', async () => {
+    await mockApi(page);
+    await page.goto(profileUrl());
+    await page.getByRole('radio', { name: /fără scop patrimonial/ }).check(patience);
+    await page
+      .getByRole('group', { name: /radiodifuziune/ })
+      .getByLabel('Nu', { exact: true })
+      .check();
+    await page
+      .getByRole('group', { name: /servicii esențiale/ })
+      .getByLabel('Nu', { exact: true })
+      .check();
+    await page
+      .getByRole('group', { name: /dizabilități/ })
+      .getByLabel('Nu', { exact: true })
+      .check();
+    await page.getByRole('radio', { name: 'Publicului larg' }).check();
+
+    await page.getByRole('button', { name: 'Evaluează și salvează' }).click();
+
+    await page.getByRole('heading', { name: 'Rezultatul evaluării' }).waitFor(patience);
+    const result = await page.locator('.assessment').innerText();
+    expect(result).toContain('Neaplicabilă, conform răspunsurilor');
+    expect(result).toContain('art. 1 alin. (3) lit. b)');
+    expect(result).toContain('art. 1 alin. (3) lit. c)');
   });
 });
 

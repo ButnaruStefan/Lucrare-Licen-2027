@@ -28,6 +28,10 @@ export function AboutPage() {
           <li>
             Păstrează configurația și versiunile folosite, ca rezultatele să fie reproductibile.
           </li>
+          <li>
+            Arată orientativ, pe baza unui chestionar despre cine administrează site-ul, dacă OUG
+            nr. 112/2018 ar putea să se aplice, cu articolele citate exact din textul oficial.
+          </li>
         </ul>
       </section>
 
@@ -40,7 +44,9 @@ export function AboutPage() {
           </li>
           <li>
             <strong>Nu dă verdicte juridice.</strong> Rezultatele sunt constatări tehnice, nu
-            încălcări ale legii.
+            încălcări ale legii. Profilul juridic se bazează doar pe răspunsurile declarate și
+            trebuie confirmat de un specialist. Legea nr. 232/2022 (produse și servicii private) nu
+            este evaluată.
           </li>
           <li>
             Nu evaluează sensul conținutului (de exemplu, dacă un text alternativ descrie corect o

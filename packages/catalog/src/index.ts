@@ -6,4 +6,5 @@ export * from './wcag';
 export * from './en301549';
 export * from './legislatie';
 export * from './trace';
+export * from './profil-oug112';
 export { REMEDIATIONS, REMEDIATIONS_STATUS } from './data/remedieri-ro';

@@ -23,7 +23,13 @@ function selectorText(cssSelector: unknown): string {
   return Array.isArray(cssSelector) ? cssSelector.join(' → ') : JSON.stringify(cssSelector);
 }
 
-export function RuleResultItem({ result }: { result: RuleResult }) {
+export function RuleResultItem({
+  result,
+  legalProfileHref,
+}: {
+  result: RuleResult;
+  legalProfileHref?: string;
+}) {
   const count = result.affectedElements.length;
   const remediation = result.trace.remediation;
 
@@ -117,7 +123,11 @@ export function RuleResultItem({ result }: { result: RuleResult }) {
           )}
 
           <CollapsibleSection title="Trasabilitate normativă" hint={traceSummary(result.trace)}>
-            <TraceabilityExplorer trace={result.trace} elementCount={count} />
+            <TraceabilityExplorer
+              trace={result.trace}
+              elementCount={count}
+              legalProfileHref={legalProfileHref}
+            />
           </CollapsibleSection>
 
           <CollapsibleSection title="Detalii tehnice" hint={`axe-core · ${result.axeRuleId}`}>

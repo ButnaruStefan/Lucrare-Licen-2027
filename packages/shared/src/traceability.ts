@@ -7,6 +7,7 @@
  * ca interfata sa poata arata clar ce e verificat si ce e doar dedus sau de validat.
  */
 import { z } from 'zod';
+import { APPLICABILITY_STATUSES } from './legal-profile';
 
 export const traceWcagSchema = z.object({
   number: z.string(),
@@ -69,10 +70,15 @@ export const traceSchema = z.object({
   }),
   legal: z.array(traceLegalSchema),
   legalFramework: z.object({ name: z.string(), sourceUrl: z.string(), retrievedAt: z.string() }),
-  /** Aplicabilitatea legii depinde de profilul organizatiei (cine administreaza site-ul). */
+  /**
+   * Aplicabilitatea legii depinde de profilul organizatiei (cine administreaza site-ul).
+   * "not_assessed" cat timp profilul juridic al proiectului nu a fost completat.
+   */
   applicability: z.object({
-    status: z.enum(['not_assessed']),
+    status: z.enum(APPLICABILITY_STATUSES),
     message: z.string(),
+    /** Data completarii profilului juridic (null daca nu a fost completat). */
+    assessedAt: z.string().nullable(),
   }),
   remediation: remediationSchema.nullable(),
   remediationStatus: z.string(),

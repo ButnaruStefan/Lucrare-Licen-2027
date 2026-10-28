@@ -55,7 +55,7 @@ async function closeBrowser() {
   if (!current) return;
   //daca browserul e blocat, il inchidem dupa un anumit timp (intrecere intre inchidere si timeout)
   await Promise.race([
-    current.close().catch(() => { }), // catch la eventuala eroare la inchidere
+    current.close().catch(() => {}), // catch la eventuala eroare la inchidere
     new Promise((resolve) => setTimeout(resolve, BROWSER_CLOSE_TIMEOUT_MS)),
   ]);
 }

@@ -103,7 +103,12 @@ function ScanView({ scan }: { scan: Scan }) {
           <h2 id="rezultate">Rezultate pe reguli</h2>
           {results.isPending && <Loading label="Se încarcă rezultatele..." />}
           {results.isError && <ErrorMessage error={results.error} />}
-          {results.data && <ResultsExplorer items={results.data.items} />}
+          {results.data && (
+            <ResultsExplorer
+              items={results.data.items}
+              legalProfileHref={`/proiecte/${scan.projectId}/profil-juridic`}
+            />
+          )}
         </section>
       )}
     </>
@@ -240,7 +245,13 @@ function filtersFromParams(params: URLSearchParams): Filters {
  * Daca am citi valoarea DOAR din adresa, campul ar ramane o clipa la valoarea veche (adresa se
  * actualizeaza cu intarziere), iar la tastare s-ar putea pierde litere.
  */
-function ResultsExplorer({ items }: { items: RuleResult[] }) {
+function ResultsExplorer({
+  items,
+  legalProfileHref,
+}: {
+  items: RuleResult[];
+  legalProfileHref: string;
+}) {
   const [params, setParams] = useSearchParams();
   const [filters, setFilters] = useState(() => filtersFromParams(params));
   const { category, impact, showBestPractices, query } = filters;
@@ -348,7 +359,7 @@ function ResultsExplorer({ items }: { items: RuleResult[] }) {
       ) : (
         <ul className="rule-list">
           {visible.map((item) => (
-            <RuleResultItem key={item.id} result={item} />
+            <RuleResultItem key={item.id} result={item} legalProfileHref={legalProfileHref} />
           ))}
         </ul>
       )}

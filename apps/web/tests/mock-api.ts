@@ -4,12 +4,14 @@
  * Testele interfetei nu au nevoie de server, baza de date sau worker reale.
  */
 import type { Page } from 'playwright';
-import { buildTrace } from '@ro-a11y/catalog';
+import { buildTrace, evaluateOug112, OUG_112_QUESTIONS } from '@ro-a11y/catalog';
 import {
+  legalProfileAnswersSchema,
   projectSchema,
   ruleResultSchema,
   scanConfigSchema,
   scanSchema,
+  type LegalProfile,
   type Project,
   type RuleResult,
   type Scan,
@@ -156,13 +158,19 @@ export interface MockApiOptions {
   scanSequence?: Scan[];
   /** Raspunsul pentru POST /api/v1/projects. */
   createProject?: { status: number; body: unknown };
+  /** Profilul juridic salvat la inceput (implicit: necompletat). */
+  legalProfile?: LegalProfile | null;
 }
+
+/** Data fixa a evaluarii in profilul simulat. */
+export const LEGAL_PROFILE_DATE = '2026-10-28T10:00:00.000Z';
 
 /** Intercepteaza cererile catre API si raspunde cu datele de test. */
 export async function mockApi(page: Page, options: MockApiOptions = {}) {
   const projects = options.projects ?? [PROJECT];
   const scans = options.scanSequence ?? [makeScan()];
   let scanCall = 0;
+  let legalProfile = options.legalProfile ?? null;
 
   const json = (body: unknown, status = 200) => ({
     status,
@@ -184,6 +192,28 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
   await page.route(`**/api/v1/projects/${PROJECT.id}/scans`, (route) =>
     route.fulfill(json({ items: [scans[scans.length - 1]] })),
   );
+  // Profilul juridic: GET trimite intrebarile si profilul; PUT il evalueaza cu motorul real.
+  await page.route(`**/api/v1/projects/${PROJECT.id}/legal-profile`, (route) => {
+    if (route.request().method() === 'PUT') {
+      const parsed = legalProfileAnswersSchema.safeParse(route.request().postDataJSON());
+      if (!parsed.success) {
+        const details = parsed.error.issues.map((i) => ({
+          field: i.path.join('.'),
+          message: i.message,
+        }));
+        const message = 'Datele trimise nu sunt valide.';
+        return route.fulfill(json({ error: { code: 'VALIDATION_ERROR', message, details } }, 400));
+      }
+      legalProfile = {
+        projectId: PROJECT.id,
+        answers: parsed.data,
+        assessment: evaluateOug112(parsed.data),
+        updatedAt: LEGAL_PROFILE_DATE,
+      };
+      return route.fulfill(json(legalProfile));
+    }
+    return route.fulfill(json({ questions: OUG_112_QUESTIONS, profile: legalProfile }));
+  });
   await page.route('**/api/v1/scans/*/results', (route) => route.fulfill(json({ items: RESULTS })));
   await page.route(/\/api\/v1\/scans\/[^/]+$/, (route) => {
     const id = route.request().url().split('/').pop();

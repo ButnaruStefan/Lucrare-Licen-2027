@@ -17,6 +17,7 @@ import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
 import { PageHeading } from '../components/PageHeading';
 import { TextField } from '../components/TextField';
 import type { Project } from '@ro-a11y/shared';
+import { useFocusFirstInvalid } from '../lib/focus';
 import { formatDate } from '../lib/labels';
 
 export function ProjectsPage() {
@@ -77,6 +78,8 @@ function NewProjectForm({ existingProjects }: { existingProjects: Project[] }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   const error = createProject.error;
+  // Dupa o eroare, focusul merge pe primul camp marcat gresit (unde trebuie corectat).
+  useFocusFirstInvalid(formRef, error);
   const fieldErrors =
     error instanceof ApiRequestError
       ? Object.fromEntries(error.details.map((d) => [d.field, d.message]))
@@ -98,12 +101,6 @@ function NewProjectForm({ existingProjects }: { existingProjects: Project[] }) {
       { name, baseUrl },
       {
         onSuccess: (project) => navigate(`/proiecte/${project.id}`),
-        onError: () => {
-          // Focus pe primul camp marcat gresit, ca utilizatorul sa stie unde sa corecteze.
-          requestAnimationFrame(() =>
-            formRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus(),
-          );
-        },
       },
     );
   }

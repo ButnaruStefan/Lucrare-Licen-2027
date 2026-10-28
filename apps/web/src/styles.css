@@ -918,6 +918,84 @@ button:disabled {
   color: var(--neutral-text);
 }
 
+/* --- Profil juridic (OUG 112/2018) --- */
+
+.question {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  border: 0;
+}
+
+.question__text {
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+  padding: 0;
+}
+
+.question__ref {
+  white-space: nowrap;
+}
+
+.question__options {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.field--radio {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.5rem;
+  align-items: start;
+}
+
+.field--radio input {
+  margin-top: 0.3rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.field--radio input[aria-invalid='true'] {
+  outline: 2px solid var(--error-text);
+  outline-offset: 2px;
+}
+
+.question__option-help {
+  grid-column: 2;
+  margin: 0.1rem 0 0;
+}
+
+.assessment__summary {
+  font-size: 1.05rem;
+  margin: 0.5rem 0;
+}
+
+.assessment__block h3 {
+  font-size: 1rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.assessment__reasons {
+  padding-left: 1.25rem;
+}
+
+.badge--legal-applicable {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.badge--legal-possibly-applicable,
+.badge--legal-insufficient-information {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.badge--legal-not-applicable,
+.badge--legal-not-assessed {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

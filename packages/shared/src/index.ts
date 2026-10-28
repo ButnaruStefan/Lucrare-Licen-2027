@@ -5,5 +5,6 @@
 export * from './health';
 export * from './errors';
 export * from './projects';
+export * from './legal-profile';
 export * from './scans';
 export * from './traceability';

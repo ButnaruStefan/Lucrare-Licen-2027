@@ -35,7 +35,7 @@ worker.ts (proces separat)
 | `src/lib/logger.ts`         | Loguri structurate (Pino), cu date sensibile ascunse                                       |
 | `src/lib/validation.ts`     | Valideaza datele primite; la eroare raspunde 400 cu lista campurilor gresite               |
 | `src/middleware/`           | Functii care ruleaza pentru fiecare cerere (ID, loguri, erori)                             |
-| `src/routes/`               | Endpointurile API, grupate pe domenii (`health`, `projects`, `scans`)                      |
+| `src/routes/`               | Endpointurile API, grupate pe domenii (`health`, `projects`, `legal-profile`, `scans`)     |
 | `src/safety/url-guard.ts`   | Paznicul adreselor (protectie SSRF), folosit in API si pentru fiecare cerere a browserului |
 | `src/scanner/browser.ts`    | Pornirea browserului (Chrome instalat, Edge sau Chromium)                                  |
 | `src/scanner/page-scan.ts`  | Scanarea unei pagini: incarcare sigura (inclusiv redirectionari) + axe-core                |
@@ -54,17 +54,19 @@ worker.ts (proces separat)
 
 ## Endpointuri existente
 
-| Metoda | Ruta                                | Raspuns                                                                                                                  |
-| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/health`                           | 200 cat timp procesul ruleaza                                                                                            |
-| GET    | `/api/v1/health/ready`              | 200 daca si baza de date raspunde, altfel 503                                                                            |
-| POST   | `/api/v1/projects`                  | Creeaza un proiect (`name`, `baseUrl`); 201, 400 la date invalide, 409 daca exista deja un proiect pentru aceeasi adresa |
-| GET    | `/api/v1/projects`                  | Lista proiectelor, cele mai noi primele                                                                                  |
-| GET    | `/api/v1/projects/:projectId`       | Un proiect; 404 daca nu exista                                                                                           |
-| POST   | `/api/v1/projects/:projectId/scans` | Pune o scanare in coada (202); 400 daca adresa e nesigura sau de pe alt site                                             |
-| GET    | `/api/v1/projects/:projectId/scans` | Scanarile proiectului, cu sumar                                                                                          |
-| GET    | `/api/v1/scans/:scanId`             | O scanare: stare, configuratie, versiuni, sumar                                                                          |
-| GET    | `/api/v1/scans/:scanId/results`     | Rezultatele pe reguli, cu elementele afectate (filtru `?category=violation`)                                             |
+| Metoda | Ruta                                        | Raspuns                                                                                                                  |
+| ------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/health`                                   | 200 cat timp procesul ruleaza                                                                                            |
+| GET    | `/api/v1/health/ready`                      | 200 daca si baza de date raspunde, altfel 503                                                                            |
+| POST   | `/api/v1/projects`                          | Creeaza un proiect (`name`, `baseUrl`); 201, 400 la date invalide, 409 daca exista deja un proiect pentru aceeasi adresa |
+| GET    | `/api/v1/projects`                          | Lista proiectelor, cele mai noi primele                                                                                  |
+| GET    | `/api/v1/projects/:projectId`               | Un proiect; 404 daca nu exista                                                                                           |
+| GET    | `/api/v1/projects/:projectId/legal-profile` | Intrebarile chestionarului OUG 112/2018 si profilul salvat (sau `null`)                                                  |
+| PUT    | `/api/v1/projects/:projectId/legal-profile` | Salveaza raspunsurile si evaluarea lor; 400 daca lipseste un raspuns necesar                                             |
+| POST   | `/api/v1/projects/:projectId/scans`         | Pune o scanare in coada (202); 400 daca adresa e nesigura sau de pe alt site                                             |
+| GET    | `/api/v1/projects/:projectId/scans`         | Scanarile proiectului, cu sumar                                                                                          |
+| GET    | `/api/v1/scans/:scanId`                     | O scanare: stare, configuratie, versiuni, sumar                                                                          |
+| GET    | `/api/v1/scans/:scanId/results`             | Rezultatele pe reguli, cu elementele afectate si lantul de trasabilitate (filtru `?category=violation`)                  |
 
 ## Coduri de eroare ale unei scanari esuate
 

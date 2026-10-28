@@ -11,6 +11,7 @@ import type { Logger } from './lib/logger';
 import { requestLogger } from './middleware/request-id';
 import { errorHandler, notFoundHandler } from './middleware/errors';
 import { healthRouter, type HealthDeps } from './routes/health';
+import { legalProfileRouter } from './routes/legal-profile';
 import { projectsRouter, type ProjectsDeps } from './routes/projects';
 import { scansRouter, type ScansDeps } from './routes/scans';
 
@@ -27,6 +28,7 @@ export function createApp(deps: AppDeps) {
 
   app.use(healthRouter(deps));
   app.use(projectsRouter(deps));
+  app.use(legalProfileRouter(deps));
   app.use(scansRouter(deps));
 
   // Trebuie sa fie ultimele: prind tot ce n-a fost tratat mai sus.

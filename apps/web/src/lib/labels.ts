@@ -2,7 +2,22 @@
  * Textele in romana afisate pentru valorile tehnice (stari, categorii, gravitate) si
  * formatarea datelor calendaristice. Un singur loc pentru toate etichetele interfetei.
  */
-import type { Impact, ResultCategory, ScanStatus, WcagProfile } from '@ro-a11y/shared';
+import type {
+  ApplicabilityStatus,
+  Impact,
+  ResultCategory,
+  ScanStatus,
+  WcagProfile,
+} from '@ro-a11y/shared';
+
+/** Aplicabilitatea OUG 112/2018 (din profilul juridic al proiectului). */
+export const APPLICABILITY_LABELS: Record<ApplicabilityStatus, string> = {
+  applicable: 'Aplicabilă, conform răspunsurilor',
+  possibly_applicable: 'Posibil aplicabilă',
+  not_applicable: 'Neaplicabilă, conform răspunsurilor',
+  insufficient_information: 'Informații insuficiente',
+  not_assessed: 'Neevaluată',
+};
 
 export const SCAN_STATUS_LABELS: Record<ScanStatus, string> = {
   queued: 'În așteptare',

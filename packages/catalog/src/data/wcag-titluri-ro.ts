@@ -5,7 +5,7 @@
  * ATENTIE: este o traducere de lucru a autorului proiectului, NU o traducere oficiala W3C.
  * Interfata o afiseaza ca atare, langa titlul oficial in engleza (sursa de referinta).
  */
-export const WCAG_TITLES_RO_STATUS = 'traducere manuala neoficiala';
+export const WCAG_TITLES_RO_STATUS = 'traducere manuală neoficială';
 
 export const WCAG_TITLES_RO: Record<string, string> = {
   // 1. Perceptibil

@@ -4,6 +4,8 @@
 //   2) clientul TypeScript (src/generated/prisma/) cu care API-ul citeste si scrie date.
 // Adresa bazei de date NU e aici, ci in prisma.config.ts (citita din .env).
 
+// Aici este cum arata baza de date in final (schema). Migartions e efectiv jurnalul prin care am ajuns noi aici (modificare dupa modificare)
+
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -81,7 +83,6 @@ model Scan {
   httpStatus     Int?       @map("http_status") // codul HTTP primit la incarcarea paginii
   status         ScanStatus @default(queued)
   wcagProfile    String     @default("WCAG_2_2_AA") @map("wcag_profile") // standardul verificat
-  catalogVersion String?    @map("catalog_version") // versiunea catalogului normativ (WCAG, EN, legislatie) folosit
   config         Json // viewport, limba, timeout etc. — fixate la creare
   engineName     String?    @map("engine_name") // ex. "axe-core"
   engineVersion  String?    @map("engine_version") // ex. "4.13.0"
@@ -103,7 +104,7 @@ model Scan {
 // Rezultatul unei reguli axe-core intr-o scanare (ex. "image-alt: violation").
 model RuleResult {
   id           String         @id @default(uuid())
-  scanId       String         @map("scan_id") // scanarea careia ii apartine
+  scanId       String         @map("scan_id") // scanarea careia ii apartiness
   scan         Scan           @relation(fields: [scanId], references: [id], onDelete: Cascade)
   axeRuleId    String         @map("axe_rule_id") // identificatorul regulii, ex. "image-alt"
   category     ResultCategory // violation / incomplete / pass / inapplicable

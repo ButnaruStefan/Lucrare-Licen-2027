@@ -1,5 +1,6 @@
 /**
- * Pagina unui proiect: pornirea unei scanari noi si istoricul scanarilor.
+ * Pagina unui proiect: profilul juridic (pe scurt), pornirea unei scanari noi si istoricul
+ * scanarilor.
  *
  * Formularul permite alegerea paginii (implicit adresa proiectului), a profilului WCAG si
  * includerea "bunelor practici". Dupa pornire, utilizatorul ajunge pe pagina scanarii, unde
@@ -9,11 +10,13 @@ import { useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { WCAG_PROFILES, type Project, type WcagProfile } from '@ro-a11y/shared';
 import { ApiRequestError } from '../api/client';
-import { useCreateScan, useProject, useProjectScans } from '../api/queries';
+import { useCreateScan, useLegalProfile, useProject, useProjectScans } from '../api/queries';
 import { ScanStatusBadge } from '../components/Badges';
 import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
+import { ApplicabilityBadge } from '../components/LegalAssessmentView';
 import { PageHeading } from '../components/PageHeading';
 import { TextField } from '../components/TextField';
+import { useFocusFirstInvalid } from '../lib/focus';
 import { formatDate, WCAG_PROFILE_LABELS } from '../lib/labels';
 
 export function ProjectPage() {
@@ -42,9 +45,47 @@ export function ProjectPage() {
       <PageHeading title={project.data.name} />
       <p className="lead url">{project.data.baseUrl}</p>
 
+      <LegalProfileSummary projectId={projectId} />
       <NewScanForm project={project.data} />
       <ScanHistory projectId={projectId} />
     </>
+  );
+}
+
+/** Profilul juridic pe scurt: statusul si legatura spre chestionar. */
+function LegalProfileSummary({ projectId }: { projectId: string }) {
+  const legalProfile = useLegalProfile(projectId);
+  const profile = legalProfile.data?.profile ?? null;
+  const href = `/proiecte/${projectId}/profil-juridic`;
+
+  return (
+    <section aria-labelledby="profil-juridic" className="section card">
+      <h2 id="profil-juridic">Profil juridic (OUG 112/2018)</h2>
+      {legalProfile.isPending && <Loading label="Se încarcă profilul juridic..." />}
+      {legalProfile.isError && <ErrorMessage error={legalProfile.error} />}
+      {legalProfile.data && !profile && (
+        <>
+          <p>
+            <ApplicabilityBadge status="not_assessed" /> Răspunde la câteva întrebări despre cine
+            administrează site-ul, ca să afli dacă legea accesibilității pentru sectorul public ar
+            putea să se aplice.
+          </p>
+          <p>
+            <Link to={href}>Completează profilul juridic</Link>
+          </p>
+        </>
+      )}
+      {profile && (
+        <>
+          <p>
+            <ApplicabilityBadge status={profile.assessment.status} /> {profile.assessment.summary}
+          </p>
+          <p>
+            <Link to={href}>Vezi detaliile sau modifică răspunsurile</Link>
+          </p>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -59,6 +100,7 @@ function NewScanForm({ project }: { project: Project }) {
   const bestPracticesId = useId();
 
   const error = createScan.error;
+  useFocusFirstInvalid(formRef, error);
   const fieldErrors =
     error instanceof ApiRequestError
       ? Object.fromEntries(error.details.map((d) => [d.field, d.message]))
@@ -78,10 +120,6 @@ function NewScanForm({ project }: { project: Project }) {
       { pageUrl: pageUrl.trim() || undefined, wcagProfile, includeBestPractices },
       {
         onSuccess: (scan) => navigate(`/scanari/${scan.id}`),
-        onError: () =>
-          requestAnimationFrame(() =>
-            formRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus(),
-          ),
       },
     );
   }

@@ -213,6 +213,24 @@ describe('GET scanari si rezultate', () => {
     expect(violations.items).toHaveLength(2);
   });
 
+  it('aplicabilitatea din lant vine din profilul juridic al proiectului', async () => {
+    const { project, scan } = await createCompletedScan();
+    const resultsOf = async () =>
+      ruleResultListSchema.parse((await request(app).get(`/api/v1/scans/${scan.id}/results`)).body)
+        .items[0]!.trace.applicability;
+
+    expect((await resultsOf()).status).toBe('not_assessed');
+
+    await request(app)
+      .put(`/api/v1/projects/${project.id}/legal-profile`)
+      .send({ organizationType: 'public_authority', publicBroadcaster: 'no', audience: 'public' })
+      .expect(200);
+
+    const applicability = await resultsOf();
+    expect(applicability.status).toBe('applicable');
+    expect(applicability.assessedAt).not.toBeNull();
+  });
+
   it('respinge o categorie necunoscuta (400) si o scanare inexistenta (404)', async () => {
     const { scan } = await createCompletedScan();
     expect(

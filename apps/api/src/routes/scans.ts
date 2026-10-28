@@ -6,7 +6,8 @@
  * - GET  /api/v1/projects/:projectId/scans  — scanarile unui proiect, cele mai noi primele
  * - GET  /api/v1/scans/:scanId              — o scanare: stare, configuratie, versiuni, sumar
  * - GET  /api/v1/scans/:scanId/results      — rezultatele pe reguli, cu elementele afectate si
- *                                             lantul de trasabilitate (WCAG -> EN -> OUG 112/2018)
+ *                                             lantul de trasabilitate (WCAG -> EN -> OUG 112/2018,
+ *                                             cu aplicabilitatea din profilul juridic al proiectului)
  *                                             (filtru optional: ?category=violation)
  *
  * Inainte de a crea scanarea, adresa trece prin paznic (protectie SSRF) si trebuie sa apartina
@@ -16,6 +17,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import {
   createScanSchema,
+  legalAssessmentSchema,
   ruleResultFilterSchema,
   scanConfigSchema,
   type ResultCategory,
@@ -195,6 +197,15 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     const scan = await db.scan.findUnique({ where: { id: req.params.scanId } });
     if (!scan) throw scanNotFound();
 
+    // Profilul juridic al proiectului decide pasul "Aplicabilitate" din lantul de trasabilitate
+    const legalProfile = await db.legalProfile.findUnique({ where: { projectId: scan.projectId } });
+    const legalAssessment = legalProfile
+      ? {
+          assessment: legalAssessmentSchema.parse(legalProfile.assessment),
+          assessedAt: legalProfile.updatedAt.toISOString(),
+        }
+      : null;
+
     //mergem in tabelul rule_result si extragem din el datele
     const rows = await db.ruleResult.findMany({
       where: { scanId: scan.id, ...(filter.category ? { category: filter.category } : {}) },
@@ -228,6 +239,7 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
         wcagCriteria: r.wcagCriteria,
         docsUrl: r.docsUrl,
         engineVersion: scan.engineVersion,
+        legalAssessment,
       }),
       affectedElements: r.affectedElements.map((e) => ({
         id: e.id,

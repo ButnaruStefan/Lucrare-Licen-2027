@@ -26,7 +26,7 @@ export class ApiRequestError extends Error {
 export async function apiRequest<S extends z.ZodType>(
   path: string,
   schema: S,
-  init: { method?: 'GET' | 'POST'; body?: unknown; signal?: AbortSignal } = {},
+  init: { method?: 'GET' | 'POST' | 'PUT'; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<z.output<S>> {
   let res: Response;
   try {

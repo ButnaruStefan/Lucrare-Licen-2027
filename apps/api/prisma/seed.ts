@@ -3,6 +3,7 @@
  * site-urilor de antrenament din `fixtures/`. Ruleaza cu `npm run db:seed`.
  *
  * Poate fi rulat de mai multe ori: un proiect existent (aceeasi adresa) nu e dublat.
+ * In teorie pune niste date initiale ca sa putem testa.
  */
 import 'dotenv/config';
 import { createPrismaClient } from '../src/db/prisma';

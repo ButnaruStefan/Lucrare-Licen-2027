@@ -8,12 +8,13 @@ mai departe la API (3000). Asta e "proxy-ul" din `vite.config.ts`.
 
 ## Ecrane
 
-| Adresa                 | Ecran                                                                            |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| `/`                    | Lista proiectelor si formularul de adaugare                                      |
-| `/proiecte/:projectId` | Pornirea unei scanari (pagina, standard, bune practici) si istoricul             |
-| `/scanari/:scanId`     | Starea (actualizata automat), detaliile tehnice, sumarul, rezultatele filtrabile |
-| `/despre`              | Ce face platforma si ce nu poate face (limitari)                                 |
+| Adresa                                | Ecran                                                                            |
+| ------------------------------------- | -------------------------------------------------------------------------------- |
+| `/`                                   | Lista proiectelor si formularul de adaugare                                      |
+| `/proiecte/:projectId`                | Profilul juridic pe scurt, pornirea unei scanari si istoricul                    |
+| `/proiecte/:projectId/profil-juridic` | Chestionarul OUG 112/2018 si rezultatul evaluarii                                |
+| `/scanari/:scanId`                    | Starea (actualizata automat), detaliile tehnice, sumarul, rezultatele filtrabile |
+| `/despre`                             | Ce face platforma si ce nu poate face (limitari)                                 |
 
 ## Continut
 

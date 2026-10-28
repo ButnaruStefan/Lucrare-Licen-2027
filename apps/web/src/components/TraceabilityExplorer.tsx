@@ -3,12 +3,17 @@
  *
  *   regula axe -> criteriu WCAG -> clauza EN 301 549 -> prevederi OUG 112/2018 -> aplicabilitate
  *
+ * Aplicabilitatea vine din profilul juridic al proiectului (chestionarul OUG 112/2018).
+ *
  * afisat ca lista ordonata de pasi (in sectiunea pliabila "Trasabilitate normativa"). Fiecare pas arata sursa si statusul verificarii (confirmat,
  * dedus, conflict, de validat), ca utilizatorul sa vada clar ce e sigur si ce nu.
  * Lantul arata relevanta normativa POSIBILA, nu o incalcare a legii.
  */
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import type { Trace, TraceEn } from '@ro-a11y/shared';
+import { formatDate } from '../lib/labels';
+import { ApplicabilityBadge } from './LegalAssessmentView';
 
 const PRINCIPLE_LABELS = {
   perceptibil: 'Perceptibil',
@@ -36,9 +41,12 @@ function ExternalLink({ href, children }: { href: string; children: ReactNode })
 export function TraceabilityExplorer({
   trace,
   elementCount,
+  legalProfileHref,
 }: {
   trace: Trace;
   elementCount: number;
+  /** Legatura spre profilul juridic al proiectului (unde se completeaza sau se modifica). */
+  legalProfileHref?: string;
 }) {
   return (
     <section className="trace" aria-label={`Trasabilitate pentru regula ${trace.axeRule.id}`}>
@@ -153,8 +161,19 @@ export function TraceabilityExplorer({
             <li className="trace__step trace__step--end">
               <p className="trace__kind">Aplicabilitate pentru acest site</p>
               <p className="trace__main">
-                <span className="badge badge--trace-none">Neevaluată</span>{' '}
+                <ApplicabilityBadge status={trace.applicability.status} />{' '}
                 {trace.applicability.message}
+              </p>
+              <p className="trace__source">
+                {trace.applicability.assessedAt &&
+                  `Din profilul juridic al proiectului, evaluat la ${formatDate(trace.applicability.assessedAt)}. `}
+                {legalProfileHref && (
+                  <Link to={legalProfileHref}>
+                    {trace.applicability.status === 'not_assessed'
+                      ? 'Completează profilul juridic'
+                      : 'Vezi profilul juridic'}
+                  </Link>
+                )}
               </p>
             </li>
           </>
