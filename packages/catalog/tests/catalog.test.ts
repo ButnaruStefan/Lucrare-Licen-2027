@@ -143,6 +143,30 @@ describe('remedierile in romana', () => {
     expect(rules.filter((r) => !covered.has(r))).toEqual([]);
   });
 
+  it('exista pentru fiecare regula din versiunea instalata de axe-core, o singura data', () => {
+    const ids = REMEDIATIONS.map((r) => r.axeRuleId);
+    expect(new Set(ids).size).toBe(ids.length);
+    const missing = axe
+      .getRules()
+      .map((r) => r.ruleId)
+      .filter((id) => !ids.includes(id));
+    // Daca pica dupa o actualizare axe-core: regulile noi trebuie traduse in src/data/remedieri/.
+    expect(missing).toEqual([]);
+  });
+
+  it('au toate campurile completate, iar exemplul arata o schimbare', () => {
+    const incomplete = REMEDIATIONS.filter(
+      (r) =>
+        !r.titleRo.trim() ||
+        !r.whatItMeans.trim() ||
+        !r.whoIsAffected.trim() ||
+        r.howToFix.length === 0 ||
+        r.howToVerify.length === 0 ||
+        r.example.before === r.example.after,
+    ).map((r) => r.axeRuleId);
+    expect(incomplete).toEqual([]);
+  });
+
   it('se refera doar la reguli care exista in axe-core', () => {
     const axeRules = new Set(axe.getRules().map((r) => r.ruleId));
     expect(REMEDIATIONS.filter((r) => !axeRules.has(r.axeRuleId)).map((r) => r.axeRuleId)).toEqual(
@@ -153,6 +177,20 @@ describe('remedierile in romana', () => {
 
 describe('buildTrace', () => {
   const rule = (id: string) => axe.getRules().find((r) => r.ruleId === id)!;
+
+  it('fara remediere completa (reguli trecute): pastreaza titlul si rezumatul in romana', () => {
+    const trace = buildTrace({
+      axeRuleId: 'document-title',
+      axeTags: rule('document-title').tags,
+      wcagCriteria: ['2.4.2'],
+      docsUrl: 'https://dequeuniversity.com/rules/axe/4.13/document-title',
+      engineVersion: '4.13.0',
+      includeRemediation: false,
+    });
+    expect(trace.remediation).toBeNull();
+    expect(trace.axeRule.titleRo).toBe('Pagina trebuie să aibă un titlu');
+    expect(trace.axeRule.summaryRo).toMatch(/<title>/);
+  });
 
   it('construieste lantul complet pentru image-alt', () => {
     const tags = rule('image-alt').tags;

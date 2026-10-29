@@ -34,7 +34,8 @@ concluzie juridica.
 | `src/data/wcag22.json`             | Catalogul generat: 87 de criterii, nivel, principiu, legaturi oficiale            |
 | `src/data/wcag-titluri-ro.ts`      | Titlurile in romana ale criteriilor A si AA (traducere de lucru)                  |
 | `src/data/oug-112-2018-art1-5.txt` | Textul oficial al art. 1-5 din OUG 112/2018, folosit de teste                     |
-| `src/data/remedieri-ro.ts`         | Explicatii si remedieri in romana pentru 14 reguli axe frecvente                  |
+| `src/data/remedieri-ro.ts`         | Remedierile in romana: cele frecvente + lista completa (105 reguli)               |
+| `src/data/remedieri/`              | Remedierile restului regulilor axe-core, pe categorii (ARIA, tabele etc.)         |
 | `src/wcag.ts`                      | Accesul la catalogul WCAG                                                         |
 | `src/en301549.ts`                  | Legatura criteriu WCAG -> clauza EN 301 549 V3.2.1, cu statusul verificarii       |
 | `src/legislatie.ts`                | Prevederile din OUG 112/2018 (citate, sursa, status)                              |
@@ -48,6 +49,8 @@ concluzie juridica.
 - catalogul WCAG are structura oficiala (87 de criterii; 31 A, 24 AA, 31 AAA; 9 noi in 2.2);
 - legatura WCAG -> EN coincide cu etichetele EN ale axe-core pe toate regulile: 73 din 74;
   singura diferenta (`scrollable-region-focusable`, criteriul AAA 2.1.3) e afisata ca "conflict";
+- fiecare regula din versiunea instalata de axe-core are remediere in romana (testul pica dupa o
+  actualizare axe-core care aduce reguli noi, pana sunt traduse);
 - fiecare citat din OUG 112/2018 apare exact in textul oficial (inclusiv cele din profilul juridic);
 - profilul juridic da rezultatul asteptat pentru fiecare combinatie importanta de raspunsuri, iar
   un raspuns "Nu stiu" nu devine niciodata o presupunere.

@@ -10,10 +10,15 @@
  *   4. Trasabilitate normativa             -> WCAG -> EN 301 549 -> OUG 112/2018
  *   5. Detalii tehnice                     -> regula axe, documentatia, textul original
  *
+ * Aceeasi regula poate aparea in doua categorii, pentru elemente DIFERITE (ex. color-contrast:
+ * unele texte au sigur contrast prea mic, la altele axe-core nu poate masura, de ex. text peste o
+ * imagine). In acest caz, rezultatul spune unde mai apare regula si ofera trecerea acolo.
+ *
  * Securitate: fragmentul HTML al paginii scanate e afisat ca TEXT (React il "escapeaza"),
  * niciodata interpretat, deci un site rau intentionat nu poate injecta cod in aplicatia noastra.
  */
-import type { RuleResult } from '@ro-a11y/shared';
+import type { ResultCategory, RuleResult } from '@ro-a11y/shared';
+import { CATEGORY_LABELS } from '../lib/labels';
 import { ImpactBadge } from './Badges';
 import { CollapsibleSection } from './CollapsibleSection';
 import { HowToFix, HowToVerify } from './RemediationPanel';
@@ -23,22 +28,54 @@ function selectorText(cssSelector: unknown): string {
   return Array.isArray(cssSelector) ? cssSelector.join(' → ') : JSON.stringify(cssSelector);
 }
 
+/** Aceeasi regula, in alta categorie a aceleiasi scanari (cu alte elemente). */
+export interface OtherCategory {
+  category: ResultCategory;
+  elementCount: number;
+}
+
+function elements(n: number): string {
+  return `${n} ${n === 1 ? 'element' : 'elemente'}`;
+}
+
+/** Explicatia pentru o regula care apare si in alta categorie. */
+function alsoInText(current: ResultCategory, other: OtherCategory): string {
+  const where = `„${CATEGORY_LABELS[other.category]}”`;
+  if (current === 'incomplete' && other.category === 'violation') {
+    return `La aceste elemente, axe-core nu a putut decide singur (de exemplu, text peste o imagine sau un gradient). Pentru încă ${elements(other.elementCount)}, aceeași regulă a găsit probleme sigure: sunt la ${where}.`;
+  }
+  if (current === 'violation' && other.category === 'incomplete') {
+    return `Pentru încă ${elements(other.elementCount)}, axe-core nu a putut decide singur dacă regula e respectată: sunt la ${where}, pentru verificare umană.`;
+  }
+  return `Aceeași regulă apare și la ${where}, pentru încă ${elements(other.elementCount)}.`;
+}
+
 export function RuleResultItem({
   result,
   legalProfileHref,
+  otherCategories = [],
+  onShowCategory,
 }: {
   result: RuleResult;
   legalProfileHref?: string;
+  /** Alte categorii in care apare aceeasi regula (cu alte elemente). */
+  otherCategories?: OtherCategory[];
+  /** Trece lista la alta categorie (folosit de butonul „Vezi ...”). */
+  onShowCategory?: (category: ResultCategory) => void;
 }) {
   const count = result.affectedElements.length;
   const remediation = result.trace.remediation;
+  // Titlul si rezumatul in romana vin pentru toate regulile; remedierea completa doar pentru
+  // problemele detectate si cazurile de verificat manual.
+  const titleRo = result.trace.axeRule.titleRo;
+  const summaryRo = result.trace.axeRule.summaryRo;
 
   return (
     <li className="rule">
       <details>
         <summary>
-          <span className="rule__title">{remediation?.titleRo ?? result.title}</span>
-          {remediation && (
+          <span className="rule__title">{titleRo ?? result.title}</span>
+          {titleRo && (
             <span className="rule__title-en" lang="en">
               {result.title}
             </span>
@@ -52,12 +89,13 @@ export function RuleResultItem({
               </span>
             ))}
             {result.isBestPractice && <span className="tag tag--muted">Bună practică</span>}
-            {count > 0 && (
-              <span className="rule__count">
-                {count} {count === 1 ? 'element' : 'elemente'}
-              </span>
-            )}
+            {count > 0 && <span className="rule__count">{elements(count)}</span>}
           </span>
+          {otherCategories.map((other) => (
+            <span key={other.category} className="rule__also">
+              Apare și la „{CATEGORY_LABELS[other.category]}”: încă {elements(other.elementCount)}
+            </span>
+          ))}
         </summary>
 
         <div className="rule__body">
@@ -69,10 +107,34 @@ export function RuleResultItem({
                   <strong>Pe cine afectează:</strong> {remediation.whoIsAffected}
                 </p>
               </>
+            ) : summaryRo ? (
+              <p>{summaryRo}</p>
             ) : (
               <p>
                 <span lang="en">{result.description}</span>{' '}
                 <span className="muted">(descrierea motorului, în engleză)</span>
+              </p>
+            )}
+            {otherCategories.map((other) => (
+              <div key={other.category} className="notice notice--info rule__also-notice">
+                <p>{alsoInText(result.category, other)}</p>
+                {onShowCategory && (
+                  <p>
+                    <button
+                      type="button"
+                      className="button-link"
+                      onClick={() => onShowCategory(other.category)}
+                    >
+                      Vezi „{CATEGORY_LABELS[other.category]}”
+                    </button>
+                  </p>
+                )}
+              </div>
+            ))}
+            {result.category === 'incomplete' && count > 0 && (
+              <p className="muted">
+                Motivul pentru care axe-core nu a putut decide e trecut la fiecare element, în „Unde
+                apare”.
               </p>
             )}
           </div>

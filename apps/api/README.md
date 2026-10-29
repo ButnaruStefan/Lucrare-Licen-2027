@@ -16,6 +16,7 @@ browser ──HTTP──> index.ts (API)
                           └─> middleware/errors.ts       (orice eroare → format standard)
 
 worker.ts (proces separat)
+  └─> scans/worker-loop.ts       (un pas: browser pregatit, rezervare, ceas de paza)
   └─> scans/queue.ts             (rezerva urmatoarea scanare "queued")
   └─> scans/process-scan.ts
         ├─> scanner/page-scan.ts (Chrome + axe-core; fiecare cerere trece prin paznic)
@@ -37,12 +38,13 @@ worker.ts (proces separat)
 | `src/middleware/`           | Functii care ruleaza pentru fiecare cerere (ID, loguri, erori)                             |
 | `src/routes/`               | Endpointurile API, grupate pe domenii (`health`, `projects`, `legal-profile`, `scans`)     |
 | `src/safety/url-guard.ts`   | Paznicul adreselor (protectie SSRF), folosit in API si pentru fiecare cerere a browserului |
-| `src/scanner/browser.ts`    | Pornirea browserului (Chrome instalat, Edge sau Chromium)                                  |
+| `src/scanner/browser.ts`    | Pornirea browserului (Chrome instalat, Edge sau Chromium), cu limite de timp               |
 | `src/scanner/page-scan.ts`  | Scanarea unei pagini: incarcare sigura (inclusiv redirectionari) + axe-core                |
 | `src/scanner/normalize.ts`  | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`     |
 | `src/scans/queue.ts`        | Coada de scanari din PostgreSQL: rezervare, finalizare, esec                               |
 | `@ro-a11y/catalog` (pachet) | Lantul de trasabilitate adaugat fiecarui rezultat (`buildTrace`)                           |
 | `src/scans/process-scan.ts` | Procesarea completa a unei scanari (verificare, scanare, salvare)                          |
+| `src/scans/worker-loop.ts`  | Un pas al worker-ului: browser pregatit inainte de rezervare, ceas de paza, erori prinse   |
 | `src/generated/`            | Cod **generat automat** de Prisma. Nu se editeaza si nu e in Git                           |
 | `prisma/schema.prisma`      | Schema bazei de date (tabelele)                                                            |
 | `prisma/migrations/`        | Istoricul modificarilor de schema, ca fisiere SQL                                          |

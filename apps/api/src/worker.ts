@@ -1,110 +1,92 @@
 /**
  * Worker-ul de scanare (`npm run dev:worker`): proces separat de API.
  *
- * Porneste browserul o singura data, apoi, intr-o bucla:
- *   - rezerva urmatoarea scanare "queued" din baza de date;
- *   - o proceseaza (browser + axe-core + salvarea rezultatelor);
+ * Intr-o bucla, repeta un pas (vezi `scans/worker-loop.ts`):
+ *   - pregateste browserul (il porneste sau il reporneste, la nevoie);
+ *   - rezerva urmatoarea scanare "queued" din baza de date si o proceseaza
+ *     (browser + axe-core + salvarea rezultatelor);
  *   - daca nu exista scanari in asteptare, asteapta putin si verifica din nou.
  *
  * E separat de API ca o scanare lenta (zeci de secunde) sa nu blocheze raspunsurile API-ului.
  * Proceseaza o singura scanare odata, ca sa nu suprasolicite calculatorul sau site-ul scanat.
  *
- * Robustete: inainte de fiecare scanare verifica daca browserul mai e conectat; dupa o scanare
- * blocata (limita de timp depasita) inchide browserul si porneste altul. Astfel, o problema a
- * browserului (ex. Chrome actualizat automat in timp ce ruleaza) afecteaza cel mult o scanare.
+ * Robustete: worker-ul nu ramane blocat si nu se opreste singur. Fiecare scanare are o limita
+ * de timp si, peste ea, un ceas de paza; un browser blocat e abandonat si inlocuit; orice eroare
+ * e notata in jurnal, iar bucla continua. Ctrl+C opreste worker-ul chiar daca o scanare e blocata.
  */
 import { env } from './config/env'; //variabile de mediu
 import { createPrismaClient } from './db/prisma'; //prisma client
 import { createLogger } from './lib/logger'; //logger
-import { describeBrowser, launchBrowser } from './scanner/browser'; //browser
+import { createBrowserManager } from './scanner/browser'; //browser
 import { processScan } from './scans/process-scan'; //proces scanare
-import type { Browser } from 'playwright'; //tip browser
-import { claimNextScan, failStaleScans } from './scans/queue'; //coada de scanari
+import { runWorkerIteration, sweepStaleScans, type WorkerLoopDeps } from './scans/worker-loop'; //un pas al buclei
 
 /**
- * La pornire, scanarile ramase "running" mai vechi de atat sunt considerate intrerupte.
- * O scanare nu poate dura mai mult de limita ei de timp (implicit 90 s), deci 3 minute ajung.
+ * Scanarile ramase "running" mai vechi de atat sunt considerate abandonate (ex. worker oprit
+ * brusc). O scanare nu poate dura mai mult de limita ei + ceasul de paza (implicit 2 min).
  */
 const STALE_SCAN_MS = 3 * 60 * 1000;
 
-/** Cat asteptam, cel mult, inchiderea unui browser blocat. */
-const BROWSER_CLOSE_TIMEOUT_MS = 10_000;
+/** Dupa primul Ctrl+C, cat asteptam terminarea scanarii curente inainte de oprirea fortata. */
+const FORCED_EXIT_MS = 15_000;
 
 const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === 'development');
 const db = createPrismaClient(env.DATABASE_URL);
+const browsers = createBrowserManager(env.BROWSER_CHANNEL, logger);
+const guardOptions = { allowedLocalOrigins: env.SCAN_ALLOWED_LOCAL_ORIGINS };
 
 let stopping = false;
 
-let browser: Browser | null = null;
-let browserVersion = '';
+const deps: WorkerLoopDeps = {
+  db,
+  logger,
+  browsers,
+  staleAfterMs: STALE_SCAN_MS,
+  process: (browser, browserVersion, scan) =>
+    processScan({ db, browser, browserVersion, guardOptions, logger }, scan),
+};
 
-/** Porneste browserul daca nu exista sau daca s-a deconectat. */
-async function ensureBrowser(): Promise<Browser> {
-  if (browser?.isConnected()) return browser;
-  if (browser) await closeBrowser();
-  browser = await launchBrowser(env.BROWSER_CHANNEL);
-  browserVersion = describeBrowser(browser, env.BROWSER_CHANNEL);
-  logger.info(`Browser pornit (${browserVersion})`);
-  return browser;
-}
-
-/** Inchide browserul, fara sa astepte la nesfarsit daca e blocat. */
-async function closeBrowser() {
-  const current = browser;
-  browser = null;
-  if (!current) return;
-  //daca browserul e blocat, il inchidem dupa un anumit timp (intrecere intre inchidere si timeout)
-  await Promise.race([
-    current.close().catch(() => {}), // catch la eventuala eroare la inchidere
-    new Promise((resolve) => setTimeout(resolve, BROWSER_CLOSE_TIMEOUT_MS)),
-  ]);
-}
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
-  await ensureBrowser();
   logger.info('Worker pornit. Astept scanari...');
-
-  const stale = await failStaleScans(db, STALE_SCAN_MS);
-  if (stale > 0) logger.warn(`${stale} scanari intrerupte anterior au fost marcate "failed"`);
+  await sweepStaleScans(deps, true).catch((err) =>
+    logger.error({ err }, 'Verificarea scanarilor abandonate a esuat'),
+  );
 
   while (!stopping) {
-    const scan = await claimNextScan(db);
-    if (!scan) {
-      await new Promise((resolve) => setTimeout(resolve, env.WORKER_POLL_INTERVAL_MS));
-      continue;
-    }
-    logger.info({ scanId: scan.id, pageUrl: scan.pageUrl }, 'Scanare preluata');
-    const current = await ensureBrowser();
-    const result = await processScan(
-      {
-        db,
-        browser: current,
-        browserVersion,
-        guardOptions: { allowedLocalOrigins: env.SCAN_ALLOWED_LOCAL_ORIGINS },
-        logger,
-      },
-      scan,
-    );
-    if (!result.browserHealthy) {
-      logger.warn('Browserul pare blocat; il repornesc inainte de urmatoarea scanare');
-      await closeBrowser();
+    const result = await runWorkerIteration(deps);
+    // Dupa o scanare, trecem imediat la urmatoarea; altfel asteptam putin.
+    if (result !== 'processed' && result !== 'watchdog') {
+      await sleep(result === 'idle' ? env.WORKER_POLL_INTERVAL_MS : 5_000);
     }
   }
 
-  await closeBrowser();
+  await browsers.reset();
   await db.$disconnect();
   logger.info('Worker oprit.');
+  process.exit(0);
 }
 
 function requestStop(signal: string) {
-  logger.info(`Semnal ${signal} primit, opresc worker-ul dupa scanarea curenta...`);
+  if (stopping) {
+    // Al doilea Ctrl+C: oprire imediata.
+    logger.warn('Oprire fortata.');
+    process.exit(1);
+  }
   stopping = true;
+  logger.info(`Semnal ${signal} primit, opresc worker-ul dupa scanarea curenta...`);
+  // Daca scanarea curenta e blocata, nu asteptam la nesfarsit.
+  setTimeout(() => {
+    logger.warn('Scanarea curenta nu s-a terminat la timp; oprire fortata.');
+    process.exit(1);
+  }, FORCED_EXIT_MS).unref();
 }
 
 process.on('SIGINT', () => requestStop('SIGINT'));
 process.on('SIGTERM', () => requestStop('SIGTERM'));
 
 main().catch((err) => {
-  logger.fatal({ err }, 'Worker-ul nu a putut porni');
+  logger.fatal({ err }, 'Worker-ul s-a oprit neasteptat');
   process.exit(1);
 });

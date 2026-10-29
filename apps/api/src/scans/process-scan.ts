@@ -7,8 +7,9 @@
  * Primeste toate dependentele din exterior (baza de date, browser, paznic), deci poate fi
  * folosita la fel de worker si de teste.
  *
- * Limita ferma de timp: oricat de prost s-ar comporta pagina sau browserul (ex. Chrome
- * actualizat automat in timp ce ruleaza), o scanare nu poate ramane "running" la nesfarsit.
+ * Limita ferma de timp: oricat de prost s-ar comporta pagina, browserul (ex. Chrome actualizat
+ * automat in timp ce ruleaza) sau DNS-ul, o scanare nu poate ramane "running" la nesfarsit.
+ * Limita acopera toata inspectia: verificarea adresei (paznic + DNS) si scanarea in browser.
  * Daca depaseste limita, e marcata "failed" (SCAN_TIMEOUT), iar worker-ul e anuntat ca
  * browserul trebuie repornit.
  */
@@ -60,17 +61,29 @@ export async function processScan(
   const timeLimitMs = deps.scanTimeLimitMs ?? defaultScanTimeLimitMs(scan.config.timeoutMs);
 
   try {
-    const precheck = await checkUrl(scan.pageUrl, guardOptions);
-    if (!precheck.ok) {
+    // Verificarea adresei si scanarea, impreuna, sub aceeasi limita de timp.
+    const inspection = await withTimeLimit(
+      (async () => {
+        const precheck = await checkUrl(scan.pageUrl, guardOptions);
+        if (!precheck.ok) return { kind: 'unsafe', precheck } as const;
+        const outcome = await scanPage(
+          browser,
+          scan.pageUrl,
+          scan.config,
+          createRequestGuard(guardOptions),
+        );
+        return { kind: 'scanned', outcome } as const;
+      })(),
+      timeLimitMs,
+    );
+    if (inspection.kind === 'unsafe') {
+      const { precheck } = inspection;
       log.warn({ reason: precheck.reason }, 'Adresa respinsa de paznic');
       await failScan(db, scan.id, { errorCode: 'UNSAFE_URL', errorMessage: precheck.message });
       return { browserHealthy: true };
     }
 
-    const outcome = await withTimeLimit(
-      scanPage(browser, scan.pageUrl, scan.config, createRequestGuard(guardOptions)),
-      timeLimitMs,
-    );
+    const { outcome } = inspection;
     if (outcome.blockedRequests.length > 0) {
       log.warn({ blocked: outcome.blockedRequests }, 'Cereri blocate de paznic in timpul scanarii');
     }

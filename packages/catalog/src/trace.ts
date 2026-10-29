@@ -30,6 +30,11 @@ export interface TraceInput {
   wcagCriteria: readonly string[]; // ex. ["1.1.1"]  ← extras din etichete de normalize.ts
   docsUrl: string; // ex. "https://dequeuniversity.com/rules/axe/4.10/image-alt"
   engineVersion: string | null; // ex. "axe-core 4.13.0"
+  /**
+   * Daca se adauga remedierea completa (implicit da). API-ul o cere doar pentru problemele
+   * detectate si cazurile de verificat manual; titlul si rezumatul in romana vin oricum.
+   */
+  includeRemediation?: boolean;
   /** Evaluarea din profilul juridic al proiectului (lipseste daca nu a fost completat). */
   legalAssessment?: { assessment: LegalAssessment; assessedAt: string } | null;
 }
@@ -41,6 +46,7 @@ export function remediationFor(axeRuleId: string) {
 }
 
 export function buildTrace(input: TraceInput): Trace {
+  const remediation = remediationFor(input.axeRuleId);
   const wcag = input.wcagCriteria
     .map((number) => wcagCriterion(number))
     .filter((c) => c !== null)
@@ -69,7 +75,13 @@ export function buildTrace(input: TraceInput): Trace {
 
   return {
     catalogVersion: CATALOG_VERSION,
-    axeRule: { id: input.axeRuleId, engineVersion: input.engineVersion, docsUrl: input.docsUrl },
+    axeRule: {
+      id: input.axeRuleId,
+      engineVersion: input.engineVersion,
+      docsUrl: input.docsUrl,
+      titleRo: remediation?.titleRo ?? null,
+      summaryRo: remediation?.whatItMeans ?? null,
+    },
     isBestPractice: wcag.length === 0 && input.axeTags.includes('best-practice'),
     wcag,
     en,
@@ -93,7 +105,7 @@ export function buildTrace(input: TraceInput): Trace {
           assessedAt: input.legalAssessment.assessedAt,
         }
       : { status: 'not_assessed', message: NOT_ASSESSED_MESSAGE, assessedAt: null },
-    remediation: remediationFor(input.axeRuleId),
+    remediation: input.includeRemediation === false ? null : remediation,
     remediationStatus: REMEDIATIONS_STATUS,
   };
 }

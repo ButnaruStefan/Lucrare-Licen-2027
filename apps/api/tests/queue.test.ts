@@ -81,6 +81,18 @@ describe('failScan si failStaleScans', () => {
     expect(row.finishedAt).not.toBeNull();
   });
 
+  it('nu suprascrie o scanare care a apucat sa se termine', async () => {
+    const project = await createProject();
+    const scan = await testDb.scan.create({
+      data: { projectId: project.id, pageUrl: 'https://exemplu.ro/', config, status: 'completed' },
+    });
+
+    await failScan(testDb, scan.id, { errorCode: 'SCAN_TIMEOUT', errorMessage: 'Prea lent.' });
+
+    const row = await testDb.scan.findUniqueOrThrow({ where: { id: scan.id } });
+    expect(row).toMatchObject({ status: 'completed', errorCode: null });
+  });
+
   it('marcheaza "failed" doar scanarile ramase "running" de prea mult timp', async () => {
     const project = await createProject();
     const stale = await testDb.scan.create({

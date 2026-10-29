@@ -240,6 +240,8 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
         docsUrl: r.docsUrl,
         engineVersion: scan.engineVersion,
         legalAssessment,
+        // Remedierea completa doar unde e ceva de reparat sau de verificat (raspuns mai mic)
+        includeRemediation: r.category === 'violation' || r.category === 'incomplete',
       }),
       affectedElements: r.affectedElements.map((e) => ({
         id: e.id,

@@ -22,7 +22,7 @@ import { useProject, useScan, useScanResults } from '../api/queries';
 import { ScanStatusBadge } from '../components/Badges';
 import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
 import { PageHeading } from '../components/PageHeading';
-import { RuleResultItem } from '../components/RuleResultItem';
+import { RuleResultItem, type OtherCategory } from '../components/RuleResultItem';
 import {
   CATEGORY_DESCRIPTIONS,
   CATEGORY_LABELS,
@@ -267,6 +267,22 @@ function ResultsExplorer({
     setParams(search, { replace: true, preventScrollReset: true });
   }
 
+  // Aceeasi regula in mai multe categorii (cu elemente diferite): doar problemele sigure si
+  // cazurile de verificat manual conteaza aici (regulile trecute nu pastreaza elemente).
+  const categoriesByRule = new Map<string, OtherCategory[]>();
+  for (const item of items) {
+    if (item.category !== 'violation' && item.category !== 'incomplete') continue;
+    const list = categoriesByRule.get(item.axeRuleId) ?? [];
+    list.push({ category: item.category, elementCount: item.affectedElements.length });
+    categoriesByRule.set(item.axeRuleId, list);
+  }
+
+  /** Trece la alta categorie si muta focusul pe butonul ei din filtre (nu se pierde). */
+  function showCategory(next: ResultCategory) {
+    update('category', next);
+    document.querySelector<HTMLInputElement>(`input[name="categorie"][value="${next}"]`)?.focus();
+  }
+
   const counts = Object.fromEntries(
     RESULT_CATEGORIES.map((c) => [c, items.filter((i) => i.category === c).length]),
   ) as Record<ResultCategory, number>;
@@ -359,7 +375,15 @@ function ResultsExplorer({
       ) : (
         <ul className="rule-list">
           {visible.map((item) => (
-            <RuleResultItem key={item.id} result={item} legalProfileHref={legalProfileHref} />
+            <RuleResultItem
+              key={item.id}
+              result={item}
+              legalProfileHref={legalProfileHref}
+              otherCategories={(categoriesByRule.get(item.axeRuleId) ?? []).filter(
+                (o) => o.category !== item.category,
+              )}
+              onShowCategory={showCategory}
+            />
           ))}
         </ul>
       )}

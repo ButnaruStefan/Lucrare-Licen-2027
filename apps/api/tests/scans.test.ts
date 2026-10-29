@@ -204,6 +204,10 @@ describe('GET scanari si rezultate', () => {
       'art. 5 alin. (1)',
     ]);
     expect(imageAlt.remediation?.axeRuleId).toBe('image-alt');
+    // O regula trecuta: titlul in romana, dar fara remedierea completa (nu e nimic de reparat)
+    const passed = all.items[2]!.trace;
+    expect(passed.axeRule.titleRo).toBe('Pagina trebuie să aibă un titlu');
+    expect(passed.remediation).toBeNull();
     // O buna practica nu are legatura normativa
     expect(all.items[1]!.trace).toMatchObject({ isBestPractice: true, wcag: [], legal: [] });
 

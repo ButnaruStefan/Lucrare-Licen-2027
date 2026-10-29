@@ -2,7 +2,8 @@
  * Teste pentru robustetea procesarii unei scanari (pe baza de date de test).
  *
  * Simuleaza un browser care nu mai raspunde deloc (ca dupa o actualizare automata a lui Chrome
- * in timp ce ruleaza): scanarea nu trebuie sa ramana "running" la nesfarsit.
+ * in timp ce ruleaza) si un DNS care nu raspunde: scanarea nu trebuie sa ramana "running"
+ * la nesfarsit.
  */
 import type { Browser } from 'playwright';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -21,14 +22,14 @@ const hungBrowser = {
   isConnected: () => true,
 } as unknown as Browser;
 
-async function queueScan() {
+async function queueScan(pageUrl = 'http://localhost:4000/broken/') {
   const project = await testDb.project.create({
-    data: { name: 'Demo', baseUrl: 'http://localhost:4000/' },
+    data: { name: 'Demo', baseUrl: new URL('/', pageUrl).toString() },
   });
   await testDb.scan.create({
     data: {
       projectId: project.id,
-      pageUrl: 'http://localhost:4000/broken/',
+      pageUrl,
       config: scanConfigSchema.parse({}),
     },
   });
@@ -57,6 +58,26 @@ describe('processScan cu un browser blocat', () => {
     const row = await testDb.scan.findUniqueOrThrow({ where: { id: scan.id } });
     expect(row).toMatchObject({ status: 'failed', errorCode: 'SCAN_TIMEOUT' });
     expect(row.finishedAt).not.toBeNull();
+  });
+
+  it('limita acopera si verificarea adresei: un DNS care nu raspunde nu blocheaza scanarea', async () => {
+    const scan = await queueScan('https://exemplu.ro/');
+
+    const result = await processScan(
+      {
+        db: testDb,
+        browser: hungBrowser,
+        browserVersion: 'Chrome test',
+        guardOptions: { resolve: () => new Promise(() => {}) },
+        logger: createLogger('silent'),
+        scanTimeLimitMs: 300,
+      },
+      scan,
+    );
+
+    expect(result).toEqual({ browserHealthy: false });
+    const row = await testDb.scan.findUniqueOrThrow({ where: { id: scan.id } });
+    expect(row).toMatchObject({ status: 'failed', errorCode: 'SCAN_TIMEOUT' });
   });
 
   it('limita implicita lasa timp pentru incarcare si analiza (90 s pentru 30 s de incarcare)', () => {

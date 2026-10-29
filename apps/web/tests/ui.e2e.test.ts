@@ -11,7 +11,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { createServer, type ViteDevServer } from 'vite';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { HOSTILE_HTML, makeScan, mockApi, PROJECT } from './mock-api';
+import { HOSTILE_HTML, makeScan, mockApi, PROJECT, RESULTS } from './mock-api';
 
 const channel = process.env.BROWSER_CHANNEL ?? 'chrome';
 const SCAN_ID = makeScan().id;
@@ -364,6 +364,62 @@ describe('pagina scanarii', () => {
     await expect
       .poll(() => rule.locator('details.fold', { hasText: 'Cum repari' }).getAttribute('open'))
       .not.toBeNull();
+  });
+
+  it('tastarea in cautare, litera cu litera, pastreaza focusul in camp', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    const search = page.getByLabel('Caută regulă sau criteriu WCAG');
+    await search.click();
+
+    await page.keyboard.type('image', { delay: 50 });
+
+    expect(await search.inputValue()).toBe('image');
+    expect(await search.evaluate((el) => el === document.activeElement)).toBe(true);
+    await page.getByText('1 regulă afișată').waitFor();
+  });
+
+  it('o regula prezenta in doua categorii spune unde mai apare si duce acolo', async () => {
+    // color-contrast: 2 elemente cu probleme sigure + 1 element de verificat manual (din RESULTS)
+    const contrastViolation = {
+      ...RESULTS.find((r) => r.axeRuleId === 'color-contrast')!,
+      id: 'r5',
+      category: 'violation' as const,
+      affectedElements: [
+        {
+          id: 'e5',
+          cssSelector: ['.a'],
+          htmlSnippet: '<p>',
+          failureSummary: 'x',
+          fingerprint: 'f5',
+        },
+        {
+          id: 'e6',
+          cssSelector: ['.b'],
+          htmlSnippet: '<p>',
+          failureSummary: 'x',
+          fingerprint: 'f6',
+        },
+      ],
+    };
+    await mockApi(page, { results: [...RESULTS, contrastViolation] });
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+
+    const rule = page.locator('.rule', { hasText: 'contrast suficient' });
+    await rule.getByText('Apare și la „De verificat manual”: încă 1 element').waitFor();
+    await rule.locator(':scope > details > summary').click();
+    await rule.getByText('Pentru încă 1 element, axe-core nu a putut decide singur').waitFor();
+    expect(await axeViolations()).toEqual([]);
+
+    await rule.getByRole('button', { name: 'Vezi „De verificat manual”' }).click();
+
+    // Lista trece la cealalta categorie, iar focusul ramane pe filtrul ei (nu se pierde).
+    await page.getByText('1 regulă afișată').waitFor();
+    const focused = await page.evaluate(() => (document.activeElement as HTMLInputElement)?.value);
+    expect(focused).toBe('incomplete');
+    await page
+      .locator('.rule', { hasText: 'Apare și la „Probleme detectate”: încă 2 elemente' })
+      .waitFor();
   });
 
   it('o regula de buna practica nu are legatura normativa', async () => {

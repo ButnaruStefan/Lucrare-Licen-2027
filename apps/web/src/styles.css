@@ -654,6 +654,28 @@ button:disabled {
   font-size: 0.875rem;
 }
 
+.rule__also {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.rule__also-notice {
+  margin-top: 0.75rem;
+}
+
+/* Buton care arata ca o legatura: schimba filtrul, nu pagina, deci e buton (nu <a>). */
+.button-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .rule__body {
   padding: 0 1rem 1rem;
   border-top: 1px solid var(--border);

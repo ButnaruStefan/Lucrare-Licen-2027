@@ -135,8 +135,10 @@ export interface FailedScanData {
 
 /** Marcheaza scanarea "failed". Un esec tehnic NU inseamna ca site-ul e inaccesibil. */
 export async function failScan(db: Database, scanId: string, data: FailedScanData) {
-  await db.scan.update({
-    where: { id: scanId },
+  // Doar o scanare inca "running" poate fi marcata esuata: daca a apucat sa se termine intre
+  // timp (ex. chiar cand a expirat ceasul de paza), rezultatul ei ramane neatins.
+  await db.scan.updateMany({
+    where: { id: scanId, status: 'running' },
     data: {
       status: 'failed',
       finishedAt: new Date(),

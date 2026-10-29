@@ -148,6 +148,7 @@ export const RESULTS: RuleResult[] = [
       wcagCriteria: r.wcagCriteria,
       docsUrl: r.docsUrl,
       engineVersion: '4.13.0',
+      includeRemediation: r.category === 'violation' || r.category === 'incomplete',
     }),
   }),
 );
@@ -158,6 +159,8 @@ export interface MockApiOptions {
   scanSequence?: Scan[];
   /** Raspunsul pentru POST /api/v1/projects. */
   createProject?: { status: number; body: unknown };
+  /** Rezultatele scanarii (implicit: RESULTS). */
+  results?: RuleResult[];
   /** Profilul juridic salvat la inceput (implicit: necompletat). */
   legalProfile?: LegalProfile | null;
 }
@@ -214,7 +217,9 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
     }
     return route.fulfill(json({ questions: OUG_112_QUESTIONS, profile: legalProfile }));
   });
-  await page.route('**/api/v1/scans/*/results', (route) => route.fulfill(json({ items: RESULTS })));
+  await page.route('**/api/v1/scans/*/results', (route) =>
+    route.fulfill(json({ items: options.results ?? RESULTS })),
+  );
   await page.route(/\/api\/v1\/scans\/[^/]+$/, (route) => {
     const id = route.request().url().split('/').pop();
     if (id !== scans[0]!.id) {

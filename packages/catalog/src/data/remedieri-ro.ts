@@ -1,11 +1,22 @@
 /**
- * Explicatii si remedieri in romana pentru regulile axe-core frecvente.
+ * Explicatii si remedieri in romana pentru TOATE regulile axe-core (versiunea instalata).
+ *
+ * Aici sunt cele mai frecvente reguli (cu explicatii mai detaliate); restul sunt in folderul
+ * `remedieri/`, pe categorii (ARIA, formulare si tastatura, nume si limba, structura, tabele si
+ * media). `REMEDIATIONS` le aduna pe toate. Un test verifica faptul ca fiecare regula axe-core
+ * are remediere, ca nicio regula noua (dupa o actualizare axe-core) sa nu ramana netradusa.
  *
  * Continut redactat de autorul proiectului pe baza documentatiei W3C (Understanding WCAG) si a
  * documentatiei Deque pentru fiecare regula. Statusul "de revizuit" ramane pana la revizuirea
  * de catre un specialist. Exemplele de cod sunt ilustrative: remedierea corecta depinde de
  * contextul fiecarei pagini.
  */
+import { REMEDIATIONS_ARIA } from './remedieri/aria';
+import { REMEDIATIONS_FORMS_KEYBOARD } from './remedieri/formulare-tastatura';
+import { REMEDIATIONS_NAMES_LANGUAGE } from './remedieri/nume-limba-cod';
+import { REMEDIATIONS_STRUCTURE } from './remedieri/structura';
+import { REMEDIATIONS_TABLES_MEDIA } from './remedieri/tabele-alternative-media';
+
 export interface Remediation {
   axeRuleId: string;
   titleRo: string;
@@ -18,7 +29,8 @@ export interface Remediation {
 
 export const REMEDIATIONS_STATUS = 'redactat de autor, de revizuit de un specialist';
 
-export const REMEDIATIONS: Remediation[] = [
+/** Regulile cele mai frecvente (si cele de pe site-ul de antrenament). */
+const FREQUENT_REMEDIATIONS: Remediation[] = [
   {
     axeRuleId: 'image-alt',
     titleRo: 'Imaginile trebuie să aibă text alternativ',
@@ -263,4 +275,13 @@ export const REMEDIATIONS: Remediation[] = [
       'Cu un cititor de ecran, lista reperelor trebuie să acopere toate zonele importante ale paginii.',
     ],
   },
+];
+
+export const REMEDIATIONS: Remediation[] = [
+  ...FREQUENT_REMEDIATIONS,
+  ...REMEDIATIONS_ARIA,
+  ...REMEDIATIONS_FORMS_KEYBOARD,
+  ...REMEDIATIONS_NAMES_LANGUAGE,
+  ...REMEDIATIONS_STRUCTURE,
+  ...REMEDIATIONS_TABLES_MEDIA,
 ];

@@ -57,7 +57,15 @@ export type Remediation = z.infer<typeof remediationSchema>;
 export const traceSchema = z.object({
   /** Versiunea catalogului normativ folosit pentru acest lant (data ultimei verificari). */
   catalogVersion: z.string(),
-  axeRule: z.object({ id: z.string(), engineVersion: z.string().nullable(), docsUrl: z.string() }),
+  axeRule: z.object({
+    id: z.string(),
+    engineVersion: z.string().nullable(),
+    docsUrl: z.string(),
+    /** Titlul regulii in romana (pentru toate regulile, in orice categorie). */
+    titleRo: z.string().nullable(),
+    /** Pe scurt, ce inseamna regula, in romana (pentru toate regulile). */
+    summaryRo: z.string().nullable(),
+  }),
   isBestPractice: z.boolean(),
   wcag: z.array(traceWcagSchema),
   en: z.array(traceEnSchema),
@@ -80,6 +88,10 @@ export const traceSchema = z.object({
     /** Data completarii profilului juridic (null daca nu a fost completat). */
     assessedAt: z.string().nullable(),
   }),
+  /**
+   * Remedierea completa (cum repari, exemplu, cum verifici). Trimisa doar pentru problemele
+   * detectate si cazurile de verificat manual: la regulile trecute nu e nimic de reparat.
+   */
   remediation: remediationSchema.nullable(),
   remediationStatus: z.string(),
 });
