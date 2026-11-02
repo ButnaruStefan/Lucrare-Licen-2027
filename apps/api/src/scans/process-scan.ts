@@ -36,25 +36,34 @@ export interface ProcessScanResult {
   browserHealthy: boolean;
 }
 
-/** Limita implicita: incarcarea paginii + inca o data pe atat pentru analiza + o rezerva. */
+/** Limita totala de timp a scanarii */
 export function defaultScanTimeLimitMs(pageTimeoutMs: number): number {
   return pageTimeoutMs * 2 + 30_000;
 }
 
-class ScanTimeoutError extends Error {}
+/** Clasa custom pentru a prinde timeout-ul scanarii (mosteneste Error)*/
+class ScanTimeoutError extends Error { }
 
 /** Asteapta promisiunea, dar cel mult `ms` milisecunde; apoi arunca ScanTimeoutError. */
 function withTimeLimit<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
+  // promisiunea are 2 parametrii, _ si reject
+  // _ este ignorat, reject este aruncat in caz de timeout (folosim _ pentru ca nu vrem sa facem nimic in caz de timeout)
+  // T este generic, adica poate fi orice tip (dar never in cazul nostru pentru ca o sa aruncam mereu ScanTimeoutError)
   const limit = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new ScanTimeoutError()), ms);
   });
+  // cursa intre cele 2 promisiuni (promise si limit), cel care se rezolva primul castiga
+  // in caz de timeout (la limit) se arunca ScanTimeoutError
+  // in caz de succes (la promise) se returneaza rezultatul
+  // finally este apelat indiferent de rezultat (in caz de timeout sau succes)
+  // in final se curata timerul (pentru a evita memory leaks)
   return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
 }
 
 export async function processScan(
-  deps: ProcessScanDeps,
-  scan: ClaimedScan,
+  deps: ProcessScanDeps, //dependentele (baza de date, browser, paznic, logger) creeate la inceput
+  scan: ClaimedScan, // o scanare din coada
 ): Promise<ProcessScanResult> {
   const { db, browser, browserVersion, guardOptions, logger } = deps;
   const log = logger.child({ scanId: scan.id, pageUrl: scan.pageUrl });
@@ -65,7 +74,8 @@ export async function processScan(
     const inspection = await withTimeLimit(
       (async () => {
         const precheck = await checkUrl(scan.pageUrl, guardOptions);
-        if (!precheck.ok) return { kind: 'unsafe', precheck } as const;
+        if (!precheck.ok) return { kind: 'unsafe', precheck } as const; // le face constante
+        // outcome este rezultatul scanarii paginii facuta de Playwright (poate fi ok = true sau ok = false)
         const outcome = await scanPage(
           browser,
           scan.pageUrl,
@@ -76,18 +86,26 @@ export async function processScan(
       })(),
       timeLimitMs,
     );
+    // verificam daca scanarea a fost respinsa de paznic
     if (inspection.kind === 'unsafe') {
-      const { precheck } = inspection;
+      const { precheck } = inspection; // precheck este rezultatul verificarii adresei de catre paznic
       log.warn({ reason: precheck.reason }, 'Adresa respinsa de paznic');
+      // marcam scanarea ca esuata in baza de date
       await failScan(db, scan.id, { errorCode: 'UNSAFE_URL', errorMessage: precheck.message });
+      // browserHealthy este true pentru ca nu s-a blocat browserul (doar a respins o cerere)
       return { browserHealthy: true };
     }
 
+    // outcome primeste rezultatul outcome inspectiei
     const { outcome } = inspection;
+    // verificam daca paznicul a blocat cereri in timpul scanarii
     if (outcome.blockedRequests.length > 0) {
       log.warn({ blocked: outcome.blockedRequests }, 'Cereri blocate de paznic in timpul scanarii');
     }
 
+    // verificam daca scanarea a fost respinsa de browser (nu de paznic)
+    // daca da, marcam scanarea ca esuata in baza de date
+    // browserHealthy este true pentru ca nu s-a blocat browserul (doar a respins o cerere)
     if (!outcome.ok) {
       log.info({ errorCode: outcome.errorCode }, 'Scanare esuata');
       await failScan(db, scan.id, { ...outcome, browserVersion });
@@ -115,7 +133,7 @@ export async function processScan(
         errorCode: 'SCAN_TIMEOUT',
         errorMessage: `Scanarea a depășit timpul maxim (${Math.round(timeLimitMs / 1000)} s) și a fost oprită. Poate fi pornită din nou.`,
         browserVersion,
-      }).catch(() => {});
+      }).catch(() => { });
       return { browserHealthy: false };
     }
     // Orice eroare neprevazuta: scanarea nu ramane "running" la nesfarsit.
@@ -124,7 +142,7 @@ export async function processScan(
       errorCode: 'INTERNAL_ERROR',
       errorMessage: 'A apărut o eroare internă în timpul scanării.',
       browserVersion,
-    }).catch(() => {});
+    }).catch(() => { });
     return { browserHealthy: browser.isConnected() };
   }
 }

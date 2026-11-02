@@ -75,6 +75,7 @@ export async function completeScan(db: Database, scanId: string, data: Completed
   const save = () =>
     db.$transaction(
       async (tx) => {
+        // in tabela ruleResult adaugam mai multe randuri
         await tx.ruleResult.createMany({
           data: ruleRows.map(({ id, result }) => ({
             id,
@@ -89,6 +90,7 @@ export async function completeScan(db: Database, scanId: string, data: Completed
             wcagCriteria: result.wcagCriteria,
           })),
         });
+        // in tabela affectedElement adaugam mai multe randuri 
         await tx.affectedElement.createMany({
           data: ruleRows.flatMap(({ id, result }) =>
             result.elements.map((el) => ({
@@ -100,6 +102,7 @@ export async function completeScan(db: Database, scanId: string, data: Completed
             })),
           ),
         });
+        // in tabela scan actualizam statusul scanarii la 'completed' si adaugam rezultatele
         await tx.scan.update({
           where: { id: scanId },
           data: {
