@@ -29,6 +29,11 @@ export function AboutPage() {
             Păstrează configurația și versiunile folosite, ca rezultatele să fie reproductibile.
           </li>
           <li>
+            Poate audita mai multe pagini ale unui site: găsește paginile (meniuri, sitemap.xml),
+            propune un eșantion variat pe care îl confirmi tu și arată problemele comune, venite din
+            șablonul site-ului.
+          </li>
+          <li>
             Arată orientativ, pe baza unui chestionar despre cine administrează site-ul, dacă OUG
             nr. 112/2018 ar putea să se aplice, cu articolele citate exact din textul oficial.
           </li>
@@ -52,7 +57,16 @@ export function AboutPage() {
             Nu evaluează sensul conținutului (de exemplu, dacă un text alternativ descrie corect o
             imagine) și nici utilizarea reală cu tastatura sau cu un cititor de ecran.
           </li>
-          <li>Scanează o singură pagină odată, fără autentificare.</li>
+          <li>
+            Nu verifică tot site-ul: un audit acoperă cel mult 20 de pagini alese dintre cele găsite
+            în pagina de start și în sitemap.xml (nu merge din link în link). Nu verifică paginile
+            de după autentificare, documentele (PDF, Word) și serviciile de pe alte site-uri, dar le
+            listează.
+          </li>
+          <li>
+            Respectă robots.txt: paginile pe care site-ul le interzice programelor automate nu sunt
+            propuse; pot fi alese doar de om, iar alegerea apare în raport.
+          </li>
         </ul>
       </section>
 

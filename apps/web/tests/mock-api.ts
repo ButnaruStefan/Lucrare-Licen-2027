@@ -6,11 +6,16 @@
 import type { Page } from 'playwright';
 import { buildTrace, evaluateOug112, OUG_112_QUESTIONS } from '@ro-a11y/catalog';
 import {
+  auditResultsSchema,
+  auditSchema,
   legalProfileAnswersSchema,
   projectSchema,
   ruleResultSchema,
   scanConfigSchema,
   scanSchema,
+  type Audit,
+  type AuditResults,
+  type DiscoveredPage,
   type LegalProfile,
   type Project,
   type RuleResult,
@@ -31,6 +36,7 @@ export function makeScan(overrides: Partial<Scan> = {}): Scan {
   return scanSchema.parse({
     id: '22222222-2222-4222-8222-222222222222',
     projectId: PROJECT.id,
+    auditId: null,
     pageUrl: PROJECT.baseUrl,
     finalUrl: PROJECT.baseUrl,
     httpStatus: 200,
@@ -153,6 +159,174 @@ export const RESULTS: RuleResult[] = [
   }),
 );
 
+// ─── Audit pe mai multe pagini ────────────────────────────────────────────────
+
+export const AUDIT_ID = '33333333-3333-4333-8333-333333333333';
+const SITE = PROJECT.baseUrl;
+
+function discovered(
+  path: string,
+  label: string,
+  section: string | null,
+  reasons: DiscoveredPage['reasons'] = [],
+): DiscoveredPage {
+  return {
+    url: `${SITE}${path}`,
+    label,
+    section,
+    region: section ? 'nav' : 'main',
+    proposed: reasons.length > 0,
+    selected: false,
+    robotsBlocked: false,
+    reasons,
+  };
+}
+
+/** Paginile gasite: un site cu meniuri, ca al unei primarii (o sectiune mare, de 8 pagini). */
+export const DISCOVERED_PAGES: DiscoveredPage[] = [
+  discovered('', 'Pagina de start', null, ['start']),
+  discovered('primaria/conducerea', 'Conducerea', 'Primăria', ['section']),
+  // Interzisa de robots.txt: nu e propusa, dar poate fi bifata de utilizator
+  { ...discovered('primaria/organigrama', 'Organigrama', 'Primăria'), robotsBlocked: true },
+  ...[
+    'consilieri',
+    'comisii',
+    'sedinte',
+    'hotarari',
+    'proiecte',
+    'procese-verbale',
+    'dispozitii',
+    'rapoarte',
+  ].map((slug, i) =>
+    discovered(
+      `consiliu/${slug}`,
+      `Consiliu: ${slug}`,
+      'Consiliul local',
+      i === 0 ? ['section'] : i === 7 ? ['random'] : [],
+    ),
+  ),
+  discovered('contact', 'Contact', null, ['essential']),
+  {
+    ...discovered('declaratie-accesibilitate', 'declaratie accesibilitate', null, ['essential']),
+    region: 'sitemap',
+  },
+];
+
+export function makeAudit(overrides: Partial<Audit> = {}): Audit {
+  return auditSchema.parse({
+    id: AUDIT_ID,
+    projectId: PROJECT.id,
+    startUrl: SITE,
+    maxPages: 10,
+    status: 'awaiting_selection',
+    config,
+    catalogVersion: '2026-10-28',
+    discovery: {
+      finalUrl: SITE,
+      scope: SITE,
+      linksFound: 42,
+      pages: DISCOVERED_PAGES,
+      external: [
+        { origin: 'https://www.ghiseul.ro', url: 'https://www.ghiseul.ro/', label: 'Plăți online' },
+      ],
+      documents: [{ url: `${SITE}hcl-12.pdf`, label: 'Hotărârea nr. 12/2026', extension: 'pdf' }],
+      excluded: { non_http: 2, same_page: 3 },
+      robots: { found: true, blocked: 1 },
+      sitemap: { found: true, urls: 12 },
+    },
+    errorCode: null,
+    errorMessage: null,
+    createdAt: '2026-11-03T09:00:00.000Z',
+    discoveredAt: '2026-11-03T09:00:05.000Z',
+    selectedAt: null,
+    finishedAt: null,
+    progress: { total: 0, completed: 0, failed: 0 },
+    pages: [],
+    ...overrides,
+  });
+}
+
+const SUMMARY = {
+  violations: 3,
+  violationElements: 5,
+  incomplete: 1,
+  incompleteElements: 1,
+  passes: 20,
+  inapplicable: 40,
+};
+
+/** Auditul dupa scanarea paginilor alese. */
+export function completedAudit(): Audit {
+  const chosen = DISCOVERED_PAGES.filter((p) => p.proposed);
+  return makeAudit({
+    status: 'completed',
+    selectedAt: '2026-11-03T09:01:00.000Z',
+    finishedAt: '2026-11-03T09:02:00.000Z',
+    progress: { total: chosen.length, completed: chosen.length - 1, failed: 1 },
+    pages: chosen.map((p, i) => ({
+      scanId: `4444444${i}-4444-4444-8444-444444444444`,
+      pageUrl: p.url,
+      label: p.label,
+      reasons: p.reasons,
+      robotsBlocked: false,
+      status: i === chosen.length - 1 ? 'failed' : 'completed',
+      errorMessage: i === chosen.length - 1 ? 'Serverul a răspuns cu codul 500.' : null,
+      summary: i === chosen.length - 1 ? null : SUMMARY,
+    })),
+  });
+}
+
+export const AUDIT_RESULTS: AuditResults = auditResultsSchema.parse({
+  pagesScanned: 5,
+  rules: [
+    {
+      axeRuleId: 'link-name',
+      category: 'violation',
+      impact: 'serious',
+      title: 'Links must have discernible text',
+      titleRo: 'Linkurile trebuie să aibă un text care poate fi înțeles',
+      isBestPractice: false,
+      wcagCriteria: ['2.4.4', '4.1.2'],
+      elementCount: 5,
+      pages: completedAudit()
+        .pages.slice(0, 5)
+        .map((p) => ({ scanId: p.scanId, pageUrl: p.pageUrl, elementCount: 1 })),
+    },
+    {
+      axeRuleId: 'color-contrast',
+      category: 'incomplete',
+      impact: 'serious',
+      title: 'Elements must meet minimum color contrast ratio thresholds',
+      titleRo: null,
+      isBestPractice: false,
+      wcagCriteria: ['1.4.3'],
+      elementCount: 1,
+      pages: [
+        {
+          scanId: completedAudit().pages[0]!.scanId,
+          pageUrl: completedAudit().pages[0]!.pageUrl,
+          elementCount: 1,
+        },
+      ],
+    },
+  ],
+  commonIssues: [
+    {
+      key: 'abc',
+      axeRuleId: 'link-name',
+      category: 'violation',
+      impact: 'serious',
+      title: 'Links must have discernible text',
+      titleRo: 'Linkurile trebuie să aibă un text care poate fi înțeles',
+      htmlSnippet: HOSTILE_HTML,
+      cssSelector: ['a.social'],
+      pages: completedAudit()
+        .pages.slice(0, 5)
+        .map((p) => ({ scanId: p.scanId, pageUrl: p.pageUrl })),
+    },
+  ],
+});
+
 export interface MockApiOptions {
   projects?: Project[];
   /** Raspunsurile succesive pentru GET /api/v1/scans/:id (ultimul se repeta). */
@@ -163,6 +337,12 @@ export interface MockApiOptions {
   results?: RuleResult[];
   /** Profilul juridic salvat la inceput (implicit: necompletat). */
   legalProfile?: LegalProfile | null;
+  /** Auditul intors de GET /api/v1/audits/:id (implicit: paginile gasite, de ales). */
+  audit?: Audit;
+  /** Raspunsul pentru POST /api/v1/audits/:id/selection (implicit: auditul finalizat). */
+  selection?: { status: number; body: unknown };
+  /** Primeste corpul cererii de selectie (ca testul sa verifice paginile trimise). */
+  onSelection?: (body: unknown) => void;
 }
 
 /** Data fixa a evaluarii in profilul simulat. */
@@ -217,6 +397,36 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
     }
     return route.fulfill(json({ questions: OUG_112_QUESTIONS, profile: legalProfile }));
   });
+  // Auditurile: lista proiectului, pornirea, auditul, alegerea paginilor si rezultatele.
+  let audit = options.audit ?? makeAudit();
+  await page.route(`**/api/v1/projects/${PROJECT.id}/audits`, (route) => {
+    if (route.request().method() === 'POST') {
+      return route.fulfill(json(makeAudit({ status: 'discovery_queued', discovery: null }), 202));
+    }
+    return route.fulfill(
+      json({
+        items: [
+          {
+            id: audit.id,
+            startUrl: audit.startUrl,
+            status: audit.status,
+            createdAt: audit.createdAt,
+            pagesFound: audit.discovery?.pages.length ?? null,
+            progress: audit.progress,
+          },
+        ],
+      }),
+    );
+  });
+  await page.route('**/api/v1/audits/*/selection', (route) => {
+    options.onSelection?.(route.request().postDataJSON());
+    const res = options.selection ?? { status: 200, body: completedAudit() };
+    if (res.status === 200) audit = auditSchema.parse(res.body);
+    return route.fulfill(json(res.body, res.status));
+  });
+  await page.route('**/api/v1/audits/*/results', (route) => route.fulfill(json(AUDIT_RESULTS)));
+  await page.route(/\/api\/v1\/audits\/[^/]+$/, (route) => route.fulfill(json(audit)));
+
   await page.route('**/api/v1/scans/*/results', (route) =>
     route.fulfill(json({ items: options.results ?? RESULTS })),
   );

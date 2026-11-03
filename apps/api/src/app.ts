@@ -10,6 +10,7 @@ import express from 'express';
 import type { Logger } from './lib/logger';
 import { requestLogger } from './middleware/request-id';
 import { errorHandler, notFoundHandler } from './middleware/errors';
+import { auditsRouter } from './routes/audits';
 import { healthRouter, type HealthDeps } from './routes/health';
 import { legalProfileRouter } from './routes/legal-profile';
 import { projectsRouter, type ProjectsDeps } from './routes/projects';
@@ -30,6 +31,7 @@ export function createApp(deps: AppDeps) {
   app.use(projectsRouter(deps));
   app.use(legalProfileRouter(deps));
   app.use(scansRouter(deps));
+  app.use(auditsRouter(deps));
 
   // Trebuie sa fie ultimele: prind tot ce n-a fost tratat mai sus.
   app.use(notFoundHandler);

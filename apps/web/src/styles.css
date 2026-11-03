@@ -1025,3 +1025,95 @@ button:disabled {
     scroll-behavior: auto !important;
   }
 }
+
+/* --- Audit pe mai multe pagini --- */
+
+.button-secondary {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.page-selection {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.page-group {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.page-group legend {
+  font-weight: 700;
+  padding: 0 0.25rem;
+}
+
+.page-list {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+}
+
+.page-list .field {
+  margin-bottom: 0.4rem;
+}
+
+.page-list .url {
+  font-size: 0.85rem;
+}
+
+.page-group__more summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+  margin: 0.25rem 0;
+}
+
+.page-selection__add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 0.75rem;
+}
+
+.page-selection__add .field {
+  flex: 1 1 20rem;
+}
+
+.page-selection__add button {
+  margin-bottom: 1rem;
+}
+
+.page-selection__count {
+  margin: 0;
+  font-weight: 600;
+}
+
+.audit-page__url {
+  display: block;
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+
+.rule__card {
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.rule__card p {
+  margin: 0 0 0.35rem;
+}
+
+.audit-rules__heading {
+  margin: 1.25rem 0 0.5rem;
+}
+
+.audit-page-links {
+  margin: 0.25rem 0;
+  padding-left: 1.25rem;
+}

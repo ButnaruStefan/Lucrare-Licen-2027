@@ -4,6 +4,9 @@
  */
 import type {
   ApplicabilityStatus,
+  AuditStatus,
+  ExclusionReason,
+  SelectionReason,
   Impact,
   ResultCategory,
   ScanStatus,
@@ -24,6 +27,35 @@ export const SCAN_STATUS_LABELS: Record<ScanStatus, string> = {
   running: 'În curs',
   completed: 'Finalizată',
   failed: 'Eșuată',
+};
+
+/** Starea unui audit pe mai multe pagini. */
+export const AUDIT_STATUS_LABELS: Record<AuditStatus, string> = {
+  discovery_queued: 'În așteptare',
+  discovering: 'Caută paginile',
+  awaiting_selection: 'Alege paginile',
+  scanning: 'Se scanează',
+  completed: 'Finalizat',
+  failed: 'Eșuat',
+};
+
+/** De ce a fost propusa o pagina in esantion. */
+export const SELECTION_REASON_LABELS: Record<SelectionReason, string> = {
+  start: 'pagina de start',
+  essential: 'pagină esențială',
+  section: 'reprezintă o secțiune',
+  random: 'aleasă la întâmplare',
+  manual: 'adăugată de tine',
+};
+
+/** De ce un link gasit nu a devenit pagina candidata. */
+export const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
+  action: 'linkuri cu efecte (autentificare, ieșire din cont, căutare, tipărire)',
+  file: 'fișiere care nu sunt pagini (imagini, arhive)',
+  non_http: 'adrese de e-mail, telefon sau JavaScript',
+  same_page: 'ancore spre aceeași pagină (#...)',
+  outside_scope: 'pagini din afara secțiunii auditate',
+  limit: 'peste limita de pagini păstrate',
 };
 
 export const CATEGORY_LABELS: Record<ResultCategory, string> = {

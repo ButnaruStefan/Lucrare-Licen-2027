@@ -7,4 +7,5 @@ export * from './errors';
 export * from './projects';
 export * from './legal-profile';
 export * from './scans';
+export * from './audits';
 export * from './traceability';

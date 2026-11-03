@@ -16,6 +16,7 @@ de TypeScript in cealalta, la compilare, nu in fata utilizatorului.
 | `src/errors.ts`        | Formatul standard al erorilor API                                                    |
 | `src/projects.ts`      | Proiectele: crearea (validarea adresei) si forma raspunsului                         |
 | `src/scans.ts`         | Scanarile: configuratia, starea, sumarul, rezultatele pe reguli                      |
+| `src/audits.ts`        | Auditurile pe mai multe pagini: paginile gasite, alegerea lor, rezultatele pe site   |
 | `src/traceability.ts`  | Lantul de trasabilitate al unei probleme (WCAG, EN, OUG, aplicabilitate)             |
 | `src/legal-profile.ts` | Profilul juridic OUG 112/2018: raspunsurile, regula "ce intrebari se pun", evaluarea |
 

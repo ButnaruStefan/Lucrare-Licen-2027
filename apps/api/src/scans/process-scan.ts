@@ -42,7 +42,7 @@ export function defaultScanTimeLimitMs(pageTimeoutMs: number): number {
 }
 
 /** Clasa custom pentru a prinde timeout-ul scanarii (mosteneste Error)*/
-class ScanTimeoutError extends Error { }
+class ScanTimeoutError extends Error {}
 
 /** Asteapta promisiunea, dar cel mult `ms` milisecunde; apoi arunca ScanTimeoutError. */
 function withTimeLimit<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -133,7 +133,7 @@ export async function processScan(
         errorCode: 'SCAN_TIMEOUT',
         errorMessage: `Scanarea a depășit timpul maxim (${Math.round(timeLimitMs / 1000)} s) și a fost oprită. Poate fi pornită din nou.`,
         browserVersion,
-      }).catch(() => { });
+      }).catch(() => {});
       return { browserHealthy: false };
     }
     // Orice eroare neprevazuta: scanarea nu ramane "running" la nesfarsit.
@@ -142,7 +142,7 @@ export async function processScan(
       errorCode: 'INTERNAL_ERROR',
       errorMessage: 'A apărut o eroare internă în timpul scanării.',
       browserVersion,
-    }).catch(() => { });
+    }).catch(() => {});
     return { browserHealthy: browser.isConnected() };
   }
 }

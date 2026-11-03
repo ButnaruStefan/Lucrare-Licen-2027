@@ -24,6 +24,8 @@ datasource db {
 //   Project 1 ── N Scan 1 ── N RuleResult 1 ── N AffectedElement
 //   (un proiect are mai multe scanari; o scanare are cate un rezultat pentru fiecare regula
 //    verificata; un rezultat poate afecta mai multe elemente din pagina)
+//   Project 1 ── N Audit 1 ── N Scan
+//   (un audit verifica mai multe pagini ale aceluiasi site: fiecare pagina e o scanare obisnuita)
 
 // ─── Liste de valori permise (enum) ─────────────────────────────────────────────
 
@@ -47,6 +49,18 @@ enum ResultCategory {
   @@map("result_category")
 }
 
+// Etapa in care se afla un audit pe mai multe pagini. Starea "finalizat" nu se salveaza:
+// se calculeaza din starea scanarilor paginilor (un audit e gata cand nicio pagina nu mai asteapta).
+enum AuditStatus {
+  discovery_queued // asteapta descoperirea paginilor
+  discovering // worker-ul cauta paginile site-ului
+  awaiting_selection // paginile au fost gasite: utilizatorul alege ce se scaneaza
+  scanning // paginile alese sunt scanate (sau au fost scanate)
+  failed // descoperirea a esuat (ex. pagina de start nu se deschide)
+
+  @@map("audit_status")
+}
+
 // Gravitatea raportata de axe-core (nu e risc juridic si nici scor de conformitate).
 enum Impact {
   minor
@@ -68,6 +82,7 @@ model Project {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   scans        Scan[]
+  audits       Audit[]
   legalProfile LegalProfile?
 
   @@map("projects")
@@ -90,12 +105,42 @@ model LegalProfile {
   @@map("legal_profiles")
 }
 
+// Un audit = verificarea mai multor pagini ale aceluiasi site, intr-o singura actiune:
+//   1. worker-ul deschide pagina de start si gaseste paginile site-ului (linkuri, sitemap.xml);
+//   2. aplicatia propune un esantion (pagini esentiale, cate una din fiecare sectiune, aleatorii);
+//   3. utilizatorul confirma lista, iar fiecare pagina aleasa devine o scanare obisnuita.
+model Audit {
+  id                 String      @id @default(uuid())
+  projectId          String      @map("project_id")
+  project            Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  startUrl           String      @map("start_url") // pagina de la care incepe descoperirea
+  maxPages           Int         @map("max_pages") // cate pagini propunem, cel mult
+  status             AuditStatus @default(discovery_queued)
+  config             Json // configuratia scanarii, aceeasi pentru toate paginile
+  catalogVersion     String      @map("catalog_version") // versiunea catalogului normativ
+  discovery          Json? // ce s-a gasit: pagini candidate, servicii externe, documente, excluderi
+  errorCode          String?     @map("error_code") // doar daca descoperirea a esuat
+  errorMessage       String?     @map("error_message")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  discoveryStartedAt DateTime?   @map("discovery_started_at")
+  discoveredAt       DateTime?   @map("discovered_at")
+  selectedAt         DateTime?   @map("selected_at") // cand a confirmat utilizatorul lista
+
+  scans Scan[]
+
+  @@index([projectId, createdAt])
+  @@index([status, createdAt]) // worker-ul cauta rapid urmatoarea descoperire in asteptare
+  @@map("audits")
+}
+
 // O scanare = o rulare a motorului axe-core pe o pagina, la un moment dat,
 // cu o configuratie fixata (ca rezultatele sa fie reproductibile si comparabile).
 model Scan {
   id             String     @id @default(uuid())
   projectId      String     @map("project_id") // proiectul caruia ii apartine
   project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  auditId        String?    @map("audit_id") // auditul din care face parte (null = scanare separata)
+  audit          Audit?     @relation(fields: [auditId], references: [id], onDelete: Cascade)
   pageUrl        String     @map("page_url") // adresa paginii scanate
   finalUrl       String?    @map("final_url") // adresa reala dupa redirectionari
   httpStatus     Int?       @map("http_status") // codul HTTP primit la incarcarea paginii
@@ -117,6 +162,7 @@ model Scan {
 
   @@index([projectId, createdAt])
   @@index([status, createdAt]) // worker-ul cauta rapid urmatoarea scanare "queued"
+  @@index([auditId])
   @@map("scans")
 }
 

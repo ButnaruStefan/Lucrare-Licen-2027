@@ -63,6 +63,8 @@ export type ScanSummary = z.infer<typeof scanSummarySchema>;
 export const scanSchema = z.object({
   id: z.string(),
   projectId: z.string(),
+  /** Auditul din care face parte pagina (null = scanare separata). */
+  auditId: z.string().nullable(),
   pageUrl: z.string(),
   finalUrl: z.string().nullable(),
   httpStatus: z.number().int().nullable(),

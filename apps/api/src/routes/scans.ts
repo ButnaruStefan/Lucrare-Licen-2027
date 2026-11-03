@@ -3,7 +3,8 @@
  *
  * - POST /api/v1/projects/:projectId/scans  — cere o scanare noua; raspunde 202 (Accepted):
  *   scanarea intra in coada, iar worker-ul o va procesa separat
- * - GET  /api/v1/projects/:projectId/scans  — scanarile unui proiect, cele mai noi primele
+ * - GET  /api/v1/projects/:projectId/scans  — scanarile separate ale unui proiect, cele mai noi
+ *                                             primele (paginile unui audit apar in audit)
  * - GET  /api/v1/scans/:scanId              — o scanare: stare, configuratie, versiuni, sumar
  * - GET  /api/v1/scans/:scanId/results      — rezultatele pe reguli, cu elementele afectate si
  *                                             lantul de trasabilitate (WCAG -> EN -> OUG 112/2018,
@@ -53,6 +54,7 @@ function toScanDto(row: ScanRow, summary: ScanSummary | null): Scan {
   return {
     id: row.id,
     projectId: row.projectId,
+    auditId: row.auditId,
     pageUrl: row.pageUrl,
     finalUrl: row.finalUrl,
     httpStatus: row.httpStatus,
@@ -72,7 +74,10 @@ function toScanDto(row: ScanRow, summary: ScanSummary | null): Scan {
 }
 
 /** Calculeaza sumarul (reguli si elemente pe categorii) pentru mai multe scanari odata. */
-async function loadSummaries(db: Database, scanIds: string[]): Promise<Map<string, ScanSummary>> {
+export async function loadSummaries(
+  db: Database,
+  scanIds: string[],
+): Promise<Map<string, ScanSummary>> {
   const summaries = new Map<string, ScanSummary>();
   if (scanIds.length === 0) return summaries;
 
@@ -166,7 +171,7 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     if (!project) throw projectNotFound();
 
     const rows = await db.scan.findMany({
-      where: { projectId: project.id },
+      where: { projectId: project.id, auditId: null },
       orderBy: { createdAt: 'desc' },
       take: LIST_LIMIT,
     });

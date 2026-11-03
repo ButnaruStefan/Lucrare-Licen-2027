@@ -3,12 +3,14 @@
  *
  * Intr-o bucla, repeta un pas (vezi `scans/worker-loop.ts`):
  *   - pregateste browserul (il porneste sau il reporneste, la nevoie);
- *   - rezerva urmatoarea scanare "queued" din baza de date si o proceseaza
- *     (browser + axe-core + salvarea rezultatelor);
- *   - daca nu exista scanari in asteptare, asteapta putin si verifica din nou.
+ *   - rezerva urmatoarea lucrare din baza de date si o proceseaza: descoperirea paginilor
+ *     unui audit (linkuri, robots.txt, sitemap) sau scanarea unei pagini (browser + axe-core
+ *     + salvarea rezultatelor);
+ *   - daca nu exista lucrari in asteptare, asteapta putin si verifica din nou.
  *
  * E separat de API ca o scanare lenta (zeci de secunde) sa nu blocheze raspunsurile API-ului.
- * Proceseaza o singura scanare odata, ca sa nu suprasolicite calculatorul sau site-ul scanat.
+ * Proceseaza o singura lucrare odata si face o pauza scurta intre pagini, ca sa nu
+ * suprasolicite calculatorul sau site-ul scanat (un audit trimite mai multe pagini la rand).
  *
  * Robustete: worker-ul nu ramane blocat si nu se opreste singur. Fiecare scanare are o limita
  * de timp si, peste ea, un ceas de paza; un browser blocat e abandonat si inlocuit; orice eroare
@@ -18,14 +20,19 @@ import { env } from './config/env'; //variabile de mediu
 import { createPrismaClient } from './db/prisma'; //prisma client
 import { createLogger } from './lib/logger'; //logger
 import { createBrowserManager } from './scanner/browser'; //browser
+import { processDiscovery } from './audits/process-discovery'; //descoperirea paginilor unui audit
 import { processScan } from './scans/process-scan'; //proces scanare
 import { runWorkerIteration, sweepStaleScans, type WorkerLoopDeps } from './scans/worker-loop'; //un pas al buclei
 
 /**
- * Scanarile ramase "running" mai vechi de atat sunt considerate abandonate (ex. worker oprit
- * brusc). O scanare nu poate dura mai mult de limita ei + ceasul de paza (implicit 2 min).
+ * Lucrarile ramase "in curs" mai vechi de atat sunt considerate abandonate (ex. worker oprit
+ * brusc). O scanare nu poate dura mai mult de limita ei + ceasul de paza (implicit 2 min),
+ * iar o descoperire de pagini cel mult 3 min.
  */
-const STALE_SCAN_MS = 3 * 60 * 1000;
+const STALE_SCAN_MS = 5 * 60 * 1000;
+
+/** Pauza dupa fiecare lucrare, ca paginile unui audit sa nu fie cerute una dupa alta, fara oprire. */
+const PAUSE_BETWEEN_PAGES_MS = 1000;
 
 /** Dupa primul Ctrl+C, cat asteptam terminarea scanarii curente inainte de oprirea fortata. */
 const FORCED_EXIT_MS = 15_000;
@@ -44,6 +51,8 @@ const deps: WorkerLoopDeps = {
   staleAfterMs: STALE_SCAN_MS,
   process: (browser, browserVersion, scan) =>
     processScan({ db, browser, browserVersion, guardOptions, logger }, scan),
+  processDiscovery: (browser, audit) =>
+    processDiscovery({ db, browser, guardOptions, logger }, audit),
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -56,8 +65,10 @@ async function main() {
 
   while (!stopping) {
     const result = await runWorkerIteration(deps);
-    // Dupa o scanare, trecem imediat la urmatoarea; altfel asteptam putin.
-    if (result !== 'processed' && result !== 'watchdog') {
+    // Dupa o lucrare, o pauza scurta (politete fata de site); altfel asteptam mai mult.
+    if (result === 'processed' || result === 'watchdog') {
+      await sleep(PAUSE_BETWEEN_PAGES_MS);
+    } else {
       await sleep(result === 'idle' ? env.WORKER_POLL_INTERVAL_MS : 5_000);
     }
   }

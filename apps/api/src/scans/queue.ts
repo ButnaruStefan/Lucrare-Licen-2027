@@ -90,7 +90,7 @@ export async function completeScan(db: Database, scanId: string, data: Completed
             wcagCriteria: result.wcagCriteria,
           })),
         });
-        // in tabela affectedElement adaugam mai multe randuri 
+        // in tabela affectedElement adaugam mai multe randuri
         await tx.affectedElement.createMany({
           data: ruleRows.flatMap(({ id, result }) =>
             result.elements.map((el) => ({

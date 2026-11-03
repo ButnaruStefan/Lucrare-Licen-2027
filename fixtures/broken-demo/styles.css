@@ -118,3 +118,13 @@ button {
 .site-footer a {
   color: #ffffff;
 }
+
+/* Submeniul "Servicii" si legaturile din subsol (paginile interioare) */
+.submenu,
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+}

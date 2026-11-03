@@ -11,7 +11,17 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { createServer, type ViteDevServer } from 'vite';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { HOSTILE_HTML, makeScan, mockApi, PROJECT, RESULTS } from './mock-api';
+import {
+  AUDIT_ID,
+  completedAudit,
+  DISCOVERED_PAGES,
+  HOSTILE_HTML,
+  makeAudit,
+  makeScan,
+  mockApi,
+  PROJECT,
+  RESULTS,
+} from './mock-api';
 
 const channel = process.env.BROWSER_CHANNEL ?? 'chrome';
 const SCAN_ID = makeScan().id;
@@ -177,7 +187,9 @@ describe('pagina proiectului', () => {
     await page.goto(`${baseUrl}/proiecte/${PROJECT.id}`);
 
     await page.getByRole('button', { name: 'Scanează pagina' }).waitFor();
+    await page.getByRole('button', { name: 'Caută paginile site-ului' }).waitFor();
     await page.getByRole('cell', { name: 'Finalizată' }).waitFor();
+    await page.getByRole('cell', { name: 'Alege paginile' }).waitFor();
     // Profilul juridic necompletat: statusul "Neevaluată" si legatura spre chestionar
     await page.getByRole('link', { name: 'Completează profilul juridic' }).waitFor();
     expect(await axeViolations()).toEqual([]);
@@ -483,6 +495,135 @@ describe('pagina scanarii', () => {
       await fold.click();
     }
 
+    expect(await axeViolations(darkPage)).toEqual([]);
+    await dark.close();
+  });
+});
+
+describe('auditul pe mai multe pagini', () => {
+  const proposed = DISCOVERED_PAGES.filter((p) => p.proposed);
+
+  it('pornirea unui audit duce la pagina auditului', async () => {
+    await mockApi(page, { audit: makeAudit({ status: 'discovery_queued', discovery: null }) });
+    await page.goto(`${baseUrl}/proiecte/${PROJECT.id}`);
+    await page.getByLabel('Câte pagini să propun').selectOption('15');
+    await page.getByRole('button', { name: 'Caută paginile site-ului' }).click();
+
+    await page.waitForURL(`**/audituri/${AUDIT_ID}`);
+    await page.getByText('Caut paginile site-ului').waitFor();
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('propune paginile grupate pe sectiuni, cu motivul alegerii, fara probleme de accesibilitate', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+
+    await page.getByRole('heading', { name: 'Alege paginile de verificat' }).waitFor();
+    // Sectiunile sunt grupuri (fieldset + legend)
+    await page.getByRole('group', { name: /Consiliul local/ }).waitFor();
+    // Paginile propuse sunt bifate, celelalte nu
+    expect(await page.getByRole('checkbox', { name: /Conducerea/ }).isChecked()).toBe(true);
+    expect(await page.getByRole('checkbox', { name: /Organigrama/ }).isChecked()).toBe(false);
+    await page.getByText('Propusă: pagină esențială').first().waitFor();
+    // Pagina interzisa de robots.txt e marcata si explicata
+    await page.getByText('robots.txt cere să nu fie vizitată').waitFor();
+    await page.getByText(/Fișierul robots.txt al site-ului cere/).waitFor();
+    await page.getByText(`${proposed.length} pagini alese`).waitFor();
+    // Grupul mare isi ascunde paginile nepropuse; pagina aleatorie ramane vizibila
+    await page.getByText(/Arată încă \d+ pagini/).waitFor();
+    expect(await page.getByRole('checkbox', { name: /rapoarte/ }).isVisible()).toBe(true);
+    // Ce nu a fost verificat: servicii externe si documente
+    await page
+      .locator('li', { hasText: 'Plăți online' })
+      .getByText('https://www.ghiseul.ro')
+      .waitFor();
+    await page.getByText('Hotărârea nr. 12/2026').waitFor();
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('trimite paginile alese (inclusiv una adaugata manual) si arata progresul', async () => {
+    let sent: unknown = null;
+    await mockApi(page, { onSelection: (body) => (sent = body) });
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+
+    await page.getByRole('checkbox', { name: /Conducerea/ }).uncheck();
+    await page.getByRole('checkbox', { name: /Organigrama/ }).check();
+    await page
+      .getByLabel('Adaugă o pagină care lipsește (opțional)')
+      .fill(`${PROJECT.baseUrl}pagina-noua`);
+    await page.getByRole('button', { name: 'Adaugă pagina' }).click();
+    await page.getByRole('group', { name: 'Adăugate de tine' }).waitFor();
+    await page.getByText(`${proposed.length + 1} pagini alese`).waitFor();
+
+    await page.getByRole('button', { name: /Scanează paginile alese/ }).click();
+
+    // Formularul dispare: focusul ajunge pe sectiunea paginilor verificate
+    const heading = page.getByRole('heading', { name: 'Paginile verificate' });
+    await heading.waitFor();
+    await expect
+      .poll(() => heading.evaluate((el) => el === document.activeElement), { timeout: 10_000 })
+      .toBe(true);
+    const urls = (sent as { urls: string[] }).urls;
+    expect(urls).toContain(`${PROJECT.baseUrl}primaria/organigrama`);
+    expect(urls).not.toContain(`${PROJECT.baseUrl}primaria/conducerea`);
+    expect(urls.at(-1)).toBe(`${PROJECT.baseUrl}pagina-noua`);
+  });
+
+  it('o adresa de pe alt site e respinsa langa camp, iar focusul merge pe el', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+    const field = page.getByLabel('Adaugă o pagină care lipsește (opțional)');
+    await field.fill('https://alt-site.example/pagina');
+    await page.getByRole('button', { name: 'Adaugă pagina' }).click();
+
+    await page.getByText('Pagina trebuie să fie de pe site-ul auditat').waitFor();
+    await expect
+      .poll(() => field.evaluate((el) => el === document.activeElement), { timeout: 10_000 })
+      .toBe(true);
+  });
+
+  it('fara nicio pagina aleasa, mesajul de eroare primeste focusul', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+    const checkedBoxes = page.getByRole('checkbox', { checked: true });
+    await checkedBoxes.first().waitFor();
+    while ((await checkedBoxes.count()) > 0) await checkedBoxes.first().uncheck();
+    await page.getByRole('button', { name: /Scanează paginile alese/ }).click();
+
+    const alert = page.getByRole('alert').filter({ hasText: 'Alege cel puțin o pagină.' });
+    await alert.waitFor();
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.activeElement?.textContent?.includes('Alege cel puțin')),
+      )
+      .toBe(true);
+  });
+
+  it('arata rezultatele pe tot site-ul: probleme comune, reguli pe pagini, limitele auditului', async () => {
+    await mockApi(page, { audit: completedAudit() });
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+
+    await page.getByRole('heading', { name: 'Probleme comune (1)' }).waitFor();
+    await page.getByText('Au fost verificate 5 din 13 pagini găsite').waitFor();
+    await page.getByText('pe 5 din 5 pagini').first().waitFor();
+    // Pagina esuata e explicata, fara sa fie prezentata ca problema de accesibilitate
+    await page.getByText('(1 nu au putut fi scanate)').waitFor();
+    // Codul HTML al elementului comun e afisat ca text, nu executat
+    expect(await page.locator('.element__html').first().innerText()).toBe(HOSTILE_HTML);
+    // Paginile duc la scanarea fiecareia
+    await page.locator('.rule').first().locator('.fold__summary').click();
+    expect(
+      await page.locator('.rule').first().getByRole('link').first().getAttribute('href'),
+    ).toMatch(/^\/scanari\//);
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('rezultatele auditului nu au probleme de accesibilitate nici in modul intunecat', async () => {
+    const dark = await browser.newContext({ colorScheme: 'dark', locale: 'ro-RO' });
+    const darkPage = await dark.newPage();
+    await mockApi(darkPage, { audit: completedAudit() });
+    await darkPage.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+    await darkPage.getByRole('heading', { name: 'Probleme comune (1)' }).waitFor();
     expect(await axeViolations(darkPage)).toEqual([]);
     await dark.close();
   });

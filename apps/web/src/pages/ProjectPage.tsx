@@ -1,17 +1,32 @@
 /**
- * Pagina unui proiect: profilul juridic (pe scurt), pornirea unei scanari noi si istoricul
- * scanarilor.
+ * Pagina unui proiect: profilul juridic (pe scurt), pornirea unui audit pe mai multe pagini,
+ * pornirea unei scanari pe o singura pagina si istoricul auditurilor si al scanarilor.
  *
- * Formularul permite alegerea paginii (implicit adresa proiectului), a profilului WCAG si
- * includerea "bunelor practici". Dupa pornire, utilizatorul ajunge pe pagina scanarii, unde
- * vede starea actualizata automat. Istoricul se actualizeaza singur cat timp exista scanari in curs.
+ * Auditul: worker-ul cauta paginile site-ului, iar utilizatorul alege ce se scaneaza (pe pagina
+ * auditului). Scanarea simpla: alegerea paginii (implicit adresa proiectului), a profilului WCAG
+ * si includerea "bunelor practici". Dupa pornire, utilizatorul ajunge pe pagina auditului sau a
+ * scanarii, unde vede starea actualizata automat. Istoricele se actualizeaza singure cat timp
+ * exista lucrari in curs.
  */
 import { useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { WCAG_PROFILES, type Project, type WcagProfile } from '@ro-a11y/shared';
+import {
+  AUDIT_DEFAULT_PAGES,
+  AUDIT_MAX_PAGES,
+  WCAG_PROFILES,
+  type Project,
+  type WcagProfile,
+} from '@ro-a11y/shared';
 import { ApiRequestError } from '../api/client';
-import { useCreateScan, useLegalProfile, useProject, useProjectScans } from '../api/queries';
-import { ScanStatusBadge } from '../components/Badges';
+import {
+  useCreateAudit,
+  useCreateScan,
+  useLegalProfile,
+  useProject,
+  useProjectAudits,
+  useProjectScans,
+} from '../api/queries';
+import { AuditStatusBadge, ScanStatusBadge } from '../components/Badges';
 import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
 import { ApplicabilityBadge } from '../components/LegalAssessmentView';
 import { PageHeading } from '../components/PageHeading';
@@ -46,7 +61,9 @@ export function ProjectPage() {
       <p className="lead url">{project.data.baseUrl}</p>
 
       <LegalProfileSummary projectId={projectId} />
+      <NewAuditForm project={project.data} />
       <NewScanForm project={project.data} />
+      <AuditHistory projectId={projectId} />
       <ScanHistory projectId={projectId} />
     </>
   );
@@ -89,6 +106,137 @@ function LegalProfileSummary({ projectId }: { projectId: string }) {
   );
 }
 
+/** Optiunile comune ale auditului si ale scanarii simple: standardul si bunele practici. */
+function ScanOptions({
+  wcagProfile,
+  onProfileChange,
+  includeBestPractices,
+  onBestPracticesChange,
+}: {
+  wcagProfile: WcagProfile;
+  onProfileChange: (value: WcagProfile) => void;
+  includeBestPractices: boolean;
+  onBestPracticesChange: (value: boolean) => void;
+}) {
+  const profileId = useId();
+  const bestPracticesId = useId();
+  return (
+    <>
+      <div className="field">
+        <label htmlFor={profileId}>Standardul verificat</label>
+        <select
+          id={profileId}
+          value={wcagProfile}
+          onChange={(e) => onProfileChange(e.target.value as WcagProfile)}
+        >
+          {WCAG_PROFILES.map((profile) => (
+            <option key={profile} value={profile}>
+              {WCAG_PROFILE_LABELS[profile]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field field--checkbox">
+        <input
+          id={bestPracticesId}
+          type="checkbox"
+          checked={includeBestPractices}
+          onChange={(e) => onBestPracticesChange(e.target.checked)}
+        />
+        <label htmlFor={bestPracticesId}>
+          Include și bunele practici (reguli utile, dar care nu sunt criterii WCAG obligatorii)
+        </label>
+      </div>
+    </>
+  );
+}
+
+/** Pornirea unui audit pe mai multe pagini: worker-ul cauta paginile, utilizatorul alege. */
+function NewAuditForm({ project }: { project: Project }) {
+  const navigate = useNavigate();
+  const createAudit = useCreateAudit(project.id);
+  const [startUrl, setStartUrl] = useState('');
+  const [maxPages, setMaxPages] = useState(AUDIT_DEFAULT_PAGES);
+  const [wcagProfile, setWcagProfile] = useState<WcagProfile>('WCAG_2_2_AA');
+  const [includeBestPractices, setIncludeBestPractices] = useState(true);
+  const formRef = useRef<HTMLFormElement>(null);
+  const maxPagesId = useId();
+
+  const error = createAudit.error;
+  useFocusFirstInvalid(formRef, error);
+  const fieldErrors =
+    error instanceof ApiRequestError
+      ? Object.fromEntries(error.details.map((d) => [d.field, d.message]))
+      : {};
+  if (
+    error instanceof ApiRequestError &&
+    ['UNSAFE_URL', 'PAGE_NOT_IN_PROJECT'].includes(error.code)
+  ) {
+    fieldErrors.startUrl = error.message;
+  }
+  const generalError = error && Object.keys(fieldErrors).length === 0 ? error : null;
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    createAudit.mutate(
+      {
+        startUrl: startUrl.trim() || undefined,
+        maxPages,
+        wcagProfile,
+        includeBestPractices,
+      },
+      { onSuccess: (audit) => navigate(`/audituri/${audit.id}`) },
+    );
+  }
+
+  return (
+    <section aria-labelledby="audit-nou" className="section card">
+      <h2 id="audit-nou">Auditează mai multe pagini ale site-ului</h2>
+      <p className="muted">
+        Caut paginile site-ului (meniuri, sitemap.xml) și îți propun un eșantion variat: pagina de
+        start, paginile esențiale și câte una din fiecare secțiune. Tu confirmi lista înainte de
+        scanare.
+      </p>
+      <form ref={formRef} onSubmit={handleSubmit} noValidate>
+        {generalError && <ErrorMessage error={generalError} title="Auditul nu a pornit" />}
+        <TextField
+          label="Pagina de start (opțional)"
+          hint={`Lasă gol pentru adresa proiectului (${project.baseUrl}).`}
+          name="startUrl"
+          type="url"
+          value={startUrl}
+          onChange={(e) => setStartUrl(e.target.value)}
+          error={fieldErrors.startUrl}
+          placeholder={project.baseUrl}
+        />
+        <div className="field">
+          <label htmlFor={maxPagesId}>Câte pagini să propun</label>
+          <select
+            id={maxPagesId}
+            value={maxPages}
+            onChange={(e) => setMaxPages(Number(e.target.value))}
+          >
+            {[5, 10, 15, AUDIT_MAX_PAGES].map((n) => (
+              <option key={n} value={n}>
+                {n} pagini
+              </option>
+            ))}
+          </select>
+        </div>
+        <ScanOptions
+          wcagProfile={wcagProfile}
+          onProfileChange={setWcagProfile}
+          includeBestPractices={includeBestPractices}
+          onBestPracticesChange={setIncludeBestPractices}
+        />
+        <button type="submit" disabled={createAudit.isPending}>
+          {createAudit.isPending ? 'Se pornește...' : 'Caută paginile site-ului'}
+        </button>
+      </form>
+    </section>
+  );
+}
+
 function NewScanForm({ project }: { project: Project }) {
   const navigate = useNavigate();
   const createScan = useCreateScan(project.id);
@@ -96,8 +244,6 @@ function NewScanForm({ project }: { project: Project }) {
   const [wcagProfile, setWcagProfile] = useState<WcagProfile>('WCAG_2_2_AA');
   const [includeBestPractices, setIncludeBestPractices] = useState(true);
   const formRef = useRef<HTMLFormElement>(null);
-  const profileId = useId();
-  const bestPracticesId = useId();
 
   const error = createScan.error;
   useFocusFirstInvalid(formRef, error);
@@ -126,7 +272,7 @@ function NewScanForm({ project }: { project: Project }) {
 
   return (
     <section aria-labelledby="scanare-noua" className="section card">
-      <h2 id="scanare-noua">Pornește o scanare</h2>
+      <h2 id="scanare-noua">Scanează o singură pagină</h2>
       <form ref={formRef} onSubmit={handleSubmit} noValidate>
         {generalError && <ErrorMessage error={generalError} title="Scanarea nu a pornit" />}
         <TextField
@@ -139,35 +285,68 @@ function NewScanForm({ project }: { project: Project }) {
           error={fieldErrors.pageUrl}
           placeholder={project.baseUrl}
         />
-        <div className="field">
-          <label htmlFor={profileId}>Standardul verificat</label>
-          <select
-            id={profileId}
-            value={wcagProfile}
-            onChange={(e) => setWcagProfile(e.target.value as WcagProfile)}
-          >
-            {WCAG_PROFILES.map((profile) => (
-              <option key={profile} value={profile}>
-                {WCAG_PROFILE_LABELS[profile]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field field--checkbox">
-          <input
-            id={bestPracticesId}
-            type="checkbox"
-            checked={includeBestPractices}
-            onChange={(e) => setIncludeBestPractices(e.target.checked)}
-          />
-          <label htmlFor={bestPracticesId}>
-            Include și bunele practici (reguli utile, dar care nu sunt criterii WCAG obligatorii)
-          </label>
-        </div>
+        <ScanOptions
+          wcagProfile={wcagProfile}
+          onProfileChange={setWcagProfile}
+          includeBestPractices={includeBestPractices}
+          onBestPracticesChange={setIncludeBestPractices}
+        />
         <button type="submit" disabled={createScan.isPending}>
           {createScan.isPending ? 'Se pornește...' : 'Scanează pagina'}
         </button>
       </form>
+    </section>
+  );
+}
+
+function AuditHistory({ projectId }: { projectId: string }) {
+  const audits = useProjectAudits(projectId);
+
+  return (
+    <section aria-labelledby="istoric-audituri" className="section">
+      <h2 id="istoric-audituri">Istoricul auditurilor</h2>
+      {audits.isPending && <Loading label="Se încarcă auditurile..." />}
+      {audits.isError && <ErrorMessage error={audits.error} />}
+      {audits.data && audits.data.items.length === 0 && (
+        <EmptyState>Niciun audit încă. Pornește un audit pe mai multe pagini mai sus.</EmptyState>
+      )}
+      {audits.data && audits.data.items.length > 0 && (
+        <div className="table-wrapper">
+          <table>
+            <caption className="visually-hidden">
+              Auditurile proiectului, cele mai noi primele
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Data</th>
+                <th scope="col">Pagina de start</th>
+                <th scope="col">Stare</th>
+                <th scope="col">Pagini găsite</th>
+                <th scope="col">Pagini verificate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audits.data.items.map((audit) => (
+                <tr key={audit.id}>
+                  <th scope="row">
+                    <Link to={`/audituri/${audit.id}`}>{formatDate(audit.createdAt)}</Link>
+                  </th>
+                  <td className="url">{audit.startUrl}</td>
+                  <td>
+                    <AuditStatusBadge status={audit.status} />
+                  </td>
+                  <td>{audit.pagesFound ?? '—'}</td>
+                  <td>
+                    {audit.progress.total > 0
+                      ? `${audit.progress.completed} din ${audit.progress.total}`
+                      : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
@@ -177,7 +356,7 @@ function ScanHistory({ projectId }: { projectId: string }) {
 
   return (
     <section aria-labelledby="istoric" className="section">
-      <h2 id="istoric">Istoricul scanărilor</h2>
+      <h2 id="istoric">Istoricul scanărilor separate</h2>
       {scans.isPending && <Loading label="Se încarcă scanările..." />}
       {scans.isError && <ErrorMessage error={scans.error} />}
       {scans.data && scans.data.items.length === 0 && (

@@ -1,20 +1,22 @@
 /**
  * Scanarea unei pagini: deschide pagina intr-un browser real (Playwright) si ruleaza axe-core.
  *
- * Pasii:
+ * Deschiderea sigura a paginii e separata in `openGuardedPage`, folosita si de descoperirea
+ * paginilor unui audit (`discovery/discover.ts`). Pasii ei:
  *   1. creeaza un "context" de browser nou si izolat (fara cookie-uri sau date de la alte scanari);
  *   2. intercepteaza FIECARE cerere a paginii si o lasa sa treaca doar daca paznicul adreselor
  *      o accepta (protectie SSRF). Redirectionarile sunt urmate de noi, pas cu pas, ca fiecare
  *      adresa noua sa fie verificata (browserul, lasat singur, le-ar urma fara verificare);
  *   3. incarca pagina cu limita de timp, asteapta sa se stabilizeze;
- *   4. ruleaza axe-core cu etichetele profilului ales (ex. WCAG 2.2 AA);
+ *   4. ofera pagina incarcata functiei primite (scannerul ruleaza axe-core cu etichetele
+ *      profilului ales, ex. WCAG 2.2 AA; descoperirea citeste linkurile);
  *   5. inchide contextul, orice s-ar intampla.
  *
  * Nu scrie in baza de date: returneaza rezultatul brut sau motivul esecului.
  */
 import { AxeBuilder } from '@axe-core/playwright';
 import type { AxeResults } from 'axe-core';
-import { errors, type Browser } from 'playwright';
+import { errors, type Browser, type BrowserContext, type Page } from 'playwright';
 import type { ScanConfig, WcagProfile } from '@ro-a11y/shared';
 import type { RequestGuard } from '../safety/url-guard';
 
@@ -40,6 +42,16 @@ export function axeTagsFor(config: Pick<ScanConfig, 'wcagProfile' | 'includeBest
 export type ScanErrorCode =
   'UNSAFE_URL' | 'NAVIGATION_TIMEOUT' | 'NAVIGATION_FAILED' | 'HTTP_ERROR' | 'ANALYSIS_FAILED';
 
+/** Motivul pentru care o pagina nu a putut fi deschisa sau analizata. */
+export interface PageFailure {
+  ok: false;
+  errorCode: ScanErrorCode;
+  errorMessage: string;
+  finalUrl: string | null;
+  httpStatus: number | null;
+  blockedRequests: string[];
+}
+
 // Cele 2 tipuri de rezultate ale unei scanari (fie reusita, fie esuata)
 export type PageScanOutcome =
   | {
@@ -49,14 +61,20 @@ export type PageScanOutcome =
       httpStatus: number;
       blockedRequests: string[];
     }
-  | {
-      ok: false;
-      errorCode: ScanErrorCode;
-      errorMessage: string;
-      finalUrl: string | null;
-      httpStatus: number | null;
-      blockedRequests: string[];
-    };
+  | PageFailure;
+
+/** Pagina incarcata, oferita functiei care o foloseste (scanare sau descoperire). */
+export interface LoadedPage {
+  page: Page;
+  /** Contextul paginii: cererile facute prin `context.request` NU trec prin paznic automat. */
+  context: BrowserContext;
+  httpStatus: number;
+}
+
+/** Rezultatul deschiderii: valoarea intoarsa de functie sau motivul esecului. */
+export type GuardedPageOutcome<T> =
+  | { ok: true; value: T; finalUrl: string; httpStatus: number; blockedRequests: string[] }
+  | PageFailure;
 
 /** Cat asteptam, cel mult, evenimentul "load" (imagini, stiluri) dupa ce documentul e gata. */
 const LOAD_WAIT_MS = 10_000;
@@ -68,12 +86,51 @@ function isRedirect(status: number): boolean {
   return status >= 300 && status < 400;
 }
 
+/** Scaneaza pagina cu axe-core (dupa ce a fost deschisa in siguranta). */
 export async function scanPage(
   browser: Browser,
   pageUrl: string,
   config: ScanConfig,
   guard: RequestGuard,
 ): Promise<PageScanOutcome> {
+  const opened = await openGuardedPage(browser, pageUrl, config, guard, async ({ page }) => {
+    try {
+      const raw = await new AxeBuilder({ page }).withTags(axeTagsFor(config)).analyze();
+      return { raw };
+    } catch (err) {
+      return { analysisError: firstLine(err) };
+    }
+  });
+  if (!opened.ok) return opened;
+  if ('analysisError' in opened.value) {
+    return fail(
+      'ANALYSIS_FAILED',
+      `Analiza axe-core a eșuat: ${opened.value.analysisError}`,
+      opened.finalUrl,
+      opened.httpStatus,
+      opened.blockedRequests,
+    );
+  }
+  return {
+    ok: true,
+    raw: opened.value.raw,
+    finalUrl: opened.finalUrl,
+    httpStatus: opened.httpStatus,
+    blockedRequests: opened.blockedRequests,
+  };
+}
+
+/**
+ * Deschide pagina in siguranta (paznic pe fiecare cerere, redirectionari verificate, limite
+ * de timp) si apeleaza `use` cu pagina incarcata. Contextul e inchis la final, orice s-ar intampla.
+ */
+export async function openGuardedPage<T>(
+  browser: Browser,
+  pageUrl: string,
+  config: ScanConfig,
+  guard: RequestGuard,
+  use: (loaded: LoadedPage) => Promise<T>,
+): Promise<GuardedPageOutcome<T>> {
   // Lista cu URL-urile blocate de paznic (pentru diagnosticare)
   const blockedRequests: string[] = [];
   /** Motivul pentru care navigarea paginii principale a fost blocata (daca a fost). */
@@ -222,20 +279,8 @@ export async function scanPage(
       return fail('UNSAFE_URL', mainNavigationBlocked, page.url(), httpStatus, blockedRequests);
     }
 
-    let raw: AxeResults;
-    try {
-      raw = await new AxeBuilder({ page }).withTags(axeTagsFor(config)).analyze();
-    } catch (err) {
-      return fail(
-        'ANALYSIS_FAILED',
-        `Analiza axe-core a eșuat: ${firstLine(err)}`,
-        page.url(),
-        httpStatus,
-        blockedRequests,
-      );
-    }
-
-    return { ok: true, raw, finalUrl: page.url(), httpStatus, blockedRequests };
+    const value = await use({ page, context, httpStatus });
+    return { ok: true, value, finalUrl: page.url(), httpStatus, blockedRequests };
   } finally {
     await context.close().catch(() => {});
   }
@@ -247,7 +292,7 @@ function fail(
   finalUrl: string | null,
   httpStatus: number | null,
   blockedRequests: string[],
-): PageScanOutcome {
+): PageFailure {
   return { ok: false, errorCode, errorMessage, finalUrl, httpStatus, blockedRequests };
 }
 

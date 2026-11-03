@@ -6,6 +6,9 @@
  *   /accessible/  → accessible-demo (varianta corecta)
  *   /broken/      → broken-demo (varianta cu probleme intentionate)
  *   /assets/...   → imaginile comune (shared-assets)
+ *   /robots.txt   → regulile pentru programe automate (interzice zona /admin/ a celor doua site-uri)
+ *   /sitemap.xml  → lista paginilor; contine si o pagina care nu apare in meniu
+ *                   (declaratia de accesibilitate), ca descoperirea prin sitemap sa poata fi testata
  *
  * Foloseste doar modulele incluse in Node.js (fara biblioteci externe). Nu serveste niciun
  * fisier din afara folderelor de mai sus (protectie impotriva "../" in adresa).
@@ -44,6 +47,39 @@ const INDEX_PAGE = `<!doctype html>
   </body>
 </html>`;
 
+/** Paginile celor doua site-uri, asa cum apar in sitemap.xml. */
+const SITEMAP_PAGES = [
+  'index.html',
+  'anunturi.html',
+  'contact.html',
+  'servicii/taxe-locale.html',
+  'servicii/stare-civila.html',
+  'declaratie-accesibilitate.html',
+];
+
+const ROBOTS_TXT = `# Site-uri de antrenament W4A
+User-agent: *
+Disallow: /broken/admin/
+Disallow: /accessible/admin/
+
+Sitemap: {origin}/sitemap.xml
+`;
+
+/** Sitemap-ul, cu adresele complete (portul difera intre dezvoltare si teste). */
+function sitemapXml(origin: string): string {
+  const urls = ['/broken/', '/accessible/']
+    .flatMap((site) =>
+      SITEMAP_PAGES.map((page) => `${origin}${site}${page === 'index.html' ? '' : page}`),
+    )
+    .map((loc) => `  <url><loc>${loc}</loc></url>`)
+    .join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>
+`;
+}
+
 /** Transforma adresa ceruta intr-o cale de fisier sigura, sau null daca nu e permisa. */
 export function resolveFixturePath(urlPath: string): string | null {
   const mount = Object.keys(MOUNTS).find((prefix) => urlPath.startsWith(prefix));
@@ -62,6 +98,18 @@ export function resolveFixturePath(urlPath: string): string | null {
 export function createFixturesServer() {
   return createServer(async (req, res) => {
     const urlPath = new URL(req.url ?? '/', 'http://localhost').pathname;
+
+    const origin = `http://${req.headers.host ?? 'localhost'}`;
+    if (urlPath === '/robots.txt') {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(ROBOTS_TXT.replace('{origin}', origin));
+      return;
+    }
+    if (urlPath === '/sitemap.xml') {
+      res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8' });
+      res.end(sitemapXml(origin));
+      return;
+    }
 
     if (urlPath === '/') {
       res.writeHead(200, { 'Content-Type': CONTENT_TYPES['.html'] });

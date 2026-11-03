@@ -1,6 +1,7 @@
 /**
  * Pagina unei scanari: starea (actualizata automat cat timp ruleaza), detaliile tehnice,
- * sumarul pe categorii si lista rezultatelor, cu filtre.
+ * sumarul pe categorii si lista rezultatelor, cu filtre. Daca pagina face parte dintr-un
+ * audit, calea de navigare (breadcrumb) duce inapoi la audit.
  *
  * Accesibilitate:
  *   - schimbarea starii scanarii e anuntata de cititorul de ecran (role="status");
@@ -62,6 +63,12 @@ function ScanView({ scan }: { scan: Scan }) {
       <p className="breadcrumb">
         <Link to="/">Proiecte</Link> <span aria-hidden="true">›</span>{' '}
         <Link to={`/proiecte/${scan.projectId}`}>{project.data?.name ?? 'Proiect'}</Link>{' '}
+        {scan.auditId && (
+          <>
+            <span aria-hidden="true">›</span>{' '}
+            <Link to={`/audituri/${scan.auditId}`}>Audit</Link>{' '}
+          </>
+        )}
         <span aria-hidden="true">›</span> Scanare
       </p>
       <PageHeading title={`Scanare din ${formatDate(scan.createdAt)}`} />
