@@ -46,7 +46,7 @@ export function ProjectPage() {
         <PageHeading title={notFound ? 'Proiectul nu există' : 'Eroare'} />
         <ErrorMessage error={project.error} />
         <p>
-          <Link to="/">Înapoi la proiecte</Link>
+          <Link to="/proiecte">Înapoi la proiecte</Link>
         </p>
       </>
     );
@@ -55,7 +55,7 @@ export function ProjectPage() {
   return (
     <>
       <p className="breadcrumb">
-        <Link to="/">Proiecte</Link> <span aria-hidden="true">›</span> {project.data.name}
+        <Link to="/proiecte">Proiecte</Link> <span aria-hidden="true">›</span> {project.data.name}
       </p>
       <PageHeading title={project.data.name} />
       <p className="lead url">{project.data.baseUrl}</p>

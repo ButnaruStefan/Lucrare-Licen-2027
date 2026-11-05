@@ -6,63 +6,86 @@
  * - Focusul de la tastatura e mereu vizibil (WCAG 2.4.7).
  * - Animatiile sunt oprite daca utilizatorul a cerut asta in sistem (prefers-reduced-motion).
  * - Pe ecrane inguste, tabelele se pot derula orizontal, fara ca pagina sa se lateasca.
+ * - Culorile vin din logo: verdele inchis (actiuni, legaturi), smaraldul si menta (decor).
  */
 :root {
-  --bg: #f6f6f3;
+  /* Fundaluri si text: neutre usor nuantate spre verdele logo-ului */
+  --bg: #f3f7f5;
   --surface: #ffffff;
-  --surface-2: #efefea;
-  --text: #1b1b19;
-  --muted: #55554f;
-  --border: #d2d2cb;
-  --accent: #1d4ed8;
+  --surface-2: #e8f0ec;
+  --text: #0b2219;
+  --muted: #475a51;
+  --border: #cfdcd5;
+  /* Conturul campurilor de formular: contrast de cel putin 3:1 (WCAG 1.4.11) */
+  --border-strong: #6a7e74;
+
+  /* Culoarea principala (verdele inchis din logo): butoane, legaturi, selectie */
+  --accent: #03684a;
+  --accent-hover: #02533b;
   --accent-text: #ffffff;
-  --focus: #1d4ed8;
+  --accent-soft: #ddf4e8;
+  --accent-soft-text: #02533b;
+  --focus: #03684a;
+  /* Banda decorativa din antet: verdele, smaraldul si menta din logo */
+  --brand-gradient: linear-gradient(90deg, #03644a 0%, #25d398 55%, #5df5a8 100%);
+  --glow: rgb(37 211 152 / 0.1);
+  --shadow-sm: 0 1px 2px rgb(6 42 30 / 0.06);
+  --shadow: 0 1px 2px rgb(6 42 30 / 0.05), 0 6px 20px -10px rgb(6 42 30 / 0.18);
 
-  --ok-bg: #e3f4e8;
-  --ok-text: #155c2e;
-  --error-bg: #fbe6e4;
+  --ok-bg: #e1f4e8;
+  --ok-text: #14582d;
+  --error-bg: #fbe7e5;
   --error-text: #9b1c14;
-  --warn-bg: #fdf0d8;
-  --warn-text: #7a4a00;
-  --info-bg: #e5edfb;
+  --warn-bg: #fcefd6;
+  --warn-text: #734600;
+  --info-bg: #e4ecfa;
   --info-text: #1a3f8f;
-  --neutral-bg: #ececea;
-  --neutral-text: #3f3f3a;
+  --neutral-bg: #eaeeec;
+  --neutral-text: #3c4742;
 
-  --radius: 8px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --font-display: 'Manrope Variable', system-ui, sans-serif;
+  --font-body: 'Manrope Variable', system-ui, sans-serif;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   color-scheme: light dark;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font-family: var(--font-body);
+  font-weight: 450;
   line-height: 1.55;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #141413;
-    --surface: #1e1e1c;
-    --surface-2: #262623;
-    --text: #ededea;
-    --muted: #b3b3ac;
-    --border: #3b3b37;
-    --accent: #8fb0ff;
-    --accent-text: #0f1730;
-    --focus: #8fb0ff;
+    --bg: #0a1210;
+    --surface: #101b17;
+    --surface-2: #172520;
+    --text: #e6f1eb;
+    --muted: #a3b9ae;
+    --border: #283a32;
+    --border-strong: #62796e;
 
-    --ok-bg: #173523;
+    /* In modul intunecat, culoarea principala e menta din logo, cu text inchis pe ea */
+    --accent: #52e3a3;
+    --accent-hover: #7cecba;
+    --accent-text: #04261b;
+    --accent-soft: #123326;
+    --accent-soft-text: #8ff0c2;
+    --focus: #52e3a3;
+    --glow: rgb(82 227 163 / 0.07);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+
+    --ok-bg: #163424;
     --ok-text: #8fe0aa;
     --error-bg: #3d1a17;
     --error-text: #ffb1aa;
-    --warn-bg: #3a2b0f;
+    --warn-bg: #392a0f;
     --warn-text: #f7cf86;
     --info-bg: #1a2742;
     --info-text: #b5c9ff;
-    --neutral-bg: #2c2c29;
-    --neutral-text: #d4d4ce;
+    --neutral-bg: #24302b;
+    --neutral-text: #d0dbd5;
   }
 }
 
@@ -72,8 +95,27 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: radial-gradient(60rem 28rem at 12% -6rem, var(--glow), transparent 70%), var(--bg);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 750;
+  text-wrap: balance;
+  letter-spacing: -0.015em;
+}
+
+h2 {
+  font-size: 1.35rem;
+  line-height: 1.3;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 :focus-visible {
@@ -83,6 +125,14 @@ body {
 
 a {
   color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  transition: color 150ms var(--ease-out);
+}
+
+a:hover {
+  color: var(--accent-hover);
+  text-decoration-thickness: 2px;
 }
 
 code,
@@ -92,7 +142,7 @@ pre {
 }
 
 .container {
-  max-width: 64rem;
+  max-width: 72rem;
   margin: 0 auto;
   padding: 0 1rem;
 }
@@ -115,6 +165,7 @@ pre {
   left: 1rem;
   top: 1rem;
   z-index: 10;
+  box-shadow: var(--shadow);
   background: var(--surface);
   color: var(--accent);
   padding: 0.5rem 1rem;
@@ -126,6 +177,15 @@ pre {
 .site-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Banda subtire in culorile logo-ului, deasupra antetului (doar decor) */
+.site-header::before {
+  content: '';
+  display: block;
+  height: 4px;
+  background: var(--brand-gradient);
 }
 
 .site-header__inner {
@@ -133,54 +193,70 @@ pre {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 1.5rem;
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
+  gap: 0.75rem 1.5rem;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
 }
 
 .brand {
-  font-weight: 700;
-  font-size: 1.125rem;
-  color: var(--text);
-  text-decoration: none;
+  display: inline-flex;
+  border-radius: var(--radius-sm);
 }
 
-.brand__sub {
-  font-weight: 400;
-  color: var(--muted);
+.brand__logo {
+  display: block;
+  height: 2.5rem;
+  width: auto;
 }
 
 .nav-list {
   display: flex;
-  gap: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
 .nav-list a {
+  display: inline-block;
   color: var(--text);
   text-decoration: none;
-  padding: 0.25rem 0;
-  border-bottom: 2px solid transparent;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  transition:
+    background-color 150ms var(--ease-out),
+    color 150ms var(--ease-out);
 }
 
-.nav-list a:hover,
+.nav-list a:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
 .nav-list a[aria-current='page'] {
-  border-bottom-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  font-weight: 650;
 }
 
-main {
-  padding-top: 1.5rem;
-  padding-bottom: 3rem;
+/* main are si clasa .container (care pune padding: 0 1rem), deci selectorul trebuie sa fie mai precis */
+main.container {
+  padding-top: 2.25rem;
+  padding-bottom: 3.5rem;
   min-height: 60vh;
 }
 
 .site-footer {
   border-top: 1px solid var(--border);
-  background: var(--surface);
-  padding: 1rem 0;
+  background: var(--surface-2);
+  padding: 1.25rem 0 1.5rem;
   font-size: 0.875rem;
+}
+
+.site-footer p {
+  max-width: 70ch;
 }
 
 .system-status {
@@ -198,9 +274,11 @@ main {
 /* --- Text --- */
 
 .page-heading {
-  margin: 0 0 0.25rem;
-  font-size: 1.75rem;
-  line-height: 1.25;
+  margin: 0 0 0.35rem;
+  font-size: 2rem;
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .page-heading:focus {
@@ -210,6 +288,8 @@ main {
 .lead {
   color: var(--muted);
   margin-top: 0;
+  font-size: 1.05rem;
+  max-width: 70ch;
 }
 
 .muted {
@@ -236,7 +316,8 @@ main {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.25rem;
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
 }
 
 .card > h2:first-child {
@@ -245,7 +326,8 @@ main {
 
 .empty-state {
   color: var(--muted);
-  padding: 1rem;
+  background: var(--surface);
+  padding: 1.25rem;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
 }
@@ -281,6 +363,7 @@ main {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 table {
@@ -291,14 +374,24 @@ table {
 th,
 td {
   text-align: left;
-  padding: 0.6rem 0.9rem;
+  padding: 0.7rem 1rem;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
 thead th {
   background: var(--surface-2);
-  font-size: 0.875rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+tbody tr {
+  transition: background-color 150ms var(--ease-out);
+}
+
+tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
 }
 
 tbody tr:last-child th,
@@ -353,11 +446,43 @@ select {
   font: inherit;
   width: 100%;
   max-width: 36rem;
-  padding: 0.5rem 0.6rem;
-  border: 1px solid var(--muted);
-  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
+  transition:
+    border-color 150ms var(--ease-out),
+    box-shadow 150ms var(--ease-out);
+}
+
+input[type='text']:hover,
+input[type='url']:hover,
+input[type='search']:hover,
+input:not([type]):hover,
+select:hover {
+  border-color: var(--text);
+}
+
+input[type='text']:focus-visible,
+input[type='url']:focus-visible,
+input[type='search']:focus-visible,
+input:not([type]):focus-visible,
+select:focus-visible {
+  border-color: var(--accent);
+  outline: 3px solid color-mix(in srgb, var(--focus) 35%, transparent);
+  outline-offset: 0;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+}
+
+/* Textul de exemplu din campuri: acelasi contrast ca textul obisnuit secundar */
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 
 input[aria-invalid='true'] {
@@ -384,12 +509,26 @@ input[aria-invalid='true'] {
 button {
   font: inherit;
   font-weight: 600;
-  padding: 0.55rem 1.1rem;
-  border-radius: 6px;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--accent);
   background: var(--accent);
   color: var(--accent-text);
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition:
+    background-color 150ms var(--ease-out),
+    border-color 150ms var(--ease-out),
+    transform 100ms var(--ease-out);
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 button:disabled {
@@ -438,11 +577,11 @@ button:disabled {
 
 .tag {
   display: inline-block;
-  padding: 0.05rem 0.45rem;
+  padding: 0.05rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 999px;
   font-size: 0.8rem;
-  background: var(--surface);
+  background: var(--surface-2);
 }
 
 .tag--muted {
@@ -499,7 +638,8 @@ button:disabled {
   border: 1px solid var(--border);
   border-top-width: 4px;
   border-radius: var(--radius);
-  padding: 0.9rem 1rem;
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow);
 }
 
 .summary-card--violation {
@@ -527,9 +667,11 @@ button:disabled {
 }
 
 .summary-card__value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  line-height: 1.3;
+  font-size: 2rem;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .summary-card__unit {
@@ -590,9 +732,17 @@ button:disabled {
 .segmented__option span {
   display: inline-block;
   padding: 0.4rem 0.85rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: var(--surface);
+  transition:
+    background-color 150ms var(--ease-out),
+    border-color 150ms var(--ease-out);
+}
+
+.segmented__option:hover input:not(:checked) + span {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .segmented__option input:checked + span {
@@ -624,11 +774,21 @@ button:disabled {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 150ms var(--ease-out),
+    box-shadow 150ms var(--ease-out);
+}
+
+.rule > details:hover,
+.rule > details[open] {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
 }
 
 .rule > details > summary {
   cursor: pointer;
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -666,9 +826,11 @@ button:disabled {
 }
 
 /* Buton care arata ca o legatura: schimba filtrul, nu pagina, deci e buton (nu <a>). */
-.button-link {
+.button-link,
+.button-link:hover:not(:disabled) {
   padding: 0;
   border: 0;
+  box-shadow: none;
   background: none;
   color: inherit;
   font-weight: 700;
@@ -710,7 +872,7 @@ button:disabled {
   margin: 0;
   padding: 0.6rem 0.75rem;
   background: var(--surface-2);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -806,19 +968,22 @@ button:disabled {
 .code {
   margin: 0;
   padding: 0.6rem 0.75rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  border-left: 4px solid var(--border);
+  border: 1px solid var(--border);
   background: var(--surface-2);
 }
 
+/* Exemplul gresit si cel corect: contur si fundal in culoarea starii */
 .code--before {
-  border-left-color: var(--error-text);
+  border-color: var(--error-text);
+  background: color-mix(in srgb, var(--error-bg) 60%, var(--surface));
 }
 
 .code--after {
-  border-left-color: var(--ok-text);
+  border-color: var(--ok-text);
+  background: color-mix(in srgb, var(--ok-bg) 60%, var(--surface));
 }
 
 .remediation__status {
@@ -907,9 +1072,11 @@ button:disabled {
 
 .trace__quote {
   margin: 0.35rem 0;
-  padding: 0.4rem 0.75rem;
-  border-left: 3px solid var(--accent);
-  background: var(--surface);
+  padding: 0.5rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--text);
   font-style: italic;
 }
 
@@ -1033,6 +1200,12 @@ button:disabled {
   color: var(--accent);
 }
 
+.button-secondary:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-soft-text);
+}
+
 .page-selection {
   display: grid;
   gap: 0.75rem;
@@ -1040,10 +1213,11 @@ button:disabled {
 
 .page-group {
   margin: 0;
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .page-group legend {
@@ -1099,10 +1273,11 @@ button:disabled {
 }
 
 .rule__card {
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
 }
 
 .rule__card p {
@@ -1116,4 +1291,1404 @@ button:disabled {
 .audit-page-links {
   margin: 0.25rem 0;
   padding-left: 1.25rem;
+}
+
+/* --- Pagina de start --- */
+
+/*
+ * Deschiderea (hero) are mereu fundal verde-inchis, ca logo-ul, in ambele moduri.
+ * Culorile ei sunt fixe si au contrast verificat: textul #eaf6f0 (15:1), textul secundar
+ * #a9c7b9 (8.9:1) si menta #5df5a8 (11:1) pe #04211a.
+ */
+.landing-main {
+  padding: 0;
+}
+
+.landing {
+  --hero-bg: #04211a;
+  --hero-text: #eaf6f0;
+  --hero-muted: #a9c7b9;
+  --hero-mint: #5df5a8;
+}
+
+.landing__inner {
+  /* Aceeasi latime ca .container, ca logo-ul din antet sa fie aliniat cu textul */
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(50rem 30rem at 85% 10%, rgb(37 211 152 / 0.18), transparent 65%),
+    radial-gradient(40rem 26rem at 0% 100%, rgb(3 100 74 / 0.55), transparent 70%), var(--hero-bg);
+  color: var(--hero-text);
+  padding: clamp(3rem, 7vw, 6rem) 0 clamp(3.5rem, 8vw, 6.5rem);
+}
+
+.hero__ribbons {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.hero__ribbon {
+  fill: none;
+  stroke-width: 70;
+  stroke-linecap: round;
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 0;
+  animation: panglica 1.6s var(--ease-out) both;
+}
+
+.hero__ribbon--2 {
+  animation-delay: 0.25s;
+}
+
+@keyframes panglica {
+  from {
+    stroke-dashoffset: 1400;
+  }
+}
+
+.hero__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(2.5rem, 5vw, 4.5rem);
+  align-items: center;
+}
+
+.hero__kicker {
+  margin: 0 0 1.25rem;
+  color: var(--hero-mint);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.hero__title {
+  margin: 0;
+  font-size: clamp(2.6rem, 4.6vw + 0.75rem, 4.75rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  color: var(--hero-text);
+}
+
+.hero__title:focus {
+  outline: none;
+}
+
+.hero__accent {
+  color: var(--hero-mint);
+}
+
+.hero__lead {
+  margin: 1.5rem 0 0;
+  max-width: 36rem;
+  font-size: clamp(1.05rem, 0.5vw + 0.95rem, 1.25rem);
+  line-height: 1.6;
+  color: var(--hero-muted);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2.25rem;
+}
+
+/* Legaturi care arata ca butoane (duc spre alta pagina, deci raman <a>) */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.4rem;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    background-color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+
+.cta span {
+  transition: transform 180ms var(--ease-out);
+}
+
+.cta:hover {
+  text-decoration: none;
+}
+
+.cta:hover span {
+  transform: translateX(3px);
+}
+
+.cta--primary {
+  background: var(--hero-mint);
+  color: var(--hero-bg);
+  border: 1px solid var(--hero-mint);
+}
+
+.cta--primary:hover {
+  background: #8af8c2;
+  color: var(--hero-bg);
+}
+
+.cta--ghost {
+  color: var(--hero-text);
+  border: 1px solid rgb(234 246 240 / 0.35);
+}
+
+.cta--ghost:hover {
+  color: var(--hero-text);
+  border-color: var(--hero-text);
+  background: rgb(234 246 240 / 0.08);
+}
+
+.hero :focus-visible {
+  outline-color: var(--hero-mint);
+}
+
+/* Exemplul de rezultat din deschidere */
+.preview {
+  margin: 0;
+  animation: ridicare 0.9s 0.15s var(--ease-out) both;
+}
+
+.preview__bar,
+.preview__body {
+  background: #0b3a2d;
+  border: 1px solid rgb(93 245 168 / 0.22);
+}
+
+.preview__bar {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+}
+
+.preview__bar span {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: rgb(234 246 240 / 0.25);
+}
+
+.preview__body {
+  padding: 1.25rem 1.4rem 1.4rem;
+  border-radius: 0 0 14px 14px;
+  box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.6);
+}
+
+.preview__eyebrow {
+  margin: 0;
+  color: var(--hero-mint);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.preview__title {
+  margin: 0.25rem 0 1.1rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 750;
+}
+
+.preview__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.preview__item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+}
+
+.preview__label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.preview__count {
+  color: var(--hero-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.preview__meter {
+  grid-column: 1 / -1;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgb(234 246 240 / 0.12);
+  overflow: hidden;
+}
+
+.preview__meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #25d398, var(--hero-mint));
+  transform-origin: left;
+  animation: umplere 1s 0.6s var(--ease-out) both;
+}
+
+.preview__item:nth-child(2) .preview__meter span {
+  animation-delay: 0.7s;
+}
+
+.preview__item:nth-child(3) .preview__meter span {
+  animation-delay: 0.8s;
+}
+
+.preview__hint {
+  margin: 1.2rem 0 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgb(234 246 240 / 0.14);
+  color: var(--hero-muted);
+  font-size: 0.875rem;
+}
+
+.preview__caption {
+  margin-top: 0.75rem;
+  color: var(--hero-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+@keyframes ridicare {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+}
+
+@keyframes umplere {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Intrarea textului din deschidere, pe rand */
+.hero__text > * {
+  animation: aparitie 0.7s var(--ease-out) both;
+}
+
+.hero__text > :nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.hero__text > :nth-child(3) {
+  animation-delay: 0.12s;
+}
+
+.hero__text > :nth-child(4) {
+  animation-delay: 0.18s;
+}
+
+@keyframes aparitie {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* Sectiunile de sub deschidere (urmeaza modul luminos/intunecat al sistemului) */
+.landing-section {
+  padding: clamp(3.5rem, 8vw, 6rem) 0;
+}
+
+.landing-section--tinted {
+  background: var(--surface-2);
+  border-block: 1px solid var(--border);
+}
+
+.landing__heading {
+  margin: 0 0 1rem;
+  max-width: 22ch;
+  font-size: clamp(1.9rem, 2.4vw + 1rem, 2.9rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.landing__intro {
+  margin: 0 0 2.5rem;
+  max-width: 62ch;
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.landing__note {
+  margin: 2rem 0 0;
+  max-width: 70ch;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* Pasii: o succesiune reala (ordinea conteaza), cu numar si linie de legatura */
+.steps {
+  list-style: none;
+  margin: 2.75rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2rem;
+  counter-reset: pas-start;
+}
+
+.step {
+  position: relative;
+  counter-increment: pas-start;
+  padding-top: 4.25rem;
+}
+
+.step::before {
+  content: counter(pas-start);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 1.5rem;
+  left: 3.75rem;
+  right: -1.25rem;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  opacity: 0.45;
+}
+
+.step__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.3rem;
+}
+
+.step p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 34ch;
+}
+
+/* Lantul de trasabilitate */
+.chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 0.8fr)) minmax(0, 1.4fr);
+  gap: 1rem;
+}
+
+.chain__node {
+  position: relative;
+  padding: 1.25rem 1.25rem 1.4rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* Sageata dintre doua verigi */
+.chain__node:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  top: 50%;
+  right: -0.95rem;
+  z-index: 1;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.chain__node--law {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.chain__kind {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.chain__main {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.chain__detail {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.925rem;
+}
+
+.chain__quote {
+  margin: 0.5rem 0 0;
+  font-style: italic;
+  color: var(--text);
+}
+
+/* Limitele */
+.honesty {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: end;
+}
+
+.honesty__statement {
+  margin: 0;
+  font-size: clamp(1.75rem, 2.2vw + 1rem, 2.75rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.honesty__mark {
+  color: var(--accent);
+}
+
+.honesty__body p {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.text-link {
+  font-weight: 700;
+}
+
+/* Indemnul final */
+.final-call {
+  background: var(--hero-bg);
+  color: var(--hero-text);
+  padding: clamp(3rem, 6vw, 4.5rem) 0;
+}
+
+.final-call__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.final-call__title {
+  margin: 0;
+  font-size: clamp(1.9rem, 2.5vw + 1rem, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--hero-text);
+}
+
+.final-call :focus-visible {
+  outline-color: var(--hero-mint);
+}
+
+@media (max-width: 56rem) {
+  .hero__grid,
+  .honesty {
+    grid-template-columns: 1fr;
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+    gap: 2.25rem;
+  }
+
+  .step:not(:last-child)::after {
+    display: none;
+  }
+
+  .chain {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .chain__node:not(:last-child)::after {
+    content: '↓';
+    top: auto;
+    bottom: -1.25rem;
+    right: auto;
+    left: 1.25rem;
+    transform: none;
+  }
+}
+
+/* --- Lista proiectelor --- */
+
+.projects-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: 2rem;
+  align-items: start;
+  margin-top: 2rem;
+}
+
+/* Pe ecrane mari, formularul ramane vizibil cat timp derulezi lista */
+.projects-layout__form {
+  position: sticky;
+  top: 1.5rem;
+}
+
+.projects-layout__form h2 {
+  font-size: 1.2rem;
+}
+
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.list-toolbar__title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.count-pill {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.75rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.search-field {
+  flex: 0 1 18rem;
+}
+
+.search-field input {
+  padding-left: 2.25rem;
+  border-radius: 999px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23708a7e' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8.5' cy='8.5' r='5.5'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0.8rem center;
+  background-size: 1rem;
+}
+
+.list-status {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+}
+
+.project-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.project-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  transition: background-color 150ms var(--ease-out);
+}
+
+.project-row + .project-row {
+  border-top: 1px solid var(--border);
+}
+
+.project-row:hover {
+  background: color-mix(in srgb, var(--accent-soft) 50%, transparent);
+}
+
+.project-row__avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.project-row__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-row__name {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+/* Tot randul e zona de clic a legaturii (numele ramane textul legaturii) */
+.project-row__name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.project-row__name:hover {
+  color: var(--text);
+}
+
+.project-row:hover .project-row__name {
+  text-decoration: underline;
+}
+
+.project-row__name:focus-visible {
+  outline: none;
+}
+
+.project-row__name:focus-visible::after {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+  border-radius: var(--radius);
+}
+
+.project-row__address {
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-row__date {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.project-row__chevron {
+  flex: none;
+  color: var(--muted);
+  transition:
+    transform 150ms var(--ease-out),
+    color 150ms var(--ease-out);
+}
+
+.project-row:hover .project-row__chevron {
+  color: var(--accent);
+  transform: translateX(3px);
+}
+
+@media (max-width: 60rem) {
+  .projects-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .projects-layout__form {
+    position: static;
+  }
+}
+
+@media (max-width: 36rem) {
+  .project-row {
+    flex-wrap: wrap;
+    gap: 0.25rem 0.85rem;
+  }
+
+  .project-row__main {
+    flex-basis: calc(100% - 3.5rem);
+  }
+
+  .project-row__date,
+  .project-row .tag {
+    margin-left: 3.35rem;
+  }
+
+  .project-row .tag + .project-row__date {
+    margin-left: 0;
+  }
+
+  .project-row__chevron {
+    display: none;
+  }
+}
+
+/* Butonul de golire a cautarii, in culorile aplicatiei (in loc de albastrul browserului) */
+.search-field input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.85rem;
+  height: 0.85rem;
+  background: var(--muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M1 1l8 8M9 1L1 9'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  cursor: pointer;
+}
+
+/* Subsolul sta mereu jos, chiar si pe paginile scurte */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#root > main {
+  flex: 1 0 auto;
+  /* intr-o coloana flex, margin: auto ar micsora zona la latimea continutului */
+  width: 100%;
+}
+
+/* --- Pagina unui audit --- */
+
+.page-subtitle {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* Panoul de sumar: progresul si cifrele principale */
+.overview {
+  margin-top: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.overview__progress {
+  padding: 1.25rem 1.5rem 1.1rem;
+}
+
+.overview__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.meter {
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand-gradient);
+  transition: width 400ms var(--ease-out);
+}
+
+.overview__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.stat {
+  padding: 1rem 1.5rem 1.15rem;
+}
+
+.stat + .stat {
+  border-left: 1px solid var(--border);
+}
+
+.stat dt {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.stat dd {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat--violation dd {
+  color: var(--error-text);
+}
+
+.stat--incomplete dd {
+  color: var(--warn-text);
+}
+
+.overview__note {
+  margin: 0;
+  padding: 0.9rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* Paginile auditului: randuri compacte, tot randul duce la scanarea paginii */
+.page-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  counter-reset: pagina;
+}
+
+.page-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto auto 1rem;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1.1rem;
+  counter-increment: pagina;
+  transition: background-color 150ms var(--ease-out);
+}
+
+.page-row + .page-row {
+  border-top: 1px solid var(--border);
+}
+
+/* Numarul de ordine al paginii (ordinea scanarii) */
+.page-row::before {
+  content: counter(pagina);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.page-row:hover {
+  background: color-mix(in srgb, var(--accent-soft) 50%, transparent);
+}
+
+.page-row__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-row__name {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.page-row__name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.page-row__name:hover {
+  color: var(--text);
+}
+
+.page-row:hover .page-row__name {
+  text-decoration: underline;
+}
+
+.page-row__name:focus-visible {
+  outline: none;
+}
+
+.page-row__name:focus-visible::after {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.page-row__path {
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-row__reasons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.page-row__result {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  min-width: 13rem;
+}
+
+.page-row__chevron {
+  color: var(--muted);
+  transition:
+    transform 150ms var(--ease-out),
+    color 150ms var(--ease-out);
+}
+
+.page-row:hover .page-row__chevron {
+  color: var(--accent);
+  transform: translateX(3px);
+}
+
+.count {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+  font-size: 0.825rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.count--violation {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.count--incomplete {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+/* Ce nu a fost verificat: trei panouri alaturate */
+.info-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1rem;
+}
+
+.info-panel {
+  padding: 1.1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.info-panel h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.info-panel p {
+  font-size: 0.925rem;
+}
+
+.info-panel ul {
+  margin: 0.5rem 0 0;
+}
+
+@media (max-width: 52rem) {
+  .overview__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat:nth-child(3) {
+    border-left: 0;
+  }
+
+  .stat:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+
+  .page-row {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+
+  .page-row__reasons,
+  .page-row__result {
+    grid-column: 2;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .page-row__chevron {
+    display: none;
+  }
+}
+
+/* --- Rezultatele pe reguli: aspect si animatii --- */
+
+/* Intrarea listei, in cascada (la incarcare si la schimbarea filtrului) */
+.rule {
+  animation: intrare-regula 420ms var(--ease-out) both;
+}
+
+.rule:nth-child(2) {
+  animation-delay: 40ms;
+}
+.rule:nth-child(3) {
+  animation-delay: 80ms;
+}
+.rule:nth-child(4) {
+  animation-delay: 120ms;
+}
+.rule:nth-child(5) {
+  animation-delay: 160ms;
+}
+.rule:nth-child(6) {
+  animation-delay: 200ms;
+}
+.rule:nth-child(n + 7) {
+  animation-delay: 240ms;
+}
+
+@keyframes intrare-regula {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.rule > details {
+  transition:
+    border-color 200ms var(--ease-out),
+    box-shadow 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+
+.rule > details:hover {
+  transform: translateY(-1px);
+}
+
+.rule > details[open] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.rule > details > summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  padding: 1rem 1.15rem;
+  list-style: none;
+}
+
+.rule > details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.rule__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.rule__title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* Simbolul gravitatii: pictograma pe fundalul tonului ei */
+.rule__token {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 12px;
+  transition: transform 250ms var(--ease-out);
+}
+
+.rule__token .icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.rule__token--error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.rule__token--warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.rule__token--neutral {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
+.rule__token--ok {
+  background: var(--ok-bg);
+  color: var(--ok-text);
+}
+
+.rule > details:hover .rule__token {
+  transform: scale(1.06) rotate(-4deg);
+}
+
+/* Numarul de elemente, mare, in dreapta */
+.rule__tally {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 3.5rem;
+  line-height: 1;
+}
+
+.rule__tally-value {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.rule__tally-label {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* Sageata care se roteste la deschidere */
+.rule__chevron {
+  position: relative;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text);
+  transition:
+    transform 300ms var(--ease-out),
+    background-color 200ms var(--ease-out);
+}
+
+.rule__chevron::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.rule > details[open] .rule__chevron {
+  transform: rotate(180deg);
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+}
+
+/*
+ * Deschiderea lina a sectiunilor (<details>): inaltimea creste de la 0 la "auto".
+ * Functioneaza in browserele noi (Chrome 131+); in celelalte, sectiunea se deschide instant.
+ */
+.rule > details,
+.fold {
+  interpolate-size: allow-keywords;
+}
+
+.rule > details::details-content,
+.fold::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition:
+    block-size 320ms var(--ease-out),
+    content-visibility 320ms allow-discrete;
+}
+
+.rule > details[open]::details-content,
+.fold[open]::details-content {
+  block-size: auto;
+}
+
+/* Continutul unei reguli deschise apare pe rand */
+.rule > details[open] > .rule__body > * {
+  animation: aparitie 380ms var(--ease-out) both;
+}
+
+.rule > details[open] > .rule__body > :nth-child(2) {
+  animation-delay: 40ms;
+}
+.rule > details[open] > .rule__body > :nth-child(3) {
+  animation-delay: 80ms;
+}
+.rule > details[open] > .rule__body > :nth-child(4) {
+  animation-delay: 120ms;
+}
+.rule > details[open] > .rule__body > :nth-child(n + 5) {
+  animation-delay: 160ms;
+}
+
+/* Sectiunile pliabile: pictograma, sageata care se roteste, hover */
+.fold {
+  transition: border-color 200ms var(--ease-out);
+}
+
+.fold[open] {
+  border-color: var(--border-strong);
+}
+
+.fold__summary {
+  align-items: center;
+  border-radius: var(--radius);
+  transition: background-color 150ms var(--ease-out);
+}
+
+.fold__summary:hover {
+  background: var(--surface-2);
+}
+
+.fold__summary::before,
+.fold[open] > .fold__summary::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  margin: 0 0.3rem 0 0.15rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 250ms var(--ease-out);
+}
+
+.fold[open] > .fold__summary::before {
+  transform: rotate(45deg);
+}
+
+.fold__icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+  color: var(--accent);
+}
+
+/* Elementele afectate: carduri mici, numerotate */
+.element-list {
+  list-style: none;
+  padding: 0;
+  counter-reset: element;
+}
+
+.element-list > li {
+  position: relative;
+  counter-increment: element;
+  padding: 0.75rem 0.9rem 0.9rem 2.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.element-list > li::before {
+  content: counter(element);
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.element-list > li > .element__label:first-child {
+  margin-top: 0.1rem;
+}
+
+/* Aceeasi regula in alta categorie */
+.rule__also-notice {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--info-text) 30%, transparent);
+  border-radius: var(--radius);
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.rule__also-notice p {
+  margin: 0 0 0.35rem;
+}
+
+.rule__also-notice p:last-child {
+  margin-bottom: 0;
+}
+
+.rule__also-icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 36rem) {
+  .rule > details > summary {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .rule__tally {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rule > details::details-content,
+  .fold::details-content {
+    transition: none;
+  }
 }

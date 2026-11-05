@@ -10,7 +10,7 @@ export function NotFoundPage() {
       <PageHeading title="Pagina nu există" />
       <p>Adresa accesată nu corespunde niciunei pagini din aplicație.</p>
       <p>
-        <Link to="/">Mergi la lista de proiecte</Link>
+        <Link to="/proiecte">Mergi la lista de proiecte</Link>
       </p>
     </>
   );

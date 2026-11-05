@@ -45,7 +45,7 @@ export function ScanPage() {
         <PageHeading title={notFound ? 'Scanarea nu există' : 'Eroare'} />
         <ErrorMessage error={scan.error} />
         <p>
-          <Link to="/">Înapoi la proiecte</Link>
+          <Link to="/proiecte">Înapoi la proiecte</Link>
         </p>
       </>
     );
@@ -61,7 +61,7 @@ function ScanView({ scan }: { scan: Scan }) {
   return (
     <>
       <p className="breadcrumb">
-        <Link to="/">Proiecte</Link> <span aria-hidden="true">›</span>{' '}
+        <Link to="/proiecte">Proiecte</Link> <span aria-hidden="true">›</span>{' '}
         <Link to={`/proiecte/${scan.projectId}`}>{project.data?.name ?? 'Proiect'}</Link>{' '}
         {scan.auditId && (
           <>

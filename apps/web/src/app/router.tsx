@@ -1,7 +1,9 @@
 /**
  * Traseele (rutele) aplicatiei: ce pagina se afiseaza pentru fiecare adresa.
  *
- *   /                      -> lista proiectelor + adaugarea unui proiect
+ *   /                      -> pagina de start (prezentarea platformei, cu drum spre proiecte
+ *                             si spre limitari)
+ *   /proiecte              -> lista proiectelor + adaugarea unui proiect
  *   /proiecte/:projectId   -> un proiect: pornirea unei scanari + istoricul scanarilor
  *   /proiecte/:projectId/profil-juridic -> chestionarul OUG 112/2018 si evaluarea lui
  *   /audituri/:auditId     -> un audit pe mai multe pagini: alegerea paginilor, progresul,
@@ -14,6 +16,7 @@ import { createBrowserRouter } from 'react-router';
 import { Layout } from './Layout';
 import { AboutPage } from '../pages/AboutPage';
 import { AuditPage } from '../pages/AuditPage';
+import { LandingPage } from '../pages/LandingPage';
 import { LegalProfilePage } from '../pages/LegalProfilePage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProjectPage } from '../pages/ProjectPage';
@@ -24,7 +27,8 @@ export const router = createBrowserRouter([
   {
     element: <Layout />,
     children: [
-      { path: '/', element: <ProjectsPage /> },
+      { path: '/', element: <LandingPage /> },
+      { path: '/proiecte', element: <ProjectsPage /> },
       { path: '/proiecte/:projectId', element: <ProjectPage /> },
       { path: '/proiecte/:projectId/profil-juridic', element: <LegalProfilePage /> },
       { path: '/audituri/:auditId', element: <AuditPage /> },

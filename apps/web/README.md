@@ -10,7 +10,8 @@ mai departe la API (3000). Asta e "proxy-ul" din `vite.config.ts`.
 
 | Adresa                                | Ecran                                                                            |
 | ------------------------------------- | -------------------------------------------------------------------------------- |
-| `/`                                   | Lista proiectelor si formularul de adaugare                                      |
+| `/`                                   | Pagina de start: prezentarea platformei, cu drum spre proiecte si spre limitari  |
+| `/proiecte`                           | Lista proiectelor (cu cautare) si, alaturi, formularul de adaugare               |
 | `/proiecte/:projectId`                | Profilul juridic pe scurt, pornirea unui audit sau a unei scanari, istoricele    |
 | `/proiecte/:projectId/profil-juridic` | Chestionarul OUG 112/2018 si rezultatul evaluarii                                |
 | `/audituri/:auditId`                  | Audit pe mai multe pagini: alegerea paginilor, progresul, rezultatele pe site    |
@@ -19,24 +20,26 @@ mai departe la API (3000). Asta e "proxy-ul" din `vite.config.ts`.
 
 ## Continut
 
-| Cale                   | Rol                                                                                                                                     |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html`           | Pagina HTML de baza (`lang="ro"`), in care se monteaza React                                                                            |
-| `vite.config.ts`       | Configurarea Vite: plugin React + proxy catre API                                                                                       |
-| `vitest.config.ts`     | Configurarea testelor interfetei                                                                                                        |
-| `src/main.tsx`         | Punctul de intrare: cache-ul de date (TanStack Query) + traseele (React Router)                                                         |
-| `src/app/router.tsx`   | Ce ecran se afiseaza pentru fiecare adresa                                                                                              |
-| `src/app/Layout.tsx`   | Structura comuna: "Sari la continut", antet, navigare, subsol                                                                           |
-| `src/api/client.ts`    | Cererile catre API, validarea raspunsurilor, erorile pe campuri                                                                         |
-| `src/api/queries.ts`   | Incarcarea datelor (TanStack Query), inclusiv reverificarea scanarilor in curs                                                          |
-| `src/api/health.ts`    | Starea serverului si a bazei de date                                                                                                    |
-| `src/pages/`           | Ecranele aplicatiei                                                                                                                     |
-| `src/components/`      | Piese refolosibile: titlul paginii, campuri, etichete, mesaje, rezultatul unei reguli, alegerea paginilor unui audit si rezultatele lui |
-| `src/lib/labels.ts`    | Textele in romana pentru valorile tehnice si formatarea datelor                                                                         |
-| `src/styles.css`       | Stilurile: contrast suficient, focus vizibil, mod intunecat, ecrane mici                                                                |
-| `public/favicon.svg`   | Iconita din fila browserului                                                                                                            |
-| `tests/ui.e2e.test.ts` | Testele interfetei in Chrome, inclusiv axe-core pe propriile ecrane                                                                     |
-| `tests/mock-api.ts`    | API simulat pentru teste                                                                                                                |
+| Cale                                                | Rol                                                                                                                                     |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.html`                                        | Pagina HTML de baza (`lang="ro"`), in care se monteaza React                                                                            |
+| `vite.config.ts`                                    | Configurarea Vite: plugin React + proxy catre API                                                                                       |
+| `vitest.config.ts`                                  | Configurarea testelor interfetei                                                                                                        |
+| `src/main.tsx`                                      | Punctul de intrare: cache-ul de date (TanStack Query) + traseele (React Router)                                                         |
+| `src/app/router.tsx`                                | Ce ecran se afiseaza pentru fiecare adresa                                                                                              |
+| `src/app/Layout.tsx`                                | Structura comuna: "Sari la continut", antet, navigare, subsol                                                                           |
+| `src/api/client.ts`                                 | Cererile catre API, validarea raspunsurilor, erorile pe campuri                                                                         |
+| `src/api/queries.ts`                                | Incarcarea datelor (TanStack Query), inclusiv reverificarea scanarilor in curs                                                          |
+| `src/api/health.ts`                                 | Starea serverului si a bazei de date                                                                                                    |
+| `src/pages/`                                        | Ecranele aplicatiei                                                                                                                     |
+| `src/components/`                                   | Piese refolosibile: titlul paginii, campuri, etichete, mesaje, rezultatul unei reguli, alegerea paginilor unui audit si rezultatele lui |
+| `src/lib/labels.ts`                                 | Textele in romana pentru valorile tehnice si formatarea datelor                                                                         |
+| `src/styles.css`                                    | Stilurile: culorile din logo, contrast suficient, focus vizibil, mod intunecat, ecrane mici                                             |
+| `public/logo.png`                                   | Logo-ul W4A (webForAll), cu fundal transparent, pentru modul luminos                                                                    |
+| `public/logo-intunecat.png`                         | Acelasi logo, cu textul deschis la culoare, pentru modul intunecat                                                                      |
+| `public/favicon.png`, `public/apple-touch-icon.png` | Simbolul din logo, ca iconita in fila browserului si pe telefon                                                                         |
+| `tests/ui.e2e.test.ts`                              | Testele interfetei in Chrome, inclusiv axe-core pe propriile ecrane                                                                     |
+| `tests/mock-api.ts`                                 | API simulat pentru teste                                                                                                                |
 
 ## Accesibilitatea interfetei
 

@@ -48,7 +48,7 @@ beforeAll(async () => {
   // unui test si sa-l faca sa pice la intamplare.
   const warmup = await browser.newPage();
   await mockApi(warmup);
-  await warmup.goto(`${baseUrl}/`);
+  await warmup.goto(`${baseUrl}/proiecte`);
   await warmup.waitForLoadState('networkidle');
   await warmup.getByRole('link', { name: PROJECT.name }).waitFor();
   await warmup.close();
@@ -70,22 +70,88 @@ afterEach(async () => {
 
 /** Ruleaza axe-core pe pagina curenta si returneaza regulile incalcate. */
 async function axeViolations(p: Page = page) {
+  // Animatiile (intrarea listelor, deschiderea sectiunilor) fac textul semitransparent cateva
+  // sute de milisecunde: verificam contrastul pe aspectul final
+  await p.waitForFunction(() => document.getAnimations().every((a) => a.playState === 'finished'));
   const results = await new AxeBuilder({ page: p })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
     .analyze();
   return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(', ')}`);
 }
 
+/** Asteapta sfarsitul animatiilor de intrare (axe masoara contrastul pe textul final). */
+async function animationsFinished(p: Page = page) {
+  await p.waitForFunction(() => document.getAnimations().every((a) => a.playState === 'finished'));
+}
+
+describe('pagina de start', () => {
+  it('prezinta platforma si duce spre proiecte si spre limitari, fara probleme de accesibilitate', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/`);
+
+    await page
+      .getByRole('heading', { level: 1, name: 'Un web pe care îl poate folosi oricine.' })
+      .waitFor();
+    expect(await page.title()).toBe('Audit de accesibilitate web — W4A');
+    // Exemplul de trasabilitate vine din catalog: WCAG 1.1.1 -> EN 9.1.1.1 -> OUG art. 3
+    await page.getByText('clauza 9.1.1.1').waitFor();
+    await page.getByText('art. 3 alin. (2) lit. a)').waitFor();
+    await animationsFinished();
+    expect(await axeViolations()).toEqual([]);
+
+    await page.getByRole('main').getByRole('link', { name: 'Mergi la proiecte' }).first().click();
+    await page.getByRole('heading', { level: 1, name: 'Proiecte' }).waitFor();
+    await page.goBack();
+    await page.getByRole('link', { name: 'Ce nu poate face platforma' }).click();
+    await page.getByRole('heading', { level: 1, name: 'Despre și limitări' }).waitFor();
+  });
+
+  it('in modul intunecat nu are probleme de accesibilitate', async () => {
+    const dark = await browser.newContext({ colorScheme: 'dark', locale: 'ro-RO' });
+    const darkPage = await dark.newPage();
+    await mockApi(darkPage);
+    await darkPage.goto(`${baseUrl}/`);
+    await darkPage.getByText('clauza 9.1.1.1').waitFor();
+    await animationsFinished(darkPage);
+    expect(await axeViolations(darkPage)).toEqual([]);
+    await dark.close();
+  });
+
+  it('meniul are legaturile "Proiecte" si "Despre si limitari"; logo-ul duce acasa', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/despre`);
+    const nav = page.getByRole('navigation', { name: 'Navigare principală' });
+    expect(await nav.getByRole('link').allInnerTexts()).toEqual(['Proiecte', 'Despre și limitări']);
+    await page.getByRole('link', { name: 'W4A, Web For All: pagina principală' }).click();
+    await page.waitForURL(`${baseUrl}/`);
+  });
+});
+
 describe('pagina de proiecte', () => {
   it('afiseaza proiectele si nu are probleme de accesibilitate', async () => {
     await mockApi(page);
-    await page.goto(`${baseUrl}/`);
+    await page.goto(`${baseUrl}/proiecte`);
 
     await expect(
       page.getByRole('heading', { level: 1, name: 'Proiecte' }).isVisible(),
     ).resolves.toBe(true);
     await page.getByRole('link', { name: PROJECT.name }).waitFor();
     expect(await page.title()).toBe('Proiecte — W4A');
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('cautarea filtreaza proiectele si anunta rezultatul', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/proiecte`);
+    await page.getByRole('link', { name: PROJECT.name }).waitFor();
+
+    const search = page.getByRole('searchbox', { name: 'Caută în proiecte' });
+    await search.fill('nu-exista-asa-ceva');
+    await page.getByRole('status').filter({ hasText: 'Niciun proiect nu se potrivește' }).waitFor();
+    expect(await page.getByRole('link', { name: PROJECT.name }).count()).toBe(0);
+
+    await search.fill(PROJECT.name.slice(0, 5));
+    await page.getByRole('link', { name: PROJECT.name }).waitFor();
     expect(await axeViolations()).toEqual([]);
   });
 
@@ -105,7 +171,7 @@ describe('pagina de proiecte', () => {
         },
       },
     });
-    await page.goto(`${baseUrl}/`);
+    await page.goto(`${baseUrl}/proiecte`);
     await page.getByRole('button', { name: 'Adaugă proiectul' }).click();
 
     const name = page.getByLabel('Nume', { exact: true });
@@ -143,7 +209,7 @@ describe('pagina de proiecte', () => {
         },
       },
     });
-    await page.goto(`${baseUrl}/`);
+    await page.goto(`${baseUrl}/proiecte`);
     await page.getByLabel('Nume', { exact: true }).fill('Alt nume');
     await page.getByLabel('Adresa site-ului').fill(PROJECT.baseUrl);
     await page.getByRole('button', { name: 'Adaugă proiectul' }).click();
@@ -156,7 +222,7 @@ describe('pagina de proiecte', () => {
 
   it('avertizeaza (fara sa blocheze) cand numele e deja folosit', async () => {
     await mockApi(page);
-    await page.goto(`${baseUrl}/`);
+    await page.goto(`${baseUrl}/proiecte`);
     await page.getByRole('link', { name: PROJECT.name }).waitFor();
     const name = page.getByLabel('Nume', { exact: true });
     await name.fill(PROJECT.name.toUpperCase());
@@ -169,7 +235,7 @@ describe('pagina de proiecte', () => {
 
   it('dupa crearea proiectului navigheaza la el si muta focusul pe titlu', async () => {
     await mockApi(page);
-    await page.goto(`${baseUrl}/`);
+    await page.goto(`${baseUrl}/proiecte`);
     await page.getByLabel('Nume', { exact: true }).fill(PROJECT.name);
     await page.getByLabel('Adresa site-ului').fill(PROJECT.baseUrl);
     await page.getByRole('button', { name: 'Adaugă proiectul' }).click();
@@ -337,7 +403,10 @@ describe('pagina scanarii', () => {
     await rule.locator(':scope > details > summary').click();
     // Sectiunile sunt pliate; titlul sectiunii de trasabilitate arata deja rezumatul lantului
     const traceFold = rule.locator('.fold__summary', { hasText: 'Trasabilitate normativă' });
-    expect(await traceFold.innerText()).toContain('WCAG 1.1.1 · EN 9.1.1.1 · OUG 112/2018');
+    // Regula se deschide animat: asteptam pana cand continutul e afisat
+    await expect
+      .poll(() => traceFold.innerText())
+      .toContain('WCAG 1.1.1 · EN 9.1.1.1 · OUG 112/2018');
     await traceFold.click();
 
     const trace = rule.getByRole('region', { name: 'Trasabilitate pentru regula image-alt' });
@@ -440,7 +509,10 @@ describe('pagina scanarii', () => {
     const rule = page.locator('.rule', { hasText: 'region' });
     await rule.locator(':scope > details > summary').click();
     const traceFold = rule.locator('.fold__summary', { hasText: 'Trasabilitate normativă' });
-    expect(await traceFold.innerText()).toContain('Bună practică: fără legătură normativă');
+    // Regula se deschide animat: asteptam pana cand continutul e afisat
+    await expect
+      .poll(() => traceFold.innerText())
+      .toContain('Bună practică: fără legătură normativă');
     await traceFold.click();
 
     await rule.getByText('Fără legătură normativă', { exact: true }).waitFor();
@@ -632,7 +704,7 @@ describe('auditul pe mai multe pagini', () => {
 describe('navigare si tastatura', () => {
   it('primul Tab ajunge la legatura "Sari la continutul principal"', async () => {
     await mockApi(page);
-    await page.goto(`${baseUrl}/`);
+    await page.goto(`${baseUrl}/proiecte`);
     await page.getByRole('link', { name: PROJECT.name }).waitFor();
 
     await page.keyboard.press('Tab');

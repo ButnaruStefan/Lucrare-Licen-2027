@@ -1,8 +1,8 @@
 /**
  * Un rezultat pe regula, afisat ca element expandabil (<details>).
  *
- * Restrans: titlul (in romana, daca exista explicatie), gravitatea, criteriile WCAG, numarul de
- * elemente. Deschis: un rezumat scurt mereu vizibil ("Pe scurt") si sectiuni pliabile, in ordinea
+ * Restrans: simbolul gravitatii (pictograma colorata), titlul (in romana, daca exista explicatie),
+ * gravitatea, criteriile WCAG si, in dreapta, numarul de elemente. Deschis: un rezumat scurt mereu vizibil ("Pe scurt") si sectiuni pliabile, in ordinea
  * in care le cauta de obicei utilizatorul:
  *   1. Unde apare (elementele afectate)   -> "unde e problema?"
  *   2. Cum repari                          -> "ce fac?"
@@ -17,10 +17,11 @@
  * Securitate: fragmentul HTML al paginii scanate e afisat ca TEXT (React il "escapeaza"),
  * niciodata interpretat, deci un site rau intentionat nu poate injecta cod in aplicatia noastra.
  */
-import type { ResultCategory, RuleResult } from '@ro-a11y/shared';
+import type { Impact, ResultCategory, RuleResult } from '@ro-a11y/shared';
 import { CATEGORY_LABELS } from '../lib/labels';
 import { ImpactBadge } from './Badges';
 import { CollapsibleSection } from './CollapsibleSection';
+import { Icon, type IconName } from './Icon';
 import { HowToFix, HowToVerify } from './RemediationPanel';
 import { TraceabilityExplorer, traceSummary } from './TraceabilityExplorer';
 
@@ -32,6 +33,28 @@ function selectorText(cssSelector: unknown): string {
 export interface OtherCategory {
   category: ResultCategory;
   elementCount: number;
+}
+
+/**
+ * Simbolul din stanga rezultatului: pictograma si tonul de culoare, dupa gravitate (problemele)
+ * sau dupa categorie (regulile trecute / care nu se aplica). Sensul e spus si in text (eticheta).
+ */
+function tokenFor(
+  impact: Impact | null,
+  category: ResultCategory,
+): { icon: IconName; tone: 'error' | 'warn' | 'neutral' | 'ok' } {
+  if (category === 'pass') return { icon: 'check', tone: 'ok' };
+  if (category === 'inapplicable') return { icon: 'minus', tone: 'neutral' };
+  switch (impact) {
+    case 'critical':
+      return { icon: 'alert', tone: 'error' };
+    case 'serious':
+      return { icon: 'alert', tone: 'warn' };
+    case 'moderate':
+      return { icon: 'warning', tone: 'warn' };
+    default:
+      return { icon: 'info', tone: 'neutral' };
+  }
 }
 
 function elements(n: number): string {
@@ -69,33 +92,45 @@ export function RuleResultItem({
   // problemele detectate si cazurile de verificat manual.
   const titleRo = result.trace.axeRule.titleRo;
   const summaryRo = result.trace.axeRule.summaryRo;
+  const token = tokenFor(result.impact, result.category);
 
   return (
     <li className="rule">
       <details>
         <summary>
-          <span className="rule__title">{titleRo ?? result.title}</span>
-          {titleRo && (
-            <span className="rule__title-en" lang="en">
-              {result.title}
+          <span className={`rule__token rule__token--${token.tone}`}>
+            <Icon name={token.icon} />
+          </span>
+          <span className="rule__head">
+            <span className="rule__title">{titleRo ?? result.title}</span>
+            {titleRo && (
+              <span className="rule__title-en" lang="en">
+                {result.title}
+              </span>
+            )}
+            <span className="rule__meta">
+              <ImpactBadge impact={result.impact} />
+              <code className="rule__id">{result.axeRuleId}</code>
+              {result.wcagCriteria.map((c) => (
+                <span key={c} className="tag">
+                  WCAG {c}
+                </span>
+              ))}
+              {result.isBestPractice && <span className="tag tag--muted">Bună practică</span>}
             </span>
-          )}
-          <span className="rule__meta">
-            <ImpactBadge impact={result.impact} />
-            <code className="rule__id">{result.axeRuleId}</code>
-            {result.wcagCriteria.map((c) => (
-              <span key={c} className="tag">
-                WCAG {c}
+            {otherCategories.map((other) => (
+              <span key={other.category} className="rule__also">
+                Apare și la „{CATEGORY_LABELS[other.category]}”: încă {elements(other.elementCount)}
               </span>
             ))}
-            {result.isBestPractice && <span className="tag tag--muted">Bună practică</span>}
-            {count > 0 && <span className="rule__count">{elements(count)}</span>}
           </span>
-          {otherCategories.map((other) => (
-            <span key={other.category} className="rule__also">
-              Apare și la „{CATEGORY_LABELS[other.category]}”: încă {elements(other.elementCount)}
+          {count > 0 && (
+            <span className="rule__tally">
+              <span className="rule__tally-value">{count}</span>{' '}
+              <span className="rule__tally-label">{count === 1 ? 'element' : 'elemente'}</span>
             </span>
-          ))}
+          )}
+          <span className="rule__chevron" aria-hidden="true" />
         </summary>
 
         <div className="rule__body">
@@ -116,19 +151,22 @@ export function RuleResultItem({
               </p>
             )}
             {otherCategories.map((other) => (
-              <div key={other.category} className="notice notice--info rule__also-notice">
-                <p>{alsoInText(result.category, other)}</p>
-                {onShowCategory && (
-                  <p>
-                    <button
-                      type="button"
-                      className="button-link"
-                      onClick={() => onShowCategory(other.category)}
-                    >
-                      Vezi „{CATEGORY_LABELS[other.category]}”
-                    </button>
-                  </p>
-                )}
+              <div key={other.category} className="rule__also-notice">
+                <Icon name="split" className="rule__also-icon" />
+                <div>
+                  <p>{alsoInText(result.category, other)}</p>
+                  {onShowCategory && (
+                    <p>
+                      <button
+                        type="button"
+                        className="button-link"
+                        onClick={() => onShowCategory(other.category)}
+                      >
+                        Vezi „{CATEGORY_LABELS[other.category]}”
+                      </button>
+                    </p>
+                  )}
+                </div>
               </div>
             ))}
             {result.category === 'incomplete' && count > 0 && (
@@ -142,6 +180,7 @@ export function RuleResultItem({
           {count > 0 && (
             <CollapsibleSection
               title="Unde apare: elemente afectate"
+              icon="where"
               hint={`${count} ${count === 1 ? 'element' : 'elemente'}`}
             >
               <ol className="element-list">
@@ -171,12 +210,14 @@ export function RuleResultItem({
             <>
               <CollapsibleSection
                 title="Cum repari"
+                icon="wrench"
                 hint={`${remediation.howToFix.length} pași · exemplu înainte / după`}
               >
                 <HowToFix remediation={remediation} />
               </CollapsibleSection>
               <CollapsibleSection
                 title="Cum verifici reparația"
+                icon="verify"
                 hint={`${remediation.howToVerify.length} ${remediation.howToVerify.length === 1 ? 'pas' : 'pași'}`}
               >
                 <HowToVerify remediation={remediation} status={result.trace.remediationStatus} />
@@ -184,7 +225,11 @@ export function RuleResultItem({
             </>
           )}
 
-          <CollapsibleSection title="Trasabilitate normativă" hint={traceSummary(result.trace)}>
+          <CollapsibleSection
+            title="Trasabilitate normativă"
+            icon="chain"
+            hint={traceSummary(result.trace)}
+          >
             <TraceabilityExplorer
               trace={result.trace}
               elementCount={count}
@@ -192,7 +237,11 @@ export function RuleResultItem({
             />
           </CollapsibleSection>
 
-          <CollapsibleSection title="Detalii tehnice" hint={`axe-core · ${result.axeRuleId}`}>
+          <CollapsibleSection
+            title="Detalii tehnice"
+            icon="code"
+            hint={`axe-core · ${result.axeRuleId}`}
+          >
             <dl className="details-list">
               <dt>Regula axe-core</dt>
               <dd>

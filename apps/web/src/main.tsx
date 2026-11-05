@@ -7,6 +7,9 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router';
 import { router } from './app/router';
+// Fontul aplicatiei (Manrope, geometric ca literele din logo), gazduit local: fara cereri
+// catre servere externe de fonturi
+import '@fontsource-variable/manrope';
 import './styles.css';
 
 const queryClient = new QueryClient({

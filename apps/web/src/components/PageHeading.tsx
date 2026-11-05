@@ -15,7 +15,15 @@ import { useLocation } from 'react-router';
 
 const APP_NAME = 'W4A';
 
-export function PageHeading({ title, children }: { title: string; children?: ReactNode }) {
+export function PageHeading({
+  title,
+  children,
+  className = 'page-heading',
+}: {
+  title: string;
+  children?: ReactNode;
+  className?: string;
+}) {
   const ref = useRef<HTMLHeadingElement>(null);
   const location = useLocation();
 
@@ -30,7 +38,7 @@ export function PageHeading({ title, children }: { title: string; children?: Rea
   }, [location.pathname]);
 
   return (
-    <h1 ref={ref} tabIndex={-1} className="page-heading">
+    <h1 ref={ref} tabIndex={-1} className={className}>
       {children ?? title}
     </h1>
   );

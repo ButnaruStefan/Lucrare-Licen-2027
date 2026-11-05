@@ -45,7 +45,7 @@ export function LegalProfilePage() {
         <PageHeading title={notFound ? 'Proiectul nu există' : 'Eroare'} />
         <ErrorMessage error={error} />
         <p>
-          <Link to="/">Înapoi la proiecte</Link>
+          <Link to="/proiecte">Înapoi la proiecte</Link>
         </p>
       </>
     );
@@ -54,7 +54,7 @@ export function LegalProfilePage() {
   return (
     <>
       <p className="breadcrumb">
-        <Link to="/">Proiecte</Link> <span aria-hidden="true">›</span>{' '}
+        <Link to="/proiecte">Proiecte</Link> <span aria-hidden="true">›</span>{' '}
         <Link to={`/proiecte/${projectId}`}>{project.data.name}</Link>{' '}
         <span aria-hidden="true">›</span> Profil juridic
       </p>

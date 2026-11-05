@@ -3,18 +3,24 @@
  *
  *   1. cautarea paginilor (actualizata automat);
  *   2. alegerea paginilor (`PageSelectionForm`);
- *   3. scanarea: progresul ("4 din 10 pagini gata") si lista paginilor, cu legaturi spre
- *      scanarea fiecarei pagini;
- *   4. rezultatele pe tot site-ul (`AuditResultsView`), cu limitele explicite ale auditului:
- *      cate pagini au fost verificate din cate au fost gasite, serviciile externe si
- *      documentele care NU au fost verificate.
+ *   3. scanarea: panoul de sumar (bara de progres "4 din 10 pagini verificate") si lista
+ *      paginilor, cu legaturi spre scanarea fiecarei pagini;
+ *   4. rezultatele pe tot site-ul (`AuditResultsView`), asezate imediat dupa sumar, cu limitele
+ *      explicite ale auditului: cate pagini au fost verificate din cate au fost gasite,
+ *      serviciile externe si documentele care NU au fost verificate.
  *
  * Accesibilitate: schimbarea etapei e anuntata (role="status"); dupa confirmarea paginilor,
  * focusul ajunge pe titlul sectiunii de progres (formularul dispare, focusul nu se pierde).
  */
 import { useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router';
-import type { Audit, Discovery, ExclusionReason } from '@ro-a11y/shared';
+import type {
+  Audit,
+  AuditPage as AuditPageItem,
+  AuditResults,
+  Discovery,
+  ExclusionReason,
+} from '@ro-a11y/shared';
 import { ApiRequestError } from '../api/client';
 import { useAudit, useAuditResults, useProject } from '../api/queries';
 import { AuditResultsView } from '../components/AuditResultsView';
@@ -41,7 +47,7 @@ export function AuditPage() {
         <PageHeading title={notFound ? 'Auditul nu există' : 'Eroare'} />
         <ErrorMessage error={audit.error} />
         <p>
-          <Link to="/">Înapoi la proiecte</Link>
+          <Link to="/proiecte">Înapoi la proiecte</Link>
         </p>
       </>
     );
@@ -68,12 +74,18 @@ function AuditView({ audit }: { audit: Audit }) {
   return (
     <>
       <p className="breadcrumb">
-        <Link to="/">Proiecte</Link> <span aria-hidden="true">›</span>{' '}
+        <Link to="/proiecte">Proiecte</Link> <span aria-hidden="true">›</span>{' '}
         <Link to={`/proiecte/${audit.projectId}`}>{project.data?.name ?? 'Proiect'}</Link>{' '}
         <span aria-hidden="true">›</span> Audit
       </p>
       <PageHeading title={`Audit din ${formatDate(audit.createdAt)}`} />
-      <p className="lead url">{audit.startUrl}</p>
+      <p className="page-subtitle">
+        <a href={audit.startUrl} className="url">
+          {audit.startUrl}
+        </a>
+        <span aria-hidden="true"> · </span>
+        {WCAG_PROFILE_LABELS[audit.config.wcagProfile]}
+      </p>
 
       <div role="status" className="scan-status">
         <StatusText audit={audit} />
@@ -83,24 +95,7 @@ function AuditView({ audit }: { audit: Audit }) {
         <PageSelectionForm audit={audit} />
       )}
 
-      {showPages && (
-        <section aria-labelledby="pagini-auditate" className="section">
-          <h2 id="pagini-auditate" ref={progressHeading} tabIndex={-1}>
-            Paginile verificate
-          </h2>
-          <PagesTable audit={audit} />
-        </section>
-      )}
-
-      {audit.status === 'completed' && audit.discovery && (
-        <p className="notice notice--info">
-          Au fost verificate {audit.progress.completed} din {audit.discovery.pages.length}{' '}
-          {audit.discovery.pages.length === 1 ? 'pagină găsită' : 'pagini găsite'} pe{' '}
-          {audit.discovery.scope}. Rezultatul <strong>nu</strong> descrie întregul site, iar
-          testarea automată găsește doar o parte din problemele de accesibilitate: zero probleme
-          detectate nu înseamnă conformitate cu WCAG.
-        </p>
-      )}
+      {showPages && <AuditOverview audit={audit} results={results.data} />}
 
       {audit.status === 'completed' && (
         <>
@@ -108,6 +103,15 @@ function AuditView({ audit }: { audit: Audit }) {
           {results.isError && <ErrorMessage error={results.error} />}
           {results.data && <AuditResultsView results={results.data} />}
         </>
+      )}
+
+      {showPages && (
+        <section aria-labelledby="pagini-auditate" className="section">
+          <h2 id="pagini-auditate" ref={progressHeading} tabIndex={-1}>
+            Paginile verificate
+          </h2>
+          <PagesList audit={audit} />
+        </section>
       )}
 
       {audit.discovery && <DiscoveryDetails discovery={audit.discovery} />}
@@ -165,46 +169,104 @@ function StatusText({ audit }: { audit: Audit }) {
   }
 }
 
-function PagesTable({ audit }: { audit: Audit }) {
+function plural(count: number, one: string, many: string): string {
+  return count === 1 ? `1 ${one}` : `${count} ${many}`;
+}
+
+/** Panoul de sumar: progresul scanarii si cifrele principale ale auditului. */
+function AuditOverview({ audit, results }: { audit: Audit; results: AuditResults | undefined }) {
+  const { progress } = audit;
+  const done = progress.completed + progress.failed;
+  const percent = progress.total > 0 ? Math.round((done / progress.total) * 100) : 0;
+  const count = (value: number | undefined) => (value === undefined ? '—' : value);
+  const violations = results?.rules.filter((r) => r.category === 'violation').length;
+  const incomplete = results?.rules.filter((r) => r.category === 'incomplete').length;
+
   return (
-    <div className="table-wrapper">
-      <table>
-        <caption className="visually-hidden">Paginile auditului, în ordinea scanării</caption>
-        <thead>
-          <tr>
-            <th scope="col">Pagina</th>
-            <th scope="col">De ce</th>
-            <th scope="col">Stare</th>
-            <th scope="col">Probleme detectate</th>
-            <th scope="col">De verificat manual</th>
-          </tr>
-        </thead>
-        <tbody>
-          {audit.pages.map((page) => (
-            <tr key={page.scanId}>
-              <th scope="row">
-                <Link to={`/scanari/${page.scanId}`}>{page.label ?? page.pageUrl}</Link>
-                <span className="url muted audit-page__url">{new URL(page.pageUrl).pathname}</span>
-              </th>
-              <td>
-                {page.reasons.map((r) => SELECTION_REASON_LABELS[r]).join(', ') || '—'}
-                {page.robotsBlocked && (
-                  <>
-                    {' '}
-                    <span className="tag tag--muted">interzisă de robots.txt</span>
-                  </>
-                )}
-              </td>
-              <td>
-                <ScanStatusBadge status={page.status} />
-              </td>
-              <td>{page.summary ? page.summary.violations : '—'}</td>
-              <td>{page.summary ? page.summary.incomplete : '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <section aria-labelledby="sumar-audit" className="overview">
+      <div className="overview__progress">
+        <h2 id="sumar-audit" className="overview__title">
+          {done} din {progress.total} pagini verificate
+        </h2>
+        <div className="meter" aria-hidden="true">
+          <span style={{ width: `${percent}%` }} />
+        </div>
+      </div>
+      <dl className="overview__stats">
+        <div className="stat">
+          <dt>Probleme comune</dt>
+          <dd>{count(results?.commonIssues.length)}</dd>
+        </div>
+        <div className="stat stat--violation">
+          <dt>Reguli cu probleme detectate</dt>
+          <dd>{count(violations)}</dd>
+        </div>
+        <div className="stat stat--incomplete">
+          <dt>Reguli de verificat manual</dt>
+          <dd>{count(incomplete)}</dd>
+        </div>
+        <div className="stat">
+          <dt>Pagini găsite pe site</dt>
+          <dd>{count(audit.discovery?.pages.length)}</dd>
+        </div>
+      </dl>
+      {audit.status === 'completed' && audit.discovery && (
+        <p className="overview__note">
+          Au fost verificate {audit.progress.completed} din {audit.discovery.pages.length}{' '}
+          {audit.discovery.pages.length === 1 ? 'pagină găsită' : 'pagini găsite'} pe{' '}
+          {audit.discovery.scope}. Rezultatul <strong>nu</strong> descrie întregul site, iar
+          testarea automată găsește doar o parte din problemele de accesibilitate: zero probleme
+          detectate nu înseamnă conformitate cu WCAG.
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Paginile auditului, in ordinea scanarii; fiecare rand duce la scanarea paginii. */
+function PagesList({ audit }: { audit: Audit }) {
+  return (
+    <ol className="page-rows">
+      {audit.pages.map((page) => (
+        <PageRow key={page.scanId} page={page} />
+      ))}
+    </ol>
+  );
+}
+
+function PageRow({ page }: { page: AuditPageItem }) {
+  const path = new URL(page.pageUrl).pathname;
+  const reasons = page.reasons.map((r) => SELECTION_REASON_LABELS[r]).join(', ');
+  return (
+    <li className="page-row">
+      <div className="page-row__main">
+        <Link to={`/scanari/${page.scanId}`} className="page-row__name">
+          {page.label ?? page.pageUrl}
+        </Link>
+        <span className="page-row__path">{path}</span>
+      </div>
+      <div className="page-row__reasons">
+        {reasons && <span className="tag">{reasons}</span>}
+        {page.robotsBlocked && <span className="tag tag--muted">interzisă de robots.txt</span>}
+      </div>
+      <div className="page-row__result">
+        {page.status === 'completed' && page.summary ? (
+          <>
+            <span className={`count ${page.summary.violations > 0 ? 'count--violation' : ''}`}>
+              {plural(page.summary.violations, 'problemă', 'probleme')}
+            </span>
+            <span className={`count ${page.summary.incomplete > 0 ? 'count--incomplete' : ''}`}>
+              {page.summary.incomplete} de verificat
+            </span>
+          </>
+        ) : (
+          <ScanStatusBadge status={page.status} />
+        )}
+      </div>
+      <span className="page-row__chevron" aria-hidden="true">
+        →
+      </span>
+    </li>
   );
 }
 
@@ -214,53 +276,58 @@ function DiscoveryDetails({ discovery }: { discovery: Discovery }) {
   return (
     <section aria-labelledby="ce-nu-s-a-verificat" className="section">
       <h2 id="ce-nu-s-a-verificat">Ce nu a fost verificat automat</h2>
-
-      <h3>Servicii externe ({discovery.external.length})</h3>
-      <p className="muted">
-        Linkuri spre alte site-uri (ex. plăți online, portaluri). Fac parte din serviciul public,
-        dar nu sunt scanate în acest audit; pot fi auditate separat, ca proiect nou.
-      </p>
-      {discovery.external.length > 0 ? (
-        <ul className="audit-page-links">
-          {discovery.external.map((service) => (
-            <li key={service.origin}>
-              {service.label} <span className="url muted">{service.origin}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>Niciun serviciu extern găsit în pagina de start.</p>
-      )}
-
-      <h3>Documente ({discovery.documents.length})</h3>
-      <p className="muted">
-        Fișiere PDF, Word sau Excel. Trebuie să fie și ele accesibile, dar axe-core verifică doar
-        pagini web: documentele cer verificare separată.
-      </p>
-      {discovery.documents.length > 0 ? (
-        <ul className="audit-page-links">
-          {discovery.documents.map((doc) => (
-            <li key={doc.url}>
-              {doc.label} <span className="tag">{doc.extension.toUpperCase()}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>Niciun document găsit în pagina de start.</p>
-      )}
-
-      <h3>Linkuri excluse</h3>
-      {excluded.length > 0 ? (
-        <ul>
-          {excluded.map(([reason, count]) => (
-            <li key={reason}>
-              {count} {EXCLUSION_LABELS[reason]}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>Niciun link exclus.</p>
-      )}
+      <div className="info-panels">
+        <div className="info-panel">
+          <h3>Servicii externe ({discovery.external.length})</h3>
+          <p className="muted">
+            Linkuri spre alte site-uri (ex. plăți online, portaluri). Fac parte din serviciul
+            public, dar nu sunt scanate în acest audit; pot fi auditate separat, ca proiect nou.
+          </p>
+          {discovery.external.length > 0 ? (
+            <ul className="audit-page-links">
+              {discovery.external.map((service) => (
+                <li key={service.origin}>
+                  {service.label} <span className="url muted">{service.origin}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Niciun serviciu extern găsit în pagina de start.</p>
+          )}
+        </div>
+        <div className="info-panel">
+          <h3>Documente ({discovery.documents.length})</h3>
+          <p className="muted">
+            Fișiere PDF, Word sau Excel. Trebuie să fie și ele accesibile, dar axe-core verifică
+            doar pagini web: documentele cer verificare separată.
+          </p>
+          {discovery.documents.length > 0 ? (
+            <ul className="audit-page-links">
+              {discovery.documents.map((doc) => (
+                <li key={doc.url}>
+                  {doc.label} <span className="tag">{doc.extension.toUpperCase()}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Niciun document găsit în pagina de start.</p>
+          )}
+        </div>
+        <div className="info-panel">
+          <h3>Linkuri excluse</h3>
+          {excluded.length > 0 ? (
+            <ul>
+              {excluded.map(([reason, count]) => (
+                <li key={reason}>
+                  {count} {EXCLUSION_LABELS[reason]}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Niciun link exclus.</p>
+          )}
+        </div>
+      </div>
       <p className="muted">
         Linkuri citite din pagina de start: {discovery.linksFound}. robots.txt:{' '}
         {discovery.robots.found

@@ -3,6 +3,9 @@
  *
  *   - "Probleme comune": acelasi element, cu aceeasi problema, pe mai multe pagini (de obicei
  *     meniul sau subsolul, venite din sablonul site-ului). Se repara o singura data.
+ *     Sunt grupate pe reguli (un site real poate avea zeci de elemente comune la aceeasi
+ *     regula, ex. contrastul culorilor): un card pe regula, cu primul element vizibil si
+ *     restul intr-o sectiune pliabila. Problemele detectate apar inaintea celor de verificat.
  *   - "Pe reguli": fiecare regula cu probleme sau de verificat manual, cu numarul de pagini
  *     si de elemente; lista paginilor duce la scanarea fiecarei pagini (detaliile complete,
  *     remedierea si lantul de trasabilitate).
@@ -43,8 +46,8 @@ export function AuditResultsView({ results }: { results: AuditResults }) {
           <EmptyState>Nicio problemă nu se repetă pe mai multe pagini.</EmptyState>
         ) : (
           <ul className="rule-list">
-            {results.commonIssues.map((issue) => (
-              <CommonIssueItem key={issue.key} issue={issue} total={total} />
+            {groupCommonIssues(results.commonIssues).map((group) => (
+              <CommonIssueGroupItem key={group.key} group={group} total={total} />
             ))}
           </ul>
         )}
@@ -69,22 +72,74 @@ export function AuditResultsView({ results }: { results: AuditResults }) {
   );
 }
 
-function CommonIssueItem({ issue, total }: { issue: CommonIssue; total: number }) {
+interface CommonIssueGroup {
+  key: string;
+  first: CommonIssue;
+  issues: CommonIssue[];
+  /** Paginile pe care apare cel putin unul dintre elemente (fara dubluri). */
+  pages: CommonIssue['pages'];
+}
+
+/** Grupeaza problemele comune pe regula + categorie; detectatele primele, apoi dupa numar. */
+function groupCommonIssues(issues: CommonIssue[]): CommonIssueGroup[] {
+  const groups = new Map<string, CommonIssueGroup>();
+  for (const issue of issues) {
+    const key = `${issue.category}-${issue.axeRuleId}`;
+    const group = groups.get(key) ?? { key, first: issue, issues: [], pages: [] };
+    group.issues.push(issue);
+    for (const page of issue.pages) {
+      if (!group.pages.some((p) => p.scanId === page.scanId)) group.pages.push(page);
+    }
+    groups.set(key, group);
+  }
+  const order = { violation: 0, incomplete: 1 };
+  return [...groups.values()].sort(
+    (a, b) =>
+      order[a.first.category] - order[b.first.category] || b.issues.length - a.issues.length,
+  );
+}
+
+function CommonIssueGroupItem({ group, total }: { group: CommonIssueGroup; total: number }) {
+  const { first, issues } = group;
+  const others = issues.slice(1);
   return (
     <li className="rule">
       <div className="rule__card">
-        <p className="rule__title">{issue.titleRo ?? issue.title}</p>
+        <p className="rule__title">{first.titleRo ?? first.title}</p>
         <p className="rule__meta">
-          <ImpactBadge impact={issue.impact} />
-          <span className="tag">{CATEGORY_LABELS[issue.category]}</span>
-          <code className="rule__id">{issue.axeRuleId}</code>
-          <span className="rule__count">{pagesText(issue.pages.length, total)}</span>
+          <ImpactBadge impact={first.impact} />
+          <span className="tag">{CATEGORY_LABELS[first.category]}</span>
+          <code className="rule__id">{first.axeRuleId}</code>
+          <span className="rule__count">
+            {issues.length === 1 ? '1 element' : `${issues.length} elemente`},{' '}
+            {pagesText(group.pages.length, total)}
+          </span>
         </p>
-        <p className="element__label">Elementul</p>
-        <pre className="element__html">{issue.htmlSnippet}</pre>
-        <CollapsibleSection title="Paginile pe care apare" hint={`${issue.pages.length} pagini`}>
-          <PageLinks pages={issue.pages} />
+        <p className="element__label">{issues.length === 1 ? 'Elementul' : 'Primul element'}</p>
+        <pre className="element__html">{first.htmlSnippet}</pre>
+        <CollapsibleSection
+          title="Paginile pe care apare"
+          icon="where"
+          hint={`${group.pages.length} ${group.pages.length === 1 ? 'pagină' : 'pagini'}`}
+        >
+          <PageLinks pages={group.pages} />
         </CollapsibleSection>
+        {others.length > 0 && (
+          <CollapsibleSection
+            title="Celelalte elemente"
+            icon="code"
+            hint={others.length === 1 ? 'încă 1 element' : `încă ${others.length} elemente`}
+          >
+            <ol className="element-list">
+              {others.map((issue) => (
+                <li key={issue.key}>
+                  <pre className="element__html">{issue.htmlSnippet}</pre>
+                  <p className="rule__count">{pagesText(issue.pages.length, total)}</p>
+                </li>
+              ))}
+            </ol>
+          </CollapsibleSection>
+        )}
       </div>
     </li>
   );
@@ -133,6 +188,7 @@ function RuleGroup({
                 </p>
                 <CollapsibleSection
                   title="Paginile pe care apare"
+                  icon="where"
                   hint={`${rule.pages.length} ${rule.pages.length === 1 ? 'pagină' : 'pagini'}`}
                 >
                   <PageLinks pages={rule.pages} />
