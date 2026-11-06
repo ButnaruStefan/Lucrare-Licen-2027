@@ -16,7 +16,9 @@ export type IconName =
   | 'verify' // cum verifici
   | 'chain' // trasabilitate
   | 'code' // detalii tehnice
-  | 'split'; // aceeasi regula in alta categorie
+  | 'split' // aceeasi regula in alta categorie
+  | 'page' // o singura pagina
+  | 'pages'; // mai multe pagini
 
 const PATHS: Record<IconName, string[]> = {
   alert: ['M12 3 2.5 20h19L12 3Z', 'M12 10v4.5', 'M12 17.5h.01'],
@@ -41,6 +43,17 @@ const PATHS: Record<IconName, string[]> = {
   ],
   code: ['m8.5 8-4 4 4 4', 'm15.5 8 4 4-4 4', 'm13.5 5-3 14'],
   split: ['M4 7h12l-3-3', 'M20 17H8l3 3'],
+  page: [
+    'M14 3H7a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 7 21h10a1.5 1.5 0 0 0 1.5-1.5V7.5L14 3Z',
+    'M14 3v4.5h4.5',
+    'M9 13h6',
+    'M9 16.5h4',
+  ],
+  pages: [
+    'M9 3h7l4 4v10.5a1.5 1.5 0 0 1-1.5 1.5H9a1.5 1.5 0 0 1-1.5-1.5v-13A1.5 1.5 0 0 1 9 3Z',
+    'M16 3v4h4',
+    'M4.5 7.5v12A1.5 1.5 0 0 0 6 21h9',
+  ],
 };
 
 export function Icon({ name, className }: { name: IconName; className?: string }) {

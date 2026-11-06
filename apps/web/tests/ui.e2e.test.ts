@@ -252,8 +252,19 @@ describe('pagina proiectului', () => {
     await mockApi(page);
     await page.goto(`${baseUrl}/proiecte/${PROJECT.id}`);
 
-    await page.getByRole('button', { name: 'Scanează pagina' }).waitFor();
+    // Implicit: auditul pe mai multe pagini
     await page.getByRole('button', { name: 'Caută paginile site-ului' }).waitFor();
+    expect(await page.getByRole('button', { name: 'Scanează pagina' }).count()).toBe(0);
+    expect(await axeViolations()).toEqual([]);
+    // Selectorul de sus schimba formularul (radio nativ, cu descriere)
+    const single = page.getByRole('radio', { name: 'O singură pagină' });
+    expect(await single.getAttribute('aria-describedby')).toBeTruthy();
+    // Utilizatorul apasa cardul (eticheta radio-ului)
+    await page.getByText('O singură pagină', { exact: true }).click();
+    await expect.poll(() => single.isChecked()).toBe(true);
+    await page.getByRole('button', { name: 'Scanează pagina' }).waitFor();
+    expect(await page.getByRole('button', { name: 'Caută paginile site-ului' }).count()).toBe(0);
+    expect(page.url()).toContain('verificare=o-pagina');
     await page.getByRole('cell', { name: 'Finalizată' }).waitFor();
     await page.getByRole('cell', { name: 'Alege paginile' }).waitFor();
     // Profilul juridic necompletat: statusul "Neevaluată" si legatura spre chestionar

@@ -1,6 +1,10 @@
 /**
- * Pagina unui proiect: profilul juridic (pe scurt), pornirea unui audit pe mai multe pagini,
- * pornirea unei scanari pe o singura pagina si istoricul auditurilor si al scanarilor.
+ * Pagina unui proiect: profilul juridic (pe scurt), o "verificare noua" si istoricul auditurilor
+ * si al scanarilor.
+ *
+ * Verificarea noua are un selector sus: "Mai multe pagini" (audit, implicit) sau "O singura
+ * pagina" (scanare simpla). Se afiseaza doar formularul ales. Alegerea e pastrata in adresa
+ * (?verificare=o-pagina), ca butonul "Inapoi" si linkurile sa o pastreze.
  *
  * Auditul: worker-ul cauta paginile site-ului, iar utilizatorul alege ce se scaneaza (pe pagina
  * auditului). Scanarea simpla: alegerea paginii (implicit adresa proiectului), a profilului WCAG
@@ -9,7 +13,7 @@
  * exista lucrari in curs.
  */
 import { useId, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   AUDIT_DEFAULT_PAGES,
   AUDIT_MAX_PAGES,
@@ -28,6 +32,7 @@ import {
 } from '../api/queries';
 import { AuditStatusBadge, ScanStatusBadge } from '../components/Badges';
 import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
+import { Icon, type IconName } from '../components/Icon';
 import { ApplicabilityBadge } from '../components/LegalAssessmentView';
 import { PageHeading } from '../components/PageHeading';
 import { TextField } from '../components/TextField';
@@ -61,8 +66,7 @@ export function ProjectPage() {
       <p className="lead url">{project.data.baseUrl}</p>
 
       <LegalProfileSummary projectId={projectId} />
-      <NewAuditForm project={project.data} />
-      <NewScanForm project={project.data} />
+      <NewCheck project={project.data} />
       <AuditHistory projectId={projectId} />
       <ScanHistory projectId={projectId} />
     </>
@@ -103,6 +107,101 @@ function LegalProfileSummary({ projectId }: { projectId: string }) {
         </>
       )}
     </section>
+  );
+}
+
+type CheckMode = 'multi' | 'single';
+
+/** Verificarea noua: selectorul de mod si formularul ales. */
+function NewCheck({ project }: { project: Project }) {
+  const [params, setParams] = useSearchParams();
+  const mode: CheckMode = params.get('verificare') === 'o-pagina' ? 'single' : 'multi';
+  const setMode = (next: CheckMode) =>
+    setParams(next === 'single' ? { verificare: 'o-pagina' } : {}, {
+      replace: true,
+      preventScrollReset: true,
+    });
+
+  return (
+    <section aria-labelledby="verificare-noua" className="section card check">
+      <h2 id="verificare-noua">Verificare nouă</h2>
+      <fieldset className="mode-picker">
+        <legend className="mode-picker__legend">Ce vrei să verifici?</legend>
+        <div className="mode-picker__options">
+          <ModeOption
+            value="multi"
+            current={mode}
+            onSelect={setMode}
+            icon="pages"
+            title="Mai multe pagini"
+            badge="Recomandat"
+            description="Găsesc paginile site-ului (meniu, sitemap.xml) și îți propun un eșantion de până la 20. Tu confirmi lista."
+          />
+          <ModeOption
+            value="single"
+            current={mode}
+            onSelect={setMode}
+            icon="page"
+            title="O singură pagină"
+            description="Verifici rapid o pagină anume, de exemplu după o reparație."
+          />
+        </div>
+      </fieldset>
+      <div className="check__form" key={mode}>
+        {mode === 'multi' ? <NewAuditForm project={project} /> : <NewScanForm project={project} />}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * O optiune a selectorului: un buton radio nativ (tastatura: sagetile schimba optiunea),
+ * afisat ca un card. Eticheta radio-ului e doar titlul; descrierea e legata prin aria-describedby.
+ */
+function ModeOption({
+  value,
+  current,
+  onSelect,
+  icon,
+  title,
+  badge,
+  description,
+}: {
+  value: CheckMode;
+  current: CheckMode;
+  onSelect: (value: CheckMode) => void;
+  icon: IconName;
+  title: string;
+  badge?: string;
+  description: string;
+}) {
+  const id = useId();
+  return (
+    <div className="mode-option">
+      <input
+        id={id}
+        className="mode-option__input"
+        type="radio"
+        name="mod-verificare"
+        value={value}
+        checked={current === value}
+        onChange={() => onSelect(value)}
+        aria-describedby={`${id}-descriere`}
+      />
+      <span className="mode-option__icon">
+        <Icon name={icon} />
+      </span>
+      <span className="mode-option__text">
+        <label htmlFor={id} className="mode-option__title">
+          {title}
+        </label>
+        {badge && <span className="mode-option__badge">{badge}</span>}
+        <span id={`${id}-descriere`} className="mode-option__description">
+          {description}
+        </span>
+      </span>
+      <span className="mode-option__check" aria-hidden="true" />
+    </div>
   );
 }
 
@@ -190,50 +289,42 @@ function NewAuditForm({ project }: { project: Project }) {
   }
 
   return (
-    <section aria-labelledby="audit-nou" className="section card">
-      <h2 id="audit-nou">Auditează mai multe pagini ale site-ului</h2>
-      <p className="muted">
-        Caut paginile site-ului (meniuri, sitemap.xml) și îți propun un eșantion variat: pagina de
-        start, paginile esențiale și câte una din fiecare secțiune. Tu confirmi lista înainte de
-        scanare.
-      </p>
-      <form ref={formRef} onSubmit={handleSubmit} noValidate>
-        {generalError && <ErrorMessage error={generalError} title="Auditul nu a pornit" />}
-        <TextField
-          label="Pagina de start (opțional)"
-          hint={`Lasă gol pentru adresa proiectului (${project.baseUrl}).`}
-          name="startUrl"
-          type="url"
-          value={startUrl}
-          onChange={(e) => setStartUrl(e.target.value)}
-          error={fieldErrors.startUrl}
-          placeholder={project.baseUrl}
-        />
-        <div className="field">
-          <label htmlFor={maxPagesId}>Câte pagini să propun</label>
-          <select
-            id={maxPagesId}
-            value={maxPages}
-            onChange={(e) => setMaxPages(Number(e.target.value))}
-          >
-            {[5, 10, 15, AUDIT_MAX_PAGES].map((n) => (
-              <option key={n} value={n}>
-                {n} pagini
-              </option>
-            ))}
-          </select>
-        </div>
-        <ScanOptions
-          wcagProfile={wcagProfile}
-          onProfileChange={setWcagProfile}
-          includeBestPractices={includeBestPractices}
-          onBestPracticesChange={setIncludeBestPractices}
-        />
-        <button type="submit" disabled={createAudit.isPending}>
-          {createAudit.isPending ? 'Se pornește...' : 'Caută paginile site-ului'}
-        </button>
-      </form>
-    </section>
+    <form ref={formRef} onSubmit={handleSubmit} noValidate aria-label="Audit pe mai multe pagini">
+      {generalError && <ErrorMessage error={generalError} title="Auditul nu a pornit" />}
+      <TextField
+        label="Pagina de start (opțional)"
+        hint={`Lasă gol pentru adresa proiectului (${project.baseUrl}).`}
+        name="startUrl"
+        type="url"
+        value={startUrl}
+        onChange={(e) => setStartUrl(e.target.value)}
+        error={fieldErrors.startUrl}
+        placeholder={project.baseUrl}
+      />
+      <div className="field">
+        <label htmlFor={maxPagesId}>Câte pagini să propun</label>
+        <select
+          id={maxPagesId}
+          value={maxPages}
+          onChange={(e) => setMaxPages(Number(e.target.value))}
+        >
+          {[5, 10, 15, AUDIT_MAX_PAGES].map((n) => (
+            <option key={n} value={n}>
+              {n} pagini
+            </option>
+          ))}
+        </select>
+      </div>
+      <ScanOptions
+        wcagProfile={wcagProfile}
+        onProfileChange={setWcagProfile}
+        includeBestPractices={includeBestPractices}
+        onBestPracticesChange={setIncludeBestPractices}
+      />
+      <button type="submit" disabled={createAudit.isPending}>
+        {createAudit.isPending ? 'Se pornește...' : 'Caută paginile site-ului'}
+      </button>
+    </form>
   );
 }
 
@@ -271,31 +362,33 @@ function NewScanForm({ project }: { project: Project }) {
   }
 
   return (
-    <section aria-labelledby="scanare-noua" className="section card">
-      <h2 id="scanare-noua">Scanează o singură pagină</h2>
-      <form ref={formRef} onSubmit={handleSubmit} noValidate>
-        {generalError && <ErrorMessage error={generalError} title="Scanarea nu a pornit" />}
-        <TextField
-          label="Pagina de scanat (opțional)"
-          hint={`Lasă gol pentru adresa proiectului (${project.baseUrl}). Pagina trebuie să fie de pe același site.`}
-          name="pageUrl"
-          type="url"
-          value={pageUrl}
-          onChange={(e) => setPageUrl(e.target.value)}
-          error={fieldErrors.pageUrl}
-          placeholder={project.baseUrl}
-        />
-        <ScanOptions
-          wcagProfile={wcagProfile}
-          onProfileChange={setWcagProfile}
-          includeBestPractices={includeBestPractices}
-          onBestPracticesChange={setIncludeBestPractices}
-        />
-        <button type="submit" disabled={createScan.isPending}>
-          {createScan.isPending ? 'Se pornește...' : 'Scanează pagina'}
-        </button>
-      </form>
-    </section>
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      noValidate
+      aria-label="Scanarea unei singure pagini"
+    >
+      {generalError && <ErrorMessage error={generalError} title="Scanarea nu a pornit" />}
+      <TextField
+        label="Pagina de scanat (opțional)"
+        hint={`Lasă gol pentru adresa proiectului (${project.baseUrl}). Pagina trebuie să fie de pe același site.`}
+        name="pageUrl"
+        type="url"
+        value={pageUrl}
+        onChange={(e) => setPageUrl(e.target.value)}
+        error={fieldErrors.pageUrl}
+        placeholder={project.baseUrl}
+      />
+      <ScanOptions
+        wcagProfile={wcagProfile}
+        onProfileChange={setWcagProfile}
+        includeBestPractices={includeBestPractices}
+        onBestPracticesChange={setIncludeBestPractices}
+      />
+      <button type="submit" disabled={createScan.isPending}>
+        {createScan.isPending ? 'Se pornește...' : 'Scanează pagina'}
+      </button>
+    </form>
   );
 }
 
@@ -308,7 +401,9 @@ function AuditHistory({ projectId }: { projectId: string }) {
       {audits.isPending && <Loading label="Se încarcă auditurile..." />}
       {audits.isError && <ErrorMessage error={audits.error} />}
       {audits.data && audits.data.items.length === 0 && (
-        <EmptyState>Niciun audit încă. Pornește un audit pe mai multe pagini mai sus.</EmptyState>
+        <EmptyState>
+          Niciun audit încă. Alege „Mai multe pagini” în „Verificare nouă”, mai sus.
+        </EmptyState>
       )}
       {audits.data && audits.data.items.length > 0 && (
         <div className="table-wrapper">
@@ -360,7 +455,9 @@ function ScanHistory({ projectId }: { projectId: string }) {
       {scans.isPending && <Loading label="Se încarcă scanările..." />}
       {scans.isError && <ErrorMessage error={scans.error} />}
       {scans.data && scans.data.items.length === 0 && (
-        <EmptyState>Nicio scanare încă. Pornește prima scanare mai sus.</EmptyState>
+        <EmptyState>
+          Nicio scanare separată încă. Alege „O singură pagină” în „Verificare nouă”, mai sus.
+        </EmptyState>
       )}
       {scans.data && scans.data.items.length > 0 && (
         <div className="table-wrapper">
