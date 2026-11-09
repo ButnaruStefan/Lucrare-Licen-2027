@@ -91,6 +91,7 @@ function rule(
       htmlSnippet: e.html,
       failureSummary: null,
       fingerprint: `${axeRuleId}-${e.target}-${i}`,
+      box: null,
     })),
   };
 }

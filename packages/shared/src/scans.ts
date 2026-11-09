@@ -60,6 +60,28 @@ export const scanSummarySchema = z.object({
 });
 export type ScanSummary = z.infer<typeof scanSummarySchema>;
 
+/** Pozitia unui element in captura paginii, in pixeli CSS, fata de coltul paginii. */
+export const elementBoxSchema = z.object({
+  x: z.number().int(),
+  y: z.number().int(),
+  width: z.number().int(),
+  height: z.number().int(),
+});
+export type ElementBox = z.infer<typeof elementBoxSchema>;
+
+/** Captura paginii scanate (harta problemelor): dimensiunile si adresa imaginii. */
+export const screenshotInfoSchema = z.object({
+  /** Adresa imaginii, ex. /api/v1/scans/{id}/screenshot. */
+  url: z.string(),
+  format: z.string(),
+  width: z.number().int(),
+  height: z.number().int(),
+  /** Inaltimea reala a paginii; mai mare decat height daca pagina a fost taiata. */
+  pageHeight: z.number().int(),
+  truncated: z.boolean(),
+});
+export type ScreenshotInfo = z.infer<typeof screenshotInfoSchema>;
+
 export const scanSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -82,6 +104,11 @@ export const scanSchema = z.object({
   finishedAt: z.iso.datetime().nullable(),
   /** Prezent doar pentru scanarile terminate cu succes. */
   summary: scanSummarySchema.nullable(),
+  /**
+   * Captura paginii, la citirea unei scanari (GET /scans/:id). null daca nu exista (scanare
+   * esuata, captura nereusita) si in listele de scanari (ca raspunsul sa ramana mic).
+   */
+  screenshot: screenshotInfoSchema.nullable(),
 });
 export type Scan = z.infer<typeof scanSchema>;
 
@@ -94,6 +121,8 @@ export const affectedElementSchema = z.object({
   htmlSnippet: z.string(),
   failureSummary: z.string().nullable(),
   fingerprint: z.string(),
+  /** Pozitia in captura paginii; null = elementul nu se vede in captura sau nu exista captura. */
+  box: elementBoxSchema.nullable(),
 });
 export type AffectedElement = z.infer<typeof affectedElementSchema>;
 

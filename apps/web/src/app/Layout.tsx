@@ -11,7 +11,10 @@ import { SystemStatus } from '../components/SystemStatus';
 
 export function Layout() {
   // Pagina de start are sectiuni pe toata latimea ecranului, deci nu e incadrata in .container
-  const isLanding = useLocation().pathname === '/';
+  const { pathname } = useLocation();
+  const isLanding = pathname === '/';
+  // Pagina unei scanari are harta problemelor langa lista: primeste mai mult loc pe ecranele late
+  const container = pathname.startsWith('/scanari/') ? 'container container--wide' : 'container';
 
   return (
     <>
@@ -19,7 +22,7 @@ export function Layout() {
         Sari la conținutul principal
       </a>
       <header className="site-header">
-        <div className="container site-header__inner">
+        <div className={`${container} site-header__inner`}>
           {/* Logo-ul are doua variante: textul inchis pe fundal deschis si invers. */}
           <NavLink to="/" className="brand">
             <picture>
@@ -46,12 +49,12 @@ export function Layout() {
         </div>
       </header>
 
-      <main id="continut" className={isLanding ? 'landing-main' : 'container'}>
+      <main id="continut" className={isLanding ? 'landing-main' : container}>
         <Outlet />
       </main>
 
       <footer className="site-footer">
-        <div className="container">
+        <div className={container}>
           <SystemStatus />
           <p className="muted">
             Rezultatele automate sunt constatări tehnice, nu verdicte juridice. Platforma nu

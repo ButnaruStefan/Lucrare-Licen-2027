@@ -160,12 +160,19 @@ describe('completeScan', () => {
           axeTags: ['wcag2a', 'wcag111'],
           wcagCriteria: ['1.1.1'],
           elements: [
-            { cssSelector: ['img'], htmlSnippet: '<img>', failureSummary: null, fingerprint: 'f1' },
+            {
+              cssSelector: ['img'],
+              htmlSnippet: '<img>',
+              failureSummary: null,
+              fingerprint: 'f1',
+              box: null,
+            },
             {
               cssSelector: ['img.b'],
               htmlSnippet: '<img>',
               failureSummary: null,
               fingerprint: 'f2',
+              box: { x: 10, y: 20, width: 30, height: 40 },
             },
           ],
         },

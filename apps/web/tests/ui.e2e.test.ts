@@ -484,6 +484,7 @@ describe('pagina scanarii', () => {
           htmlSnippet: '<p>',
           failureSummary: 'x',
           fingerprint: 'f5',
+          box: null,
         },
         {
           id: 'e6',
@@ -491,6 +492,7 @@ describe('pagina scanarii', () => {
           htmlSnippet: '<p>',
           failureSummary: 'x',
           fingerprint: 'f6',
+          box: null,
         },
       ],
     };
@@ -578,6 +580,85 @@ describe('pagina scanarii', () => {
       await fold.click();
     }
 
+    expect(await axeViolations(darkPage)).toEqual([]);
+    await dark.close();
+  });
+});
+
+describe('harta problemelor', () => {
+  const map = () => page.getByRole('figure', { name: 'Harta problemelor' });
+  const activeBoxes = () => page.locator('.issue-map__box.is-active');
+
+  it('arata captura cu chenarele elementelor, fara probleme de accesibilitate', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    await map().waitFor();
+
+    // Problemele detectate (implicit): image-alt (1 element) si region (2 elemente)
+    expect(await page.locator('.issue-map__box').count()).toBe(3);
+    const alt = (await map().getByRole('img').getAttribute('alt')) ?? '';
+    expect(alt).toContain('3 elemente marcate');
+    // Chenarele sunt doar un ajutor vizual: ascunse cititoarelor de ecran, nefocusabile
+    expect(await page.locator('.issue-map__boxes').getAttribute('aria-hidden')).toBe('true');
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('mouse-ul sau focusul pe o regula ii evidentiaza elementele pe captura', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    await map().waitFor();
+    expect(await activeBoxes().count()).toBe(0);
+
+    // Mouse: regula cu 2 elemente
+    const region = page.locator('.rule', { hasText: 'region' });
+    await region.hover();
+    await expect.poll(() => activeBoxes().count()).toBe(2);
+
+    // Tastatura: focus pe titlul altei reguli (mouse-ul plecat de pe lista)
+    await page.mouse.move(0, 0);
+    const image = page.locator('.rule', { hasText: 'image-alt' });
+    await image.locator(':scope > details > summary').focus();
+    await expect.poll(() => activeBoxes().count()).toBe(1);
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('clic pe un chenar deschide regula in lista si muta focusul pe ea', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    await map().waitFor();
+
+    await page.locator('.issue-map__box--violation').first().click();
+    const opened = page.locator('.rule > details[open]');
+    await expect.poll(() => opened.count()).toBe(1);
+    await expect
+      .poll(() =>
+        opened.locator(':scope > summary').evaluate((el) => el === document.activeElement),
+      )
+      .toBe(true);
+    // Regula deschisa ramane evidentiata pe captura (nu depinde doar de mouse)
+    await page.mouse.move(0, 0);
+    await expect.poll(() => activeBoxes().count()).toBeGreaterThan(0);
+  });
+
+  it('nu apare fara captura sau pentru regulile trecute', async () => {
+    await mockApi(page, { scanSequence: [makeScan({ screenshot: null })] });
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    await page.locator('.rule').first().waitFor();
+    expect(await map().count()).toBe(0);
+
+    await mockApi(page);
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}?categorie=pass`);
+    await page.locator('.rule').first().waitFor();
+    expect(await map().count()).toBe(0);
+  });
+
+  it('in modul intunecat nu are probleme de accesibilitate', async () => {
+    const dark = await browser.newContext({ colorScheme: 'dark', locale: 'ro-RO' });
+    const darkPage = await dark.newPage();
+    await mockApi(darkPage);
+    await darkPage.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    await darkPage.getByRole('figure', { name: 'Harta problemelor' }).waitFor();
+    await darkPage.locator('.rule', { hasText: 'region' }).hover();
     expect(await axeViolations(darkPage)).toEqual([]);
     await dark.close();
   });

@@ -1,6 +1,8 @@
 /**
  * Pagina unei scanari: starea (actualizata automat cat timp ruleaza), detaliile tehnice,
- * sumarul pe categorii si lista rezultatelor, cu filtre. Daca pagina face parte dintr-un
+ * sumarul pe categorii si lista rezultatelor, cu filtre. Daca scanarea are captura paginii,
+ * problemele si cazurile de verificat apar langa "harta problemelor" (`IssueMap`): regula
+ * de sub mouse, cu focus sau deschisa isi evidentiaza elementele pe captura. Daca pagina face parte dintr-un
  * audit, calea de navigare (breadcrumb) duce inapoi la audit.
  *
  * Accesibilitate:
@@ -17,11 +19,13 @@ import {
   type ResultCategory,
   type RuleResult,
   type Scan,
+  type ScreenshotInfo,
 } from '@ro-a11y/shared';
 import { ApiRequestError } from '../api/client';
 import { useProject, useScan, useScanResults } from '../api/queries';
 import { ScanStatusBadge } from '../components/Badges';
 import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
+import { IssueMap } from '../components/IssueMap';
 import { PageHeading } from '../components/PageHeading';
 import { RuleResultItem, type OtherCategory } from '../components/RuleResultItem';
 import {
@@ -113,6 +117,7 @@ function ScanView({ scan }: { scan: Scan }) {
           {results.data && (
             <ResultsExplorer
               items={results.data.items}
+              screenshot={scan.screenshot}
               legalProfileHref={`/proiecte/${scan.projectId}/profil-juridic`}
             />
           )}
@@ -254,12 +259,20 @@ function filtersFromParams(params: URLSearchParams): Filters {
  */
 function ResultsExplorer({
   items,
+  screenshot,
   legalProfileHref,
 }: {
   items: RuleResult[];
+  screenshot: ScreenshotInfo | null;
   legalProfileHref: string;
 }) {
   const [params, setParams] = useSearchParams();
+  // Harta problemelor: regula sub mouse, cea cu focus si cea deschisa (fixata).
+  // Activa e prima care exista, in aceasta ordine.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
+  const [pinned, setPinned] = useState<string | null>(null);
+  const activeRuleId = hovered ?? focused ?? pinned;
   const [filters, setFilters] = useState(() => filtersFromParams(params));
   const { category, impact, showBestPractices, query } = filters;
 
@@ -306,6 +319,46 @@ function ResultsExplorer({
         item.wcagCriteria.some((c) => c.includes(needle))),
   );
   const showImpactFilter = category === 'violation' || category === 'incomplete';
+  // Doar problemele si cazurile de verificat au elemente de aratat pe captura
+  const showMap = screenshot !== null && showImpactFilter && visible.length > 0;
+  const numbered = visible.map((rule, i) => ({ rule, number: i + 1 }));
+
+  /** Clic pe un chenar din captura: deschide regula in lista si muta focusul pe ea. */
+  function selectFromMap(ruleId: string) {
+    const details = document.getElementById(`regula-${ruleId}`) as HTMLDetailsElement | null;
+    if (!details) return;
+    details.open = true;
+    setPinned(ruleId);
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    details.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+    details.querySelector('summary')?.focus({ preventScroll: true });
+  }
+
+  const ruleList =
+    visible.length === 0 ? (
+      <EmptyState>Niciun rezultat pentru filtrele alese.</EmptyState>
+    ) : (
+      <ul className="rule-list">
+        {numbered.map(({ rule: item, number }) => (
+          <RuleResultItem
+            key={item.id}
+            result={item}
+            legalProfileHref={legalProfileHref}
+            otherCategories={(categoriesByRule.get(item.axeRuleId) ?? []).filter(
+              (o) => o.category !== item.category,
+            )}
+            onShowCategory={showCategory}
+            mapNumber={showMap ? number : undefined}
+            onHoverChange={setHovered}
+            onFocusChange={setFocused}
+            onOpenChange={(id, open) => {
+              if (open) setPinned(id);
+              else setPinned((current) => (current === id ? null : current));
+            }}
+          />
+        ))}
+      </ul>
+    );
 
   return (
     <>
@@ -377,22 +430,20 @@ function ResultsExplorer({
         {visible.length === 1 ? '1 regulă afișată' : `${visible.length} reguli afișate`}
       </p>
 
-      {visible.length === 0 ? (
-        <EmptyState>Niciun rezultat pentru filtrele alese.</EmptyState>
-      ) : (
-        <ul className="rule-list">
-          {visible.map((item) => (
-            <RuleResultItem
-              key={item.id}
-              result={item}
-              legalProfileHref={legalProfileHref}
-              otherCategories={(categoriesByRule.get(item.axeRuleId) ?? []).filter(
-                (o) => o.category !== item.category,
-              )}
-              onShowCategory={showCategory}
+      {showMap && screenshot ? (
+        <div className="results-layout">
+          <div className="results-layout__map">
+            <IssueMap
+              screenshot={screenshot}
+              rules={numbered}
+              activeRuleId={activeRuleId}
+              onSelectRule={selectFromMap}
             />
-          ))}
-        </ul>
+          </div>
+          <div className="results-layout__list">{ruleList}</div>
+        </div>
+      ) : (
+        ruleList
       )}
     </>
   );

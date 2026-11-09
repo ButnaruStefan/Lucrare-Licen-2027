@@ -3,7 +3,9 @@
  */
 import type { AxeResults, Result } from 'axe-core';
 import { describe, expect, it } from 'vitest';
+import { affectedTargets } from '../src/scanner/page-scan';
 import {
+  boxesByTarget,
   elementFingerprint,
   isBestPractice,
   MAX_HTML_LENGTH,
@@ -99,6 +101,35 @@ describe('normalizeAxeResults', () => {
       docsUrl: 'https://dequeuniversity.com/rules/axe/4.13/image-alt',
       wcagCriteria: ['1.1.1'],
     });
+  });
+});
+
+describe('harta problemelor: pozitia elementelor', () => {
+  const node = (target: unknown) => ({ target, html: '<x>', any: [], all: [], none: [] });
+  const raw = {
+    violations: [rule({ nodes: [node(['img.a']), node(['img.b'])] as never })],
+    incomplete: [
+      rule({ id: 'color-contrast', nodes: [node(['img.a']), node([['x-meniu', 'a']])] as never }),
+    ],
+    passes: [],
+    inapplicable: [],
+  } as unknown as AxeResults;
+
+  it('selectorii elementelor afectate sunt luati o singura data, in ordinea aparitiei', () => {
+    expect(affectedTargets(raw)).toEqual([['img.a'], ['img.b'], [['x-meniu', 'a']]]);
+  });
+
+  it('fiecare element primeste pozitia selectorului lui (acelasi element, in doua reguli, aceeasi pozitie)', () => {
+    const box = { x: 1, y: 2, width: 3, height: 4 };
+    const boxes = boxesByTarget(affectedTargets(raw), [box, null, { ...box, x: 9 }]);
+    const results = normalizeAxeResults(raw, 'https://exemplu.ro/', boxes);
+    expect(results[0]!.elements.map((e) => e.box)).toEqual([box, null]);
+    expect(results[1]!.elements.map((e) => e.box)).toEqual([box, { ...box, x: 9 }]);
+  });
+
+  it('fara captura, elementele nu au pozitie', () => {
+    const results = normalizeAxeResults(raw, 'https://exemplu.ro/');
+    expect(results.flatMap((r) => r.elements).every((e) => e.box === null)).toBe(true);
   });
 });
 

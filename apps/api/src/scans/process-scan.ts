@@ -2,7 +2,8 @@
  * Procesarea completa a unei scanari rezervate din coada:
  *   1. verifica din nou adresa (intre crearea scanarii si rulare, DNS-ul se poate schimba);
  *   2. scaneaza pagina (browser + axe-core);
- *   3. normalizeaza rezultatul si il salveaza, sau salveaza motivul esecului.
+ *   3. normalizeaza rezultatul si il salveaza (impreuna cu captura paginii si pozitiile
+ *      elementelor, pentru harta problemelor), sau salveaza motivul esecului.
  *
  * Primeste toate dependentele din exterior (baza de date, browser, paznic), deci poate fi
  * folosita la fel de worker si de teste.
@@ -17,8 +18,8 @@ import type { Browser } from 'playwright';
 import type { Database } from '../db/prisma';
 import type { Logger } from '../lib/logger';
 import { checkUrl, createRequestGuard, type UrlGuardOptions } from '../safety/url-guard';
-import { normalizeAxeResults } from '../scanner/normalize';
-import { scanPage } from '../scanner/page-scan';
+import { boxesByTarget, normalizeAxeResults } from '../scanner/normalize';
+import { affectedTargets, scanPage } from '../scanner/page-scan';
 import { completeScan, failScan, type ClaimedScan } from './queue';
 
 export interface ProcessScanDeps {
@@ -112,10 +113,16 @@ export async function processScan(
       return { browserHealthy: true };
     }
 
-    const results = normalizeAxeResults(outcome.raw, outcome.finalUrl);
+    // Fara captura, scanarea ramane valida: doar harta problemelor nu va fi disponibila.
+    if (!outcome.capture) log.warn({ reason: outcome.captureError }, 'Captura paginii a esuat');
+    const boxes = outcome.capture
+      ? boxesByTarget(affectedTargets(outcome.raw), outcome.capture.boxes)
+      : new Map();
+    const results = normalizeAxeResults(outcome.raw, outcome.finalUrl, boxes);
     await completeScan(db, scan.id, {
       raw: outcome.raw,
       results,
+      capture: outcome.capture,
       finalUrl: outcome.finalUrl,
       httpStatus: outcome.httpStatus,
       engineVersion: outcome.raw.testEngine.version,

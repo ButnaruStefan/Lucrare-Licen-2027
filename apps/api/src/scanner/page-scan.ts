@@ -9,7 +9,8 @@
  *      adresa noua sa fie verificata (browserul, lasat singur, le-ar urma fara verificare);
  *   3. incarca pagina cu limita de timp, asteapta sa se stabilizeze;
  *   4. ofera pagina incarcata functiei primite (scannerul ruleaza axe-core cu etichetele
- *      profilului ales, ex. WCAG 2.2 AA; descoperirea citeste linkurile);
+ *      profilului ales, ex. WCAG 2.2 AA, apoi face captura paginii pentru harta problemelor;
+ *      descoperirea citeste linkurile);
  *   5. inchide contextul, orice s-ar intampla.
  *
  * Nu scrie in baza de date: returneaza rezultatul brut sau motivul esecului.
@@ -19,6 +20,7 @@ import type { AxeResults } from 'axe-core';
 import { errors, type Browser, type BrowserContext, type Page } from 'playwright';
 import type { ScanConfig, WcagProfile } from '@ro-a11y/shared';
 import type { RequestGuard } from '../safety/url-guard';
+import { capturePage, type PageCapture } from './capture';
 
 /** Etichetele axe rulate pentru fiecare profil WCAG. */
 const PROFILE_TAGS: Record<WcagProfile, string[]> = {
@@ -57,6 +59,10 @@ export type PageScanOutcome =
   | {
       ok: true;
       raw: AxeResults;
+      /** Captura pentru harta problemelor; null daca nu a reusit (scanarea ramane valida). */
+      capture: PageCapture | null;
+      /** De ce nu exista captura (pentru jurnal), daca nu exista. */
+      captureError: string | null;
       finalUrl: string;
       httpStatus: number;
       blockedRequests: string[];
@@ -94,11 +100,18 @@ export async function scanPage(
   guard: RequestGuard,
 ): Promise<PageScanOutcome> {
   const opened = await openGuardedPage(browser, pageUrl, config, guard, async ({ page }) => {
+    let raw: AxeResults;
     try {
-      const raw = await new AxeBuilder({ page }).withTags(axeTagsFor(config)).analyze();
-      return { raw };
+      raw = await new AxeBuilder({ page }).withTags(axeTagsFor(config)).analyze();
     } catch (err) {
       return { analysisError: firstLine(err) };
+    }
+    // Captura, imediat dupa analiza, pe aceeasi pagina. Un esec al capturii nu strica scanarea.
+    try {
+      const capture = await capturePage(page, affectedTargets(raw));
+      return { raw, capture, captureError: null };
+    } catch (err) {
+      return { raw, capture: null, captureError: firstLine(err) };
     }
   });
   if (!opened.ok) return opened;
@@ -114,10 +127,24 @@ export async function scanPage(
   return {
     ok: true,
     raw: opened.value.raw,
+    capture: opened.value.capture,
+    captureError: opened.value.captureError,
     finalUrl: opened.finalUrl,
     httpStatus: opened.httpStatus,
     blockedRequests: opened.blockedRequests,
   };
+}
+
+/**
+ * Selectorii elementelor afectate (probleme detectate si de verificat manual), fara dubluri,
+ * in ordinea in care apar. Aceiasi selectori leaga apoi fiecare element de pozitia lui.
+ */
+export function affectedTargets(raw: Pick<AxeResults, 'violations' | 'incomplete'>): unknown[] {
+  const seen = new Map<string, unknown>();
+  for (const rule of [...raw.violations, ...raw.incomplete]) {
+    for (const node of rule.nodes) seen.set(JSON.stringify(node.target), node.target);
+  }
+  return [...seen.values()];
 }
 
 /**

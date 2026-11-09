@@ -2852,3 +2852,282 @@ button:disabled {
 .check__form {
   animation: aparitie 320ms var(--ease-out) both;
 }
+
+/* --- Harta problemelor (pagina unei scanari) --- */
+
+/* Pagina scanarii foloseste mai mult din ecranele late (harta + lista, alaturi) */
+.container--wide {
+  max-width: 96rem;
+}
+
+.results-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Harta ramane pe ecran cat timp derulezi lista */
+.results-layout__map {
+  position: sticky;
+  top: 1rem;
+}
+
+.issue-map {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.issue-map__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.issue-map__title {
+  font-family: var(--font-display);
+  font-weight: 750;
+}
+
+.issue-map__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.issue-map__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.issue-map__key::before {
+  content: '';
+  width: 1rem;
+  height: 0.7rem;
+  border-radius: 2px;
+}
+
+.issue-map__key--violation::before {
+  border: 2px solid var(--map-violation);
+}
+
+.issue-map__key--incomplete::before {
+  border: 2px dashed var(--map-incomplete);
+}
+
+/* Culorile chenarelor: puternice pe orice captura (deschisa sau inchisa) */
+:root {
+  --map-violation: #d4150b;
+  --map-incomplete: #e07800;
+}
+
+.issue-map__viewport {
+  max-height: calc(100vh - 7rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--surface-2);
+}
+
+.issue-map__canvas {
+  position: relative;
+  width: 100%;
+}
+
+.issue-map__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.issue-map__boxes {
+  position: absolute;
+  inset: 0;
+}
+
+.issue-map__box {
+  position: absolute;
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition:
+    opacity 200ms var(--ease-out),
+    box-shadow 200ms var(--ease-out),
+    background-color 200ms var(--ease-out);
+}
+
+.issue-map__box--violation {
+  border: 2px solid var(--map-violation);
+}
+
+.issue-map__box--incomplete {
+  border: 2px dashed var(--map-incomplete);
+}
+
+.issue-map__box:hover {
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.9);
+}
+
+/* O regula e activa: elementele ei ies in fata, celelalte se estompeaza */
+.issue-map__canvas--focused .issue-map__box {
+  opacity: 0.25;
+}
+
+.issue-map__canvas--focused .issue-map__box.is-active {
+  opacity: 1;
+  z-index: 1;
+  border-width: 3px;
+  box-shadow:
+    0 0 0 3px rgb(255 255 255 / 0.85),
+    0 4px 14px rgb(0 0 0 / 0.35);
+  animation: puls-element 0.9s var(--ease-out) 2;
+}
+
+.issue-map__box--violation.is-active {
+  background: rgb(212 21 11 / 0.18);
+}
+
+.issue-map__box--incomplete.is-active {
+  background: rgb(224 120 0 / 0.18);
+}
+
+@keyframes puls-element {
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+/* Numarul regulii, in coltul chenarului */
+.issue-map__number {
+  position: absolute;
+  top: -0.7rem;
+  left: -0.7rem;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+}
+
+.issue-map__box--violation .issue-map__number {
+  background: #b3120a;
+}
+
+.issue-map__box--incomplete .issue-map__number {
+  background: #8a4a00;
+}
+
+.issue-map__note {
+  margin: 0;
+  padding: 0.65rem 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Numarul regulii pe simbolul gravitatii din lista (acelasi ca pe chenare) */
+.rule__token {
+  position: relative;
+}
+
+.rule__map-number {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.45rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.25rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+@media (max-width: 60rem) {
+  .results-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .results-layout__map {
+    position: static;
+  }
+
+  .issue-map__viewport {
+    max-height: 60vh;
+  }
+}
+
+/* Regulile pentru toata pagina: etichete in antetul hartii */
+.issue-map__page-rules {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.issue-map__chip {
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.35rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 150ms var(--ease-out);
+}
+
+.issue-map__chip--violation {
+  background: #b3120a;
+}
+
+.issue-map__chip--incomplete {
+  background: #8a4a00;
+}
+
+.issue-map__chip.is-active {
+  transform: scale(1.2);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--text);
+}
+
+/* Regula activa priveste toata pagina: conturul capturii se coloreaza */
+.issue-map__canvas--page::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 4px solid var(--map-violation);
+  pointer-events: none;
+}
+
+/* Conturul de focus al capturii, desenat in interior (cardul taie ce iese in afara) */
+.issue-map__viewport:focus-visible {
+  outline-offset: -3px;
+}

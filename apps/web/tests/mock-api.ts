@@ -59,9 +59,23 @@ export function makeScan(overrides: Partial<Scan> = {}): Scan {
       passes: 1,
       inapplicable: 0,
     },
+    screenshot: {
+      url: '/api/v1/scans/22222222-2222-4222-8222-222222222222/screenshot',
+      format: 'webp',
+      width: 1366,
+      height: 2000,
+      pageHeight: 2000,
+      truncated: false,
+    },
     ...overrides,
   });
 }
+
+/** Captura simulata a paginii: o imagine PNG de 1 x 1 pixel (alb), intinsa pe toata harta. */
+export const SCREENSHOT_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=',
+  'base64',
+);
 
 /** Un fragment HTML "rau intentionat": daca ar fi interpretat, ar deschide o fereastra. */
 export const HOSTILE_HTML = '<img src="x" onerror="alert(\'xss\')"><script>alert(1)</script>';
@@ -85,6 +99,7 @@ export const RESULTS: RuleResult[] = [
         htmlSnippet: HOSTILE_HTML,
         failureSummary: 'Element does not have an alt attribute',
         fingerprint: 'f1',
+        box: { x: 100, y: 300, width: 640, height: 280 },
       },
     ],
   },
@@ -100,13 +115,21 @@ export const RESULTS: RuleResult[] = [
     wcagCriteria: [],
     isBestPractice: true,
     affectedElements: [
-      { id: 'e2', cssSelector: ['p'], htmlSnippet: '<p>', failureSummary: null, fingerprint: 'f2' },
+      {
+        id: 'e2',
+        cssSelector: ['p'],
+        htmlSnippet: '<p>',
+        failureSummary: null,
+        fingerprint: 'f2',
+        box: { x: 100, y: 700, width: 500, height: 60 },
+      },
       {
         id: 'e3',
         cssSelector: ['h1'],
         htmlSnippet: '<h1>',
         failureSummary: null,
         fingerprint: 'f3',
+        box: { x: 100, y: 120, width: 400, height: 48 },
       },
     ],
   },
@@ -128,6 +151,7 @@ export const RESULTS: RuleResult[] = [
         htmlSnippet: '<p>Ședința consiliului</p>',
         failureSummary: 'Background image prevents contrast calculation',
         fingerprint: 'f4',
+        box: { x: 100, y: 1100, width: 600, height: 40 },
       },
     ],
   },
@@ -427,6 +451,9 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
   await page.route('**/api/v1/audits/*/results', (route) => route.fulfill(json(AUDIT_RESULTS)));
   await page.route(/\/api\/v1\/audits\/[^/]+$/, (route) => route.fulfill(json(audit)));
 
+  await page.route('**/api/v1/scans/*/screenshot', (route) =>
+    route.fulfill({ status: 200, contentType: 'image/png', body: SCREENSHOT_PNG }),
+  );
   await page.route('**/api/v1/scans/*/results', (route) =>
     route.fulfill(json({ items: options.results ?? RESULTS })),
   );

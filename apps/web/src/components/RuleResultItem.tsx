@@ -14,6 +14,10 @@
  * unele texte au sigur contrast prea mic, la altele axe-core nu poate masura, de ex. text peste o
  * imagine). In acest caz, rezultatul spune unde mai apare regula si ofera trecerea acolo.
  *
+ * Harta problemelor: rezultatul anunta pagina cand e sub mouse, cand are focus si cand e deschis
+ * (`onHoverChange`, `onFocusChange`, `onOpenChange`), ca elementele lui sa fie evidentiate pe
+ * captura. Numarul regulii (`mapNumber`) apare si pe chenarele din captura.
+ *
  * Securitate: fragmentul HTML al paginii scanate e afisat ca TEXT (React il "escapeaza"),
  * niciodata interpretat, deci un site rau intentionat nu poate injecta cod in aplicatia noastra.
  */
@@ -78,6 +82,10 @@ export function RuleResultItem({
   legalProfileHref,
   otherCategories = [],
   onShowCategory,
+  mapNumber,
+  onHoverChange,
+  onFocusChange,
+  onOpenChange,
 }: {
   result: RuleResult;
   legalProfileHref?: string;
@@ -85,6 +93,11 @@ export function RuleResultItem({
   otherCategories?: OtherCategory[];
   /** Trece lista la alta categorie (folosit de butonul „Vezi ...”). */
   onShowCategory?: (category: ResultCategory) => void;
+  /** Numarul regulii pe harta problemelor (daca pagina are captura). */
+  mapNumber?: number;
+  onHoverChange?: (ruleId: string | null) => void;
+  onFocusChange?: (ruleId: string | null) => void;
+  onOpenChange?: (ruleId: string, open: boolean) => void;
 }) {
   const count = result.affectedElements.length;
   const remediation = result.trace.remediation;
@@ -95,11 +108,28 @@ export function RuleResultItem({
   const token = tokenFor(result.impact, result.category);
 
   return (
-    <li className="rule">
-      <details>
+    <li
+      className="rule"
+      onMouseEnter={() => onHoverChange?.(result.id)}
+      onMouseLeave={() => onHoverChange?.(null)}
+      onFocus={() => onFocusChange?.(result.id)}
+      onBlur={(e) => {
+        // Focusul a iesit cu totul din aceasta regula (nu doar a trecut la alt element din ea)
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onFocusChange?.(null);
+      }}
+    >
+      <details
+        id={`regula-${result.id}`}
+        onToggle={(e) => onOpenChange?.(result.id, e.currentTarget.open)}
+      >
         <summary>
           <span className={`rule__token rule__token--${token.tone}`}>
             <Icon name={token.icon} />
+            {mapNumber !== undefined && (
+              <span className="rule__map-number" aria-hidden="true">
+                {mapNumber}
+              </span>
+            )}
           </span>
           <span className="rule__head">
             <span className="rule__title">{titleRo ?? result.title}</span>

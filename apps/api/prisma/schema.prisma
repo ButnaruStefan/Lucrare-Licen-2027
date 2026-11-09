@@ -159,11 +159,29 @@ model Scan {
   finishedAt     DateTime?  @map("finished_at")
 
   ruleResults RuleResult[]
+  screenshot  ScanScreenshot? // captura paginii (harta problemelor); lipseste daca nu a reusit
 
   @@index([projectId, createdAt])
   @@index([status, createdAt]) // worker-ul cauta rapid urmatoarea scanare "queued"
   @@index([auditId])
   @@map("scans")
+}
+
+// Captura paginii scanate, facuta imediat dupa axe-core, in aceeasi sesiune de browser.
+// Interfata deseneaza peste ea chenarele elementelor afectate ("harta problemelor").
+// Separata de "scans" ca lista scanarilor sa nu incarce niciodata imaginile.
+model ScanScreenshot {
+  scanId     String   @id @map("scan_id")
+  scan       Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  image      Bytes // imaginea (WebP), cel mult cateva sute de KB
+  format     String // tipul imaginii, ex. "webp"
+  width      Int // latimea capturii, in pixeli CSS
+  height     Int // inaltimea capturii (taiata la limita, daca pagina e foarte lunga)
+  pageHeight Int      @map("page_height") // inaltimea reala a paginii
+  truncated  Boolean // true = pagina era mai lunga decat captura
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("scan_screenshots")
 }
 
 // Rezultatul unei reguli axe-core intr-o scanare (ex. "image-alt: violation").
@@ -199,6 +217,12 @@ model AffectedElement {
   // Amprenta elementului: aceeasi problema, pe acelasi element, are aceeasi amprenta
   // in scanari diferite. Folosita la comparatia inainte/dupa (Fix & Re-scan).
   fingerprint    String
+  // Pozitia elementului in captura paginii (pixeli CSS, fata de coltul paginii).
+  // null = elementul nu se vede in captura (ascuns, fara dimensiune sau intr-un iframe).
+  boxX      Int? @map("box_x")
+  boxY      Int? @map("box_y")
+  boxWidth  Int? @map("box_width")
+  boxHeight Int? @map("box_height")
 
   @@index([ruleResultId])
   @@index([fingerprint])

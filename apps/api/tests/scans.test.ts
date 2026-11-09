@@ -103,8 +103,20 @@ describe('GET scanari si rezultate', () => {
       axeTags: ['cat.keyboard', 'best-practice'],
       wcagCriteria: [],
       elements: [
-        { cssSelector: ['p'], htmlSnippet: '<p>', failureSummary: null, fingerprint: 'f1' },
-        { cssSelector: ['h1'], htmlSnippet: '<h1>', failureSummary: null, fingerprint: 'f2' },
+        {
+          cssSelector: ['p'],
+          htmlSnippet: '<p>',
+          failureSummary: null,
+          fingerprint: 'f1',
+          box: null,
+        },
+        {
+          cssSelector: ['h1'],
+          htmlSnippet: '<h1>',
+          failureSummary: null,
+          fingerprint: 'f2',
+          box: null,
+        },
       ],
     },
     {
@@ -117,7 +129,13 @@ describe('GET scanari si rezultate', () => {
       axeTags: ['wcag2a', 'wcag111'],
       wcagCriteria: ['1.1.1'],
       elements: [
-        { cssSelector: ['img'], htmlSnippet: '<img>', failureSummary: 'x', fingerprint: 'f3' },
+        {
+          cssSelector: ['img'],
+          htmlSnippet: '<img>',
+          failureSummary: 'x',
+          fingerprint: 'f3',
+          box: null,
+        },
       ],
     },
     {
@@ -233,6 +251,101 @@ describe('GET scanari si rezultate', () => {
     const applicability = await resultsOf();
     expect(applicability.status).toBe('applicable');
     expect(applicability.assessedAt).not.toBeNull();
+  });
+
+  it('harta problemelor: captura si pozitia elementelor, salvate impreuna cu rezultatele', async () => {
+    const project = await createProject();
+    const scan = await testDb.scan.create({
+      data: {
+        projectId: project.id,
+        pageUrl: 'https://exemplu.ro/',
+        config: scanConfigSchema.parse({}),
+      },
+    });
+    const image = Buffer.from('imagine-de-test');
+    const withBox: NormalizedRuleResult[] = [
+      {
+        ...results[1]!,
+        elements: [{ ...results[1]!.elements[0]!, box: { x: 10, y: 20, width: 300, height: 150 } }],
+      },
+    ];
+    await completeScan(testDb, scan.id, {
+      raw: rawStub,
+      results: withBox,
+      capture: {
+        image,
+        format: 'webp',
+        width: 1366,
+        height: 900,
+        pageHeight: 900,
+        truncated: false,
+        boxes: [],
+      },
+      finalUrl: 'https://exemplu.ro/',
+      httpStatus: 200,
+      engineVersion: '4.13.0',
+      browserVersion: 'Chrome 155',
+    });
+
+    // Scanarea spune dimensiunile capturii si de unde se ia imaginea (nu si imaginea)
+    const dto = scanSchema.parse((await request(app).get(`/api/v1/scans/${scan.id}`)).body);
+    expect(dto.screenshot).toEqual({
+      url: `/api/v1/scans/${scan.id}/screenshot`,
+      format: 'webp',
+      width: 1366,
+      height: 900,
+      pageHeight: 900,
+      truncated: false,
+    });
+    // Imaginea, pe ruta ei, cu tipul corect si memorata de browser (nu se mai schimba)
+    const shot = await request(app).get(`/api/v1/scans/${scan.id}/screenshot`);
+    expect(shot.status).toBe(200);
+    expect(shot.headers['content-type']).toBe('image/webp');
+    expect(shot.headers['x-content-type-options']).toBe('nosniff');
+    expect(shot.headers['cache-control']).toContain('immutable');
+    expect(Buffer.from(shot.body).equals(image)).toBe(true);
+    // Pozitia elementului, in rezultate
+    const list = ruleResultListSchema.parse(
+      (await request(app).get(`/api/v1/scans/${scan.id}/results`)).body,
+    );
+    expect(list.items[0]!.affectedElements[0]!.box).toEqual({
+      x: 10,
+      y: 20,
+      width: 300,
+      height: 150,
+    });
+  });
+
+  it('fara captura: scanarea are screenshot null, iar ruta imaginii raspunde 404', async () => {
+    const { scan, project } = await createCompletedScan();
+    expect(
+      scanSchema.parse((await request(app).get(`/api/v1/scans/${scan.id}`)).body).screenshot,
+    ).toBeNull();
+    const shot = await request(app).get(`/api/v1/scans/${scan.id}/screenshot`);
+    expect(shot.status).toBe(404);
+    expect(apiErrorSchema.parse(shot.body).error.code).toBe('SCREENSHOT_NOT_FOUND');
+    // In listele de scanari imaginea nu e incarcata niciodata
+    const items = scanListSchema.parse(
+      (await request(app).get(`/api/v1/projects/${project.id}/scans`)).body,
+    ).items;
+    expect(items.every((s) => s.screenshot === null)).toBe(true);
+  });
+
+  it('stergerea scanarii sterge si captura (cascada)', async () => {
+    const { scan } = await createCompletedScan();
+    await testDb.scanScreenshot.create({
+      data: {
+        scanId: scan.id,
+        image: new Uint8Array([1, 2, 3]),
+        format: 'webp',
+        width: 1,
+        height: 1,
+        pageHeight: 1,
+        truncated: false,
+      },
+    });
+    await testDb.scan.delete({ where: { id: scan.id } });
+    expect(await testDb.scanScreenshot.count()).toBe(0);
   });
 
   it('respinge o categorie necunoscuta (400) si o scanare inexistenta (404)', async () => {

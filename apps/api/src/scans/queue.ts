@@ -15,6 +15,7 @@ import type { AxeResults } from 'axe-core';
 import { scanConfigSchema, type ScanConfig } from '@ro-a11y/shared';
 import type { Database } from '../db/prisma';
 import type { NormalizedRuleResult } from '../scanner/normalize';
+import type { PageCapture } from '../scanner/capture';
 
 export interface ClaimedScan {
   id: string;
@@ -43,6 +44,8 @@ export async function claimNextScan(db: Database): Promise<ClaimedScan | null> {
 export interface CompletedScanData {
   raw: AxeResults;
   results: NormalizedRuleResult[];
+  /** Captura paginii (harta problemelor); null = nu a reusit, scanarea se salveaza oricum. */
+  capture?: PageCapture | null;
   finalUrl: string;
   httpStatus: number;
   engineVersion: string;
@@ -99,9 +102,28 @@ export async function completeScan(db: Database, scanId: string, data: Completed
               htmlSnippet: el.htmlSnippet,
               failureSummary: el.failureSummary,
               fingerprint: el.fingerprint,
+              boxX: el.box?.x ?? null,
+              boxY: el.box?.y ?? null,
+              boxWidth: el.box?.width ?? null,
+              boxHeight: el.box?.height ?? null,
             })),
           ),
         });
+        // captura paginii, in aceeasi tranzactie: nu exista captura fara rezultate sau invers
+        if (data.capture) {
+          await tx.scanScreenshot.create({
+            data: {
+              scanId,
+              // Prisma cere un Uint8Array simplu (nu Buffer-ul din Node)
+              image: new Uint8Array(data.capture.image),
+              format: data.capture.format,
+              width: data.capture.width,
+              height: data.capture.height,
+              pageHeight: data.capture.pageHeight,
+              truncated: data.capture.truncated,
+            },
+          });
+        }
         // in tabela scan actualizam statusul scanarii la 'completed' si adaugam rezultatele
         await tx.scan.update({
           where: { id: scanId },

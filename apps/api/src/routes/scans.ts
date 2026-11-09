@@ -5,7 +5,10 @@
  *   scanarea intra in coada, iar worker-ul o va procesa separat
  * - GET  /api/v1/projects/:projectId/scans  — scanarile separate ale unui proiect, cele mai noi
  *                                             primele (paginile unui audit apar in audit)
- * - GET  /api/v1/scans/:scanId              — o scanare: stare, configuratie, versiuni, sumar
+ * - GET  /api/v1/scans/:scanId              — o scanare: stare, configuratie, versiuni, sumar,
+ *                                             dimensiunile capturii paginii
+ * - GET  /api/v1/scans/:scanId/screenshot   — captura paginii (imagine WebP), pentru harta
+ *                                             problemelor; 404 daca scanarea nu are captura
  * - GET  /api/v1/scans/:scanId/results      — rezultatele pe reguli, cu elementele afectate si
  *                                             lantul de trasabilitate (WCAG -> EN -> OUG 112/2018,
  *                                             cu aplicabilitatea din profilul juridic al proiectului)
@@ -27,6 +30,7 @@ import {
   type Scan,
   type ScanList,
   type ScanSummary,
+  type ScreenshotInfo,
 } from '@ro-a11y/shared';
 import type { Database } from '../db/prisma';
 import { HttpError } from '../middleware/errors';
@@ -50,7 +54,21 @@ function iso(date: Date | null): string | null {
   return date ? date.toISOString() : null;
 }
 
-function toScanDto(row: ScanRow, summary: ScanSummary | null): Scan {
+/** Tipul imaginii, dupa formatul salvat. */
+const IMAGE_TYPES: Record<string, string> = {
+  webp: 'image/webp',
+  png: 'image/png',
+  jpeg: 'image/jpeg',
+};
+
+/** Captura nu se mai schimba niciodata dupa scanare: browserul o poate tine minte. */
+const SCREENSHOT_CACHE = 'private, max-age=31536000, immutable';
+
+function toScanDto(
+  row: ScanRow,
+  summary: ScanSummary | null,
+  screenshot: ScreenshotInfo | null = null,
+): Scan {
   return {
     id: row.id,
     projectId: row.projectId,
@@ -70,6 +88,7 @@ function toScanDto(row: ScanRow, summary: ScanSummary | null): Scan {
     startedAt: iso(row.startedAt),
     finishedAt: iso(row.finishedAt),
     summary: row.status === 'completed' ? summary : null,
+    screenshot: row.status === 'completed' ? screenshot : null,
   };
 }
 
@@ -190,7 +209,29 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     const row = await db.scan.findUnique({ where: { id: req.params.scanId } });
     if (!row) throw scanNotFound();
     const summaries = await loadSummaries(db, row.status === 'completed' ? [row.id] : []);
-    res.json(toScanDto(row, summaries.get(row.id) ?? null));
+    // Doar dimensiunile capturii, nu si imaginea (ea vine pe ruta separata)
+    const shot = await db.scanScreenshot.findUnique({
+      where: { scanId: row.id },
+      select: { format: true, width: true, height: true, pageHeight: true, truncated: true },
+    });
+    const screenshot = shot ? { url: `/api/v1/scans/${row.id}/screenshot`, ...shot } : null;
+    res.json(toScanDto(row, summaries.get(row.id) ?? null, screenshot));
+  });
+
+  router.get('/api/v1/scans/:scanId/screenshot', async (req, res) => {
+    if (!isUuid(req.params.scanId)) throw scanNotFound();
+    const shot = await db.scanScreenshot.findUnique({
+      where: { scanId: req.params.scanId },
+      select: { image: true, format: true },
+    });
+    if (!shot) {
+      throw new HttpError(404, 'SCREENSHOT_NOT_FOUND', 'Scanarea nu are o captură a paginii.');
+    }
+    res
+      .type(IMAGE_TYPES[shot.format] ?? 'application/octet-stream')
+      .set('Cache-Control', SCREENSHOT_CACHE)
+      .set('X-Content-Type-Options', 'nosniff')
+      .send(Buffer.from(shot.image));
   });
 
   //endpoint care returneaza rezultatele scanarii
@@ -254,6 +295,10 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
         htmlSnippet: e.htmlSnippet,
         failureSummary: e.failureSummary,
         fingerprint: e.fingerprint,
+        box:
+          e.boxX !== null && e.boxY !== null && e.boxWidth !== null && e.boxHeight !== null
+            ? { x: e.boxX, y: e.boxY, width: e.boxWidth, height: e.boxHeight }
+            : null,
       })),
     }));
     const body: RuleResultList = { items };

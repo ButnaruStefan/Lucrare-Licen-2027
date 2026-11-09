@@ -34,6 +34,10 @@ export function AboutPage() {
             șablonul site-ului.
           </li>
           <li>
+            Arată problemele direct pe pagină: o captură a paginii scanate, cu un chenar peste
+            fiecare element afectat (harta problemelor).
+          </li>
+          <li>
             Arată orientativ, pe baza unui chestionar despre cine administrează site-ul, dacă OUG
             nr. 112/2018 ar putea să se aplice, cu articolele citate exact din textul oficial.
           </li>
@@ -62,6 +66,13 @@ export function AboutPage() {
             în pagina de start și în sitemap.xml (nu merge din link în link). Nu verifică paginile
             de după autentificare, documentele (PDF, Word) și serviciile de pe alte site-uri, dar le
             listează.
+          </li>
+          <li>
+            Captura arată pagina văzută de sus, la încărcare, exact cum o analizează motorul. Unele
+            site-uri estompează secțiunile până când ajungi la ele cu derularea; acestea apar
+            estompate și în captură, iar motorul le poate raporta la contrast. Elementele din cadre
+            încorporate (iframe) și cele ascunse nu sunt marcate, iar paginile foarte lungi sunt
+            tăiate la 16 000 de pixeli.
           </li>
           <li>
             Respectă robots.txt: paginile pe care site-ul le interzice programelor automate nu sunt

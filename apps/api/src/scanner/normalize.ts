@@ -6,13 +6,18 @@
  *   - pastreaza toate cele 4 categorii: violation, incomplete, pass, inapplicable;
  *   - extrage criteriile WCAG din etichetele axe (ex. "wcag111" -> "1.1.1");
  *   - pentru violation si incomplete, pastreaza elementele afectate (selector, HTML trunchiat);
- *   - calculeaza amprenta fiecarui element, folosita la comparatia intre scanari.
+ *   - calculeaza amprenta fiecarui element, folosita la comparatia intre scanari;
+ *   - ataseaza fiecarui element pozitia lui in captura paginii (harta problemelor), daca exista.
  *
  * Functie "pura": nu acceseaza browserul sau baza de date, deci se testeaza usor.
  */
 import { createHash } from 'node:crypto';
 import type { AxeResults, ImpactValue, NodeResult, Result } from 'axe-core';
 import type { Impact, ResultCategory } from '@ro-a11y/shared';
+import type { ElementBox } from './capture';
+
+/** Pozitia fiecarui element in captura, dupa selectorul lui axe (cheia: JSON.stringify(target)). */
+export type BoxesByTarget = ReadonlyMap<string, ElementBox | null>;
 
 /** Lungimea maxima a fragmentului HTML pastrat pentru un element. */
 export const MAX_HTML_LENGTH = 1000;
@@ -22,6 +27,8 @@ export interface NormalizedElement {
   htmlSnippet: string;
   failureSummary: string | null;
   fingerprint: string;
+  /** Pozitia in captura; null = fara captura sau element care nu se vede. */
+  box: ElementBox | null;
 }
 
 export interface NormalizedRuleResult {
@@ -82,6 +89,7 @@ function normalizeRule(
   rule: Result,
   category: ResultCategory,
   pageUrl: string,
+  boxes: BoxesByTarget,
 ): NormalizedRuleResult {
   const keepElements = category === 'violation' || category === 'incomplete';
   return {
@@ -99,18 +107,31 @@ function normalizeRule(
           htmlSnippet: truncate(node.html),
           failureSummary: node.failureSummary ?? null,
           fingerprint: elementFingerprint(pageUrl, rule.id, node.target),
+          box: boxes.get(JSON.stringify(node.target)) ?? null,
         }))
       : [],
   };
 }
 
-export function normalizeAxeResults(raw: AxeResults, pageUrl: string): NormalizedRuleResult[] {
+export function normalizeAxeResults(
+  raw: AxeResults,
+  pageUrl: string,
+  boxes: BoxesByTarget = new Map(),
+): NormalizedRuleResult[] {
   return [
-    ...raw.violations.map((r) => normalizeRule(r, 'violation', pageUrl)),
-    ...raw.incomplete.map((r) => normalizeRule(r, 'incomplete', pageUrl)),
-    ...raw.passes.map((r) => normalizeRule(r, 'pass', pageUrl)),
-    ...raw.inapplicable.map((r) => normalizeRule(r, 'inapplicable', pageUrl)),
+    ...raw.violations.map((r) => normalizeRule(r, 'violation', pageUrl, boxes)),
+    ...raw.incomplete.map((r) => normalizeRule(r, 'incomplete', pageUrl, boxes)),
+    ...raw.passes.map((r) => normalizeRule(r, 'pass', pageUrl, boxes)),
+    ...raw.inapplicable.map((r) => normalizeRule(r, 'inapplicable', pageUrl, boxes)),
   ];
+}
+
+/** Leaga selectorii (in ordinea folosita la captura) de pozitiile calculate in pagina. */
+export function boxesByTarget(
+  targets: readonly unknown[],
+  boxes: ReadonlyArray<ElementBox | null>,
+): Map<string, ElementBox | null> {
+  return new Map(targets.map((target, i) => [JSON.stringify(target), boxes[i] ?? null]));
 }
 
 /** Regula e "buna practica" (nu criteriu WCAG obligatoriu)? */
