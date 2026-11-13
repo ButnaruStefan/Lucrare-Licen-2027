@@ -279,7 +279,11 @@ describe('GET scanari si rezultate', () => {
         height: 900,
         pageHeight: 900,
         truncated: false,
-        boxes: [],
+        boxes: new Map(),
+        frameHeight: 900,
+        frameOffsets: [0],
+        reactiveFrames: 0,
+        seams: [],
       },
       finalUrl: 'https://exemplu.ro/',
       httpStatus: 200,
@@ -296,6 +300,8 @@ describe('GET scanari si rezultate', () => {
       height: 900,
       pageHeight: 900,
       truncated: false,
+      frameHeight: 900,
+      frameOffsets: [0],
     });
     // Imaginea, pe ruta ei, cu tipul corect si memorata de browser (nu se mai schimba)
     const shot = await request(app).get(`/api/v1/scans/${scan.id}/screenshot`);

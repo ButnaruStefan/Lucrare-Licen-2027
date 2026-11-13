@@ -126,14 +126,6 @@ export function normalizeAxeResults(
   ];
 }
 
-/** Leaga selectorii (in ordinea folosita la captura) de pozitiile calculate in pagina. */
-export function boxesByTarget(
-  targets: readonly unknown[],
-  boxes: ReadonlyArray<ElementBox | null>,
-): Map<string, ElementBox | null> {
-  return new Map(targets.map((target, i) => [JSON.stringify(target), boxes[i] ?? null]));
-}
-
 /** Regula e "buna practica" (nu criteriu WCAG obligatoriu)? */
 export function isBestPractice(axeTags: readonly string[], wcagCriteria: readonly string[]) {
   return wcagCriteria.length === 0 && axeTags.includes('best-practice');

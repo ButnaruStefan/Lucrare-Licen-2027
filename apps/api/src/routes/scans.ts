@@ -212,7 +212,15 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     // Doar dimensiunile capturii, nu si imaginea (ea vine pe ruta separata)
     const shot = await db.scanScreenshot.findUnique({
       where: { scanId: row.id },
-      select: { format: true, width: true, height: true, pageHeight: true, truncated: true },
+      select: {
+        format: true,
+        width: true,
+        height: true,
+        pageHeight: true,
+        truncated: true,
+        frameHeight: true,
+        frameOffsets: true,
+      },
     });
     const screenshot = shot ? { url: `/api/v1/scans/${row.id}/screenshot`, ...shot } : null;
     res.json(toScanDto(row, summaries.get(row.id) ?? null, screenshot));

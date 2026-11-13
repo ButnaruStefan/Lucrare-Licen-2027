@@ -5,7 +5,6 @@ import type { AxeResults, Result } from 'axe-core';
 import { describe, expect, it } from 'vitest';
 import { affectedTargets } from '../src/scanner/page-scan';
 import {
-  boxesByTarget,
   elementFingerprint,
   isBestPractice,
   MAX_HTML_LENGTH,
@@ -121,7 +120,11 @@ describe('harta problemelor: pozitia elementelor', () => {
 
   it('fiecare element primeste pozitia selectorului lui (acelasi element, in doua reguli, aceeasi pozitie)', () => {
     const box = { x: 1, y: 2, width: 3, height: 4 };
-    const boxes = boxesByTarget(affectedTargets(raw), [box, null, { ...box, x: 9 }]);
+    const boxes = new Map([
+      [JSON.stringify(['img.a']), box],
+      [JSON.stringify(['img.b']), null],
+      [JSON.stringify([['x-meniu', 'a']]), { ...box, x: 9 }],
+    ]);
     const results = normalizeAxeResults(raw, 'https://exemplu.ro/', boxes);
     expect(results[0]!.elements.map((e) => e.box)).toEqual([box, null]);
     expect(results[1]!.elements.map((e) => e.box)).toEqual([box, { ...box, x: 9 }]);

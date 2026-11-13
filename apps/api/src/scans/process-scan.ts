@@ -18,8 +18,8 @@ import type { Browser } from 'playwright';
 import type { Database } from '../db/prisma';
 import type { Logger } from '../lib/logger';
 import { checkUrl, createRequestGuard, type UrlGuardOptions } from '../safety/url-guard';
-import { boxesByTarget, normalizeAxeResults } from '../scanner/normalize';
-import { affectedTargets, scanPage } from '../scanner/page-scan';
+import { normalizeAxeResults } from '../scanner/normalize';
+import { scanPage } from '../scanner/page-scan';
 import { completeScan, failScan, type ClaimedScan } from './queue';
 
 export interface ProcessScanDeps {
@@ -115,9 +115,14 @@ export async function processScan(
 
     // Fara captura, scanarea ramane valida: doar harta problemelor nu va fi disponibila.
     if (!outcome.capture) log.warn({ reason: outcome.captureError }, 'Captura paginii a esuat');
-    const boxes = outcome.capture
-      ? boxesByTarget(affectedTargets(outcome.raw), outcome.capture.boxes)
-      : new Map();
+    if (outcome.contrastRecheck.error) {
+      log.warn({ reason: outcome.contrastRecheck.error }, 'Re-verificarea contrastului s-a oprit');
+    }
+    log.info(
+      { checked: outcome.contrastRecheck.checked, changed: outcome.contrastRecheck.changed },
+      'Contrast re-verificat pe ecran',
+    );
+    const boxes = outcome.capture?.boxes ?? new Map();
     const results = normalizeAxeResults(outcome.raw, outcome.finalUrl, boxes);
     await completeScan(db, scan.id, {
       raw: outcome.raw,

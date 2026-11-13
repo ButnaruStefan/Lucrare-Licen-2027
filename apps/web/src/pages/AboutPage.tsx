@@ -68,11 +68,15 @@ export function AboutPage() {
             listează.
           </li>
           <li>
-            Captura arată pagina văzută de sus, la încărcare, exact cum o analizează motorul. Unele
-            site-uri estompează secțiunile până când ajungi la ele cu derularea; acestea apar
-            estompate și în captură, iar motorul le poate raporta la contrast. Elementele din cadre
-            încorporate (iframe) și cele ascunse nu sunt marcate, iar paginile foarte lungi sunt
-            tăiate la 16 000 de pixeli.
+            Captura e făcută derulând pagina ecran cu ecran, ca un vizitator. O pagină statică e
+            arătată ca o singură imagine; una care se schimbă la derulare e arătată ecran cu ecran,
+            pentru că nu are o singură imagine corectă. Contrastul elementelor semnalate e verificat
+            din nou când ajung pe ecran (multe site-uri estompează secțiunile până ajungi la ele).
+            Panourile care se schimbă în timpul derulării apar în mai multe ecrane, în pași
+            diferiți, și sunt verificate în primul ecran în care se văd întregi; dacă sunt atunci la
+            jumătatea unei tranziții, contrastul lor poate ieși mai slab decât la final. Elementele
+            din cadre încorporate (iframe) și cele ascunse nu sunt marcate, iar paginile foarte
+            lungi sunt tăiate la 16 000 de pixeli.
           </li>
           <li>
             Respectă robots.txt: paginile pe care site-ul le interzice programelor automate nu sunt

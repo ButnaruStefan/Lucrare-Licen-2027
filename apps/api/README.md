@@ -27,19 +27,35 @@ worker.ts (proces separat)
   └─> scans/queue.ts             (2. altfel, rezerva urmatoarea scanare "queued")
       └─> scans/process-scan.ts
             ├─> scanner/page-scan.ts (Chrome + axe-core; fiecare cerere trece prin paznic)
-            │     └─> scanner/capture.ts (captura paginii + pozitia elementelor: harta problemelor)
+            │     ├─> scanner/capture.ts (parcurge pagina ecran cu ecran: captura + pozitii)
+            │     └─> scanner/contrast-recheck.ts (contrastul re-verificat pe ecran)
             ├─> scanner/normalize.ts (rezultatul brut → tabelele noastre)
             └─> scans/queue.ts       (salveaza rezultatele si captura, sau motivul esecului)
 ```
 
 ## Harta problemelor, pe scurt
 
-Imediat dupa axe-core, in aceeasi sesiune de browser (pagina nu se reincarca), scannerul:
+Imediat dupa axe-core, in aceeasi sesiune de browser (pagina nu se reincarca), scannerul parcurge
+pagina ecran cu ecran, ca un vizitator. Motivul: multe site-uri estompeaza sectiunile pana ajung
+pe ecran sau au panouri "lipite" care se schimba la derulare; o singura fotografie a paginii
+intregi le-ar prinde estompate, cu goluri albe. Pe fiecare ecran:
 
-1. calculeaza pozitia fiecarui element afectat, intr-un singur apel in pagina
-   (`getBoundingClientRect` + derularea ferestrei = coordonate fata de coltul paginii);
-2. face captura intregii pagini: WebP, calitate 80, un pixel = un pixel CSS, animatiile oprite,
-   taiata la 16 000 px (Chromium nu deseneaza corect peste 16 384 px).
+1. asteapta sa se aseze pagina: imaginile din ecran, animatiile CSS duse la final; doar daca pagina
+   a reactionat la derulare (o vede un `MutationObserver`; elementele fixe nu conteaza), inca
+   300 ms pentru efectele facute din JavaScript (valoare aleasa prin masuratoare);
+2. calculeaza pozitia elementelor afectate care se vad intregi in acest ecran, in coordonatele
+   ecranului;
+3. re-verifica regula `color-contrast` pentru elementele semnalate care tocmai au intrat in ecran
+   (`contrast-recheck.ts`); rezultatul nou il inlocuieste pe cel facut cu pagina sus;
+4. fotografiaza ecranul (PNG); dupa primul ecran ascunde elementele fixe (meniu, cookie-uri).
+
+Ecranele se suprapun putin (64 px). La final scannerul compara, pixel cu pixel, zona suprapusa a
+fiecarei perechi de ecrane vecine. Daca toate imbinarile se potrivesc (pagina nu s-a schimbat intre
+ecrane) si nu exista elemente lipite in sectiunea lor, pagina e statica si e salvata ca o singura
+imagine continua. Altfel ecranele raman separate (o imbinare ar avea cusaturi), iar interfata le
+arata cu numarul ecranului si derularea (`frame_height`, `frame_offsets` in `scan_screenshots`).
+Imaginea e WebP (calitate 80, facuta intr-un canvas din browser), cel mult 16 000 px; la final
+pagina e refacuta.
 
 Captura se salveaza in tabelul `scan_screenshots` (bytea), in aceeasi tranzactie cu rezultatele;
 pozitiile, in coloanele `box_*` din `affected_elements`. Interfata deseneaza chenarele peste
@@ -63,36 +79,37 @@ Nu e un crawler: nu merge din link in link, citeste doar pagina de start si site
 
 ## Continut
 
-| Cale                        | Rol                                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------ |
-| `src/index.ts`              | Pornirea API-ului: citeste configurarea, conecteaza DB, porneste serverul                  |
-| `src/worker.ts`             | Pornirea worker-ului: porneste browserul, preia scanarile din coada si le proceseaza       |
-| `src/app.ts`                | Construieste aplicatia Express (middleware + rute). Separat de pornire, pentru teste       |
-| `src/config/env.ts`         | Valideaza variabilele din `.env` la pornire                                                |
-| `src/db/prisma.ts`          | Conexiunea la PostgreSQL prin Prisma                                                       |
-| `src/lib/logger.ts`         | Loguri structurate (Pino), cu date sensibile ascunse                                       |
-| `src/lib/validation.ts`     | Valideaza datele primite; la eroare raspunde 400 cu lista campurilor gresite               |
-| `src/middleware/`           | Functii care ruleaza pentru fiecare cerere (ID, loguri, erori)                             |
-| `src/routes/`               | Endpointurile API, pe domenii (`health`, `projects`, `legal-profile`, `scans`, `audits`)   |
-| `src/safety/url-guard.ts`   | Paznicul adreselor (protectie SSRF), folosit in API si pentru fiecare cerere a browserului |
-| `src/scanner/browser.ts`    | Pornirea browserului (Chrome instalat, Edge sau Chromium), cu limite de timp               |
-| `src/scanner/page-scan.ts`  | Deschiderea sigura a unei pagini (`openGuardedPage`) si scanarea ei cu axe-core            |
-| `src/scanner/capture.ts`    | Captura paginii (WebP) si pozitia fiecarui element afectat, pentru harta problemelor       |
-| `src/discovery/`            | Descoperirea paginilor unui audit: linkuri, robots.txt, sitemap.xml, esantionul propus     |
-| `src/audits/`               | Coada descoperirilor (tabelul `audits`) si procesarea unei descoperiri                     |
-| `src/scanner/normalize.ts`  | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`     |
-| `src/scans/queue.ts`        | Coada de scanari din PostgreSQL: rezervare, finalizare, esec                               |
-| `@ro-a11y/catalog` (pachet) | Lantul de trasabilitate adaugat fiecarui rezultat (`buildTrace`)                           |
-| `src/scans/process-scan.ts` | Procesarea completa a unei scanari (verificare, scanare, salvare)                          |
-| `src/scans/worker-loop.ts`  | Un pas al worker-ului: browser pregatit inainte de rezervare, ceas de paza, erori prinse   |
-| `src/generated/`            | Cod **generat automat** de Prisma. Nu se editeaza si nu e in Git                           |
-| `prisma/schema.prisma`      | Schema bazei de date (tabelele)                                                            |
-| `prisma/migrations/`        | Istoricul modificarilor de schema, ca fisiere SQL                                          |
-| `prisma/seed.ts`            | Adauga proiectele demo (cele doua site-uri de antrenament)                                 |
-| `prisma.config.ts`          | Configurarea uneltei Prisma                                                                |
-| `tests/`                    | Teste automate (Vitest + Supertest), pe baza de date separata `ro_a11y_test`               |
-| `vitest.config.ts`          | Configurarea testelor (adresa bazei de test, pregatirea ei)                                |
-| `.env.example`              | Model pentru `.env` (configurarea locala, inclusiv setarile scannerului)                   |
+| Cale                              | Rol                                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------------------ |
+| `src/index.ts`                    | Pornirea API-ului: citeste configurarea, conecteaza DB, porneste serverul                  |
+| `src/worker.ts`                   | Pornirea worker-ului: porneste browserul, preia scanarile din coada si le proceseaza       |
+| `src/app.ts`                      | Construieste aplicatia Express (middleware + rute). Separat de pornire, pentru teste       |
+| `src/config/env.ts`               | Valideaza variabilele din `.env` la pornire                                                |
+| `src/db/prisma.ts`                | Conexiunea la PostgreSQL prin Prisma                                                       |
+| `src/lib/logger.ts`               | Loguri structurate (Pino), cu date sensibile ascunse                                       |
+| `src/lib/validation.ts`           | Valideaza datele primite; la eroare raspunde 400 cu lista campurilor gresite               |
+| `src/middleware/`                 | Functii care ruleaza pentru fiecare cerere (ID, loguri, erori)                             |
+| `src/routes/`                     | Endpointurile API, pe domenii (`health`, `projects`, `legal-profile`, `scans`, `audits`)   |
+| `src/safety/url-guard.ts`         | Paznicul adreselor (protectie SSRF), folosit in API si pentru fiecare cerere a browserului |
+| `src/scanner/browser.ts`          | Pornirea browserului (Chrome instalat, Edge sau Chromium), cu limite de timp               |
+| `src/scanner/page-scan.ts`        | Deschiderea sigura a unei pagini (`openGuardedPage`) si scanarea ei cu axe-core            |
+| `src/scanner/capture.ts`          | Parcurge pagina ecran cu ecran: captura (WebP) si pozitia elementelor, pentru harta        |
+| `src/scanner/contrast-recheck.ts` | Re-verifica pe ecran contrastul elementelor semnalate (sectiuni estompate la derulare)     |
+| `src/discovery/`                  | Descoperirea paginilor unui audit: linkuri, robots.txt, sitemap.xml, esantionul propus     |
+| `src/audits/`                     | Coada descoperirilor (tabelul `audits`) si procesarea unei descoperiri                     |
+| `src/scanner/normalize.ts`        | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`     |
+| `src/scans/queue.ts`              | Coada de scanari din PostgreSQL: rezervare, finalizare, esec                               |
+| `@ro-a11y/catalog` (pachet)       | Lantul de trasabilitate adaugat fiecarui rezultat (`buildTrace`)                           |
+| `src/scans/process-scan.ts`       | Procesarea completa a unei scanari (verificare, scanare, salvare)                          |
+| `src/scans/worker-loop.ts`        | Un pas al worker-ului: browser pregatit inainte de rezervare, ceas de paza, erori prinse   |
+| `src/generated/`                  | Cod **generat automat** de Prisma. Nu se editeaza si nu e in Git                           |
+| `prisma/schema.prisma`            | Schema bazei de date (tabelele)                                                            |
+| `prisma/migrations/`              | Istoricul modificarilor de schema, ca fisiere SQL                                          |
+| `prisma/seed.ts`                  | Adauga proiectele demo (cele doua site-uri de antrenament)                                 |
+| `prisma.config.ts`                | Configurarea uneltei Prisma                                                                |
+| `tests/`                          | Teste automate (Vitest + Supertest), pe baza de date separata `ro_a11y_test`               |
+| `vitest.config.ts`                | Configurarea testelor (adresa bazei de test, pregatirea ei)                                |
+| `.env.example`                    | Model pentru `.env` (configurarea locala, inclusiv setarile scannerului)                   |
 
 ## Endpointuri existente
 

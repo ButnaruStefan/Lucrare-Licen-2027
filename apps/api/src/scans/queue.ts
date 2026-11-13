@@ -121,6 +121,8 @@ export async function completeScan(db: Database, scanId: string, data: Completed
               height: data.capture.height,
               pageHeight: data.capture.pageHeight,
               truncated: data.capture.truncated,
+              frameHeight: data.capture.frameHeight,
+              frameOffsets: data.capture.frameOffsets,
             },
           });
         }

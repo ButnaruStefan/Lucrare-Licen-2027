@@ -79,6 +79,12 @@ export const screenshotInfoSchema = z.object({
   /** Inaltimea reala a paginii; mai mare decat height daca pagina a fost taiata. */
   pageHeight: z.number().int(),
   truncated: z.boolean(),
+  /**
+   * Captura facuta ecran cu ecran: inaltimea unui ecran (ecranele sunt unul sub altul in imagine)
+   * si derularea la care a fost fotografiat fiecare. null / [] = o singura imagine a paginii.
+   */
+  frameHeight: z.number().int().nullable(),
+  frameOffsets: z.array(z.number().int()),
 });
 export type ScreenshotInfo = z.infer<typeof screenshotInfoSchema>;
 

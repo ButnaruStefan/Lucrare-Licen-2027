@@ -599,7 +599,9 @@ describe('harta problemelor', () => {
     const alt = (await map().getByRole('img').getAttribute('alt')) ?? '';
     expect(alt).toContain('3 elemente marcate');
     // Chenarele sunt doar un ajutor vizual: ascunse cititoarelor de ecran, nefocusabile
-    expect(await page.locator('.issue-map__boxes').getAttribute('aria-hidden')).toBe('true');
+    for (const boxes of await page.locator('.issue-map__boxes').all()) {
+      expect(await boxes.getAttribute('aria-hidden')).toBe('true');
+    }
     expect(await axeViolations()).toEqual([]);
   });
 
@@ -638,6 +640,31 @@ describe('harta problemelor', () => {
     // Regula deschisa ramane evidentiata pe captura (nu depinde doar de mouse)
     await page.mouse.move(0, 0);
     await expect.poll(() => activeBoxes().count()).toBeGreaterThan(0);
+  });
+
+  it('arata ecranele separat, fiecare cu chenarele lui; o scanare veche are o singura imagine', async () => {
+    await mockApi(page);
+    // "De verificat": elementul de contrast e in al doilea ecran
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}?categorie=incomplete`);
+    await map().waitFor();
+    await map().getByText('Ecranul 1 din 2 · derulat la 0 px').waitFor();
+    await map().getByText('Ecranul 2 din 2 · derulat la 950 px').waitFor();
+    // Elementul de la y = 1100 in imagine e in al doilea ecran, la 100 px de sus (10%)
+    const second = page.locator('.issue-map__frame').nth(1);
+    expect(await second.locator('.issue-map__box').count()).toBe(1);
+    expect(await second.locator('.issue-map__box').evaluate((el) => el.style.top)).toBe('10%');
+
+    const old = makeScan();
+    old.screenshot = { ...old.screenshot!, frameHeight: null, frameOffsets: [] };
+    await mockApi(page, { scanSequence: [old] });
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    await map().waitFor();
+    expect(await page.locator('.issue-map__frame').count()).toBe(1);
+    expect(
+      await map()
+        .getByText(/Ecranul/)
+        .count(),
+    ).toBe(0);
   });
 
   it('nu apare fara captura sau pentru regulile trecute', async () => {

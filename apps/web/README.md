@@ -52,7 +52,9 @@ Interfata unui instrument de accesibilitate trebuie sa fie ea insasi accesibila:
 - informatia nu e transmisa doar prin culoare; contrast suficient si in modul intunecat;
 - harta problemelor e un ajutor vizual: chenarele sunt ascunse cititoarelor de ecran si nu sunt
   focusabile, echivalentul complet fiind lista regulilor; evidentierea apare si la focus, nu doar la
-  mouse; zona capturii se poate derula din tastatura;
+  mouse; zona capturii se poate derula din tastatura; o pagina statica e o singura imagine; una
+  care se schimba la derulare e aratata ecran cu ecran (fiecare ecran separat, cu numarul lui si
+  derularea), cum a vazut-o un vizitator;
 - testele automate ruleaza axe-core pe fiecare ecran si cer **zero** probleme.
 
 Fragmentele HTML ale paginilor scanate sunt afisate ca **text**, niciodata interpretate

@@ -15,6 +15,11 @@
  * - Fara regula activa, chenarele sunt doar contur si numarul apare pe primul element al
  *   fiecarei reguli (harta ramane lizibila); regula activa isi numeroteaza toate elementele.
  *
+ * - O pagina statica e o singura imagine continua. O pagina care se schimba la derulare e aratata
+ *   ecran cu ecran (cum o vede un vizitator cand deruleaza): fiecare ecran e o fotografie
+ *   separata, cu numarul lui si pozitia derularii; elementele lipite pe ecran (meniuri, panouri)
+ *   apar in mai multe ecrane, ca in realitate. Scanarile vechi au tot o singura imagine.
+ *
  * Accesibilitate: harta e un ajutor vizual. Zona capturii se poate derula si din tastatura
  * (primeste focus, apoi sagetile o deruleaza). Chenarele nu sunt focusabile (ar insemna sute de
  * opriri cu Tab) si sunt ascunse cititoarelor de ecran; echivalentul complet, accesibil din
@@ -43,6 +48,27 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
+/** Un ecran al capturii: unde incepe in imagine, cat e de inalt, la ce derulare a fost facut. */
+interface Frame {
+  index: number;
+  top: number;
+  height: number;
+  offset: number | null;
+}
+
+function framesOf(screenshot: ScreenshotInfo): Frame[] {
+  const { frameHeight, frameOffsets } = screenshot;
+  if (!frameHeight || frameOffsets.length === 0) {
+    return [{ index: 0, top: 0, height: screenshot.height, offset: null }];
+  }
+  return frameOffsets.map((offset, index) => ({
+    index,
+    top: index * frameHeight,
+    height: frameHeight,
+    offset,
+  }));
+}
+
 export function IssueMap({
   screenshot,
   rules,
@@ -55,21 +81,25 @@ export function IssueMap({
   onSelectRule: (ruleId: string) => void;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const frames = framesOf(screenshot);
+  const multiFrame = frames.length > 1;
+  const frameAt = (y: number) =>
+    frames.find((f) => y >= f.top && y < f.top + f.height) ?? frames[frames.length - 1]!;
 
   // Elementele care apar in captura (cele ascunse sau sub limita capturii nu au chenar)
   const visibleElements = rules.flatMap(({ rule, number }) =>
     rule.affectedElements
       .filter((el) => el.box && el.box.y < screenshot.height)
-      .map((el) => ({ rule, number, element: el, box: el.box! })),
+      .map((el) => ({ rule, number, element: el, box: el.box!, frame: frameAt(el.box!.y) })),
   );
-  const isPageLevel = (box: { width: number; height: number }) =>
+  // Cat tot ecranul (ex. <html>): nu primeste chenar, ar acoperi tot
+  const isPageLevel = (box: { width: number; height: number }, frame: Frame) =>
     box.width >= screenshot.width * PAGE_LEVEL_SHARE &&
-    box.height >= screenshot.height * PAGE_LEVEL_SHARE;
-  const markers = visibleElements.filter((m) => !isPageLevel(m.box));
+    box.height >= frame.height * PAGE_LEVEL_SHARE;
+  const markers = visibleElements.filter((m) => !isPageLevel(m.box, m.frame));
   // Regulile care privesc toata pagina (o eticheta pentru fiecare regula)
   const pageRules = rules.filter(({ rule }) =>
-    visibleElements.some((m) => m.rule.id === rule.id && isPageLevel(m.box)),
+    visibleElements.some((m) => m.rule.id === rule.id && isPageLevel(m.box, m.frame)),
   );
   const pageRuleActive = pageRules.some(({ rule }) => rule.id === activeRuleId);
   // Primul element al fiecarei reguli poarta numarul ei
@@ -79,22 +109,27 @@ export function IssueMap({
       firstOfRule.add(`${m.rule.id}:${m.element.id}`);
     }
   }
-  // Cele mari (ex. toata pagina, pentru "html-has-lang") se deseneaza primele, ca chenarele mici
-  // sa ramana deasupra si sa poata fi apasate
+  // Cele mari se deseneaza primele, ca chenarele mici sa ramana deasupra si sa poata fi apasate
   markers.sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height);
   const totalElements = rules.reduce((n, { rule }) => n + rule.affectedElements.length, 0);
   const hidden = totalElements - visibleElements.length;
+  const lastFrame = frames[frames.length - 1]!;
+  const shownHeight =
+    lastFrame.offset === null ? screenshot.height : lastFrame.offset + lastFrame.height;
 
-  // Regula activa: derulam captura pana la primul ei element
+  // Regula activa: derulam captura pana la primul ei chenar (pozitia lui reala pe ecran)
   useEffect(() => {
     if (!activeRuleId) return;
-    const first = markers.find((m) => m.rule.id === activeRuleId);
     const viewport = viewportRef.current;
-    const canvas = canvasRef.current;
-    if (!first || !viewport || !canvas) return;
-    const scale = canvas.clientWidth / screenshot.width;
+    const first = markers
+      .filter((m) => m.rule.id === activeRuleId)
+      .sort((a, b) => a.box.y - b.box.y)[0];
+    if (!first || !viewport) return;
+    const marker = viewport.querySelector(`[data-element-id="${first.element.id}"]`);
+    if (!marker) return;
+    const offset = marker.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
     viewport.scrollTo({
-      top: Math.max(0, first.box.y * scale - SCROLL_MARGIN),
+      top: Math.max(0, viewport.scrollTop + offset - SCROLL_MARGIN),
       behavior: prefersReducedMotion() ? 'auto' : 'smooth',
     });
     // Derularea depinde doar de regula activa (nu si de fiecare redesenare a listei)
@@ -126,6 +161,12 @@ export function IssueMap({
           </span>
         )}
       </figcaption>
+      {multiFrame && (
+        <p className="issue-map__intro">
+          Pagina e fotografiată ecran cu ecran, cum o vede un vizitator când derulează. Elementele
+          care rămân lipite pe ecran (meniuri, panouri animate) apar în mai multe ecrane.
+        </p>
+      )}
       {/* Zona derulabila se poate derula si din tastatura (focus + sageti), WCAG 2.1.1 */}
       <div
         ref={viewportRef}
@@ -134,47 +175,69 @@ export function IssueMap({
         role="region"
         aria-label="Captura paginii (se derulează cu săgețile)"
       >
-        <div
-          ref={canvasRef}
-          className={`issue-map__canvas${activeRuleId ? ' issue-map__canvas--focused' : ''}${pageRuleActive ? ' issue-map__canvas--page' : ''}`}
-          style={{ aspectRatio: `${screenshot.width} / ${screenshot.height}` }}
-        >
-          <img
-            className="issue-map__image"
-            src={screenshot.url}
-            width={screenshot.width}
-            height={screenshot.height}
-            alt={`Captura paginii scanate, cu ${markers.length} ${markers.length === 1 ? 'element marcat' : 'elemente marcate'}. Fiecare element este descris în lista regulilor.`}
-            decoding="async"
-          />
-          <div className="issue-map__boxes" aria-hidden="true">
-            {markers.map(({ rule, number, element, box }) => (
-              <div
-                key={element.id}
-                className={`issue-map__box issue-map__box--${rule.category}${rule.id === activeRuleId ? ' is-active' : ''}`}
+        {frames.map((frame) => (
+          <div key={frame.index} className="issue-map__frame">
+            {multiFrame && (
+              <p className="issue-map__frame-label" aria-hidden="true">
+                Ecranul {frame.index + 1} din {frames.length}
+                {frame.offset !== null && ` · derulat la ${frame.offset} px`}
+              </p>
+            )}
+            <div
+              className={`issue-map__canvas${activeRuleId ? ' issue-map__canvas--focused' : ''}${pageRuleActive ? ' issue-map__canvas--page' : ''}`}
+              style={{ aspectRatio: `${screenshot.width} / ${frame.height}` }}
+            >
+              {/* Aceeasi imagine pentru toate ecranele (se descarca o data), decupata la ecranul lui */}
+              <img
+                className="issue-map__image"
+                src={screenshot.url}
+                width={screenshot.width}
+                height={screenshot.height}
                 style={{
-                  left: percent(box.x, screenshot.width),
-                  top: percent(box.y, screenshot.height),
-                  width: percent(box.width, screenshot.width),
-                  height: percent(box.height, screenshot.height),
+                  height: `${(screenshot.height / frame.height) * 100}%`,
+                  top: `-${(frame.top / frame.height) * 100}%`,
                 }}
-                title={rule.trace.axeRule.titleRo ?? rule.title}
-                onClick={() => onSelectRule(rule.id)}
-              >
-                {(rule.id === activeRuleId || firstOfRule.has(`${rule.id}:${element.id}`)) && (
-                  <span className="issue-map__number">{number}</span>
-                )}
+                alt={
+                  frame.index === 0
+                    ? `Captura paginii scanate${multiFrame ? `, în ${frames.length} ecrane` : ''}, cu ${markers.length} ${markers.length === 1 ? 'element marcat' : 'elemente marcate'}. Fiecare element este descris în lista regulilor.`
+                    : ''
+                }
+                decoding="async"
+              />
+              <div className="issue-map__boxes" aria-hidden="true">
+                {markers
+                  .filter((m) => m.frame.index === frame.index)
+                  .map(({ rule, number, element, box }) => (
+                    <div
+                      key={element.id}
+                      data-element-id={element.id}
+                      className={`issue-map__box issue-map__box--${rule.category}${rule.id === activeRuleId ? ' is-active' : ''}`}
+                      style={{
+                        left: percent(box.x, screenshot.width),
+                        top: percent(box.y - frame.top, frame.height),
+                        width: percent(box.width, screenshot.width),
+                        height: percent(box.height, frame.height),
+                      }}
+                      title={rule.trace.axeRule.titleRo ?? rule.title}
+                      onClick={() => onSelectRule(rule.id)}
+                    >
+                      {(rule.id === activeRuleId ||
+                        firstOfRule.has(`${rule.id}:${element.id}`)) && (
+                        <span className="issue-map__number">{number}</span>
+                      )}
+                    </div>
+                  ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
+        ))}
       </div>
       {(hidden > 0 || screenshot.truncated) && (
         <p className="issue-map__note">
           {hidden > 0 &&
             `${hidden === 1 ? '1 element nu apare' : `${hidden} elemente nu apar`} în captură (ascunse, fără dimensiune, într-un cadru încorporat sau sub limita capturii). `}
           {screenshot.truncated &&
-            `Pagina are ${screenshot.pageHeight} px înălțime; captura arată primii ${screenshot.height} px.`}
+            `Pagina are ${screenshot.pageHeight} px înălțime; captura arată primii ${shownHeight} px.`}
         </p>
       )}
     </figure>

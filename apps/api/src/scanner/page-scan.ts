@@ -9,7 +9,8 @@
  *      adresa noua sa fie verificata (browserul, lasat singur, le-ar urma fara verificare);
  *   3. incarca pagina cu limita de timp, asteapta sa se stabilizeze;
  *   4. ofera pagina incarcata functiei primite (scannerul ruleaza axe-core cu etichetele
- *      profilului ales, ex. WCAG 2.2 AA, apoi face captura paginii pentru harta problemelor;
+ *      profilului ales, ex. WCAG 2.2 AA, apoi parcurge pagina ecran cu ecran pentru captura
+ *      hartii problemelor si re-verifica pe ecran contrastul elementelor semnalate;
  *      descoperirea citeste linkurile);
  *   5. inchide contextul, orice s-ar intampla.
  *
@@ -21,6 +22,12 @@ import { errors, type Browser, type BrowserContext, type Page } from 'playwright
 import type { ScanConfig, WcagProfile } from '@ro-a11y/shared';
 import type { RequestGuard } from '../safety/url-guard';
 import { capturePage, type PageCapture } from './capture';
+import {
+  applyContrastRecheck,
+  contrastTargets,
+  recheckContrast,
+  type RecheckedNode,
+} from './contrast-recheck';
 
 /** Etichetele axe rulate pentru fiecare profil WCAG. */
 const PROFILE_TAGS: Record<WcagProfile, string[]> = {
@@ -63,11 +70,22 @@ export type PageScanOutcome =
       capture: PageCapture | null;
       /** De ce nu exista captura (pentru jurnal), daca nu exista. */
       captureError: string | null;
+      /** Re-verificarea contrastului pe ecran: cate elemente, cate si-au schimbat rezultatul. */
+      contrastRecheck: ContrastRecheckSummary;
       finalUrl: string;
       httpStatus: number;
       blockedRequests: string[];
     }
   | PageFailure;
+
+export interface ContrastRecheckSummary {
+  /** Cate elemente semnalate la contrast au fost verificate din nou, pe ecran. */
+  checked: number;
+  /** Cate si-au schimbat categoria (ex. din "problema" in "trece"). */
+  changed: number;
+  /** De ce re-verificarea s-a oprit (pentru jurnal), daca s-a oprit. */
+  error: string | null;
+}
 
 /** Pagina incarcata, oferita functiei care o foloseste (scanare sau descoperire). */
 export interface LoadedPage {
@@ -106,13 +124,35 @@ export async function scanPage(
     } catch (err) {
       return { analysisError: firstLine(err) };
     }
-    // Captura, imediat dupa analiza, pe aceeasi pagina. Un esec al capturii nu strica scanarea.
+    // Parcurgerea paginii, imediat dupa analiza, pe aceeasi pagina: captura pentru harta si,
+    // pe fiecare ecran, re-verificarea contrastului elementelor semnalate care au intrat in ecran.
+    // Un esec aici nu strica scanarea (raman rezultatele axe initiale).
+    const toRecheck = contrastTargets(raw);
+    const rechecked = new Map<string, RecheckedNode>();
+    let recheckError: string | null = null;
+    const onView = async (entered: unknown[]) => {
+      const mine = entered.filter((t) => toRecheck.has(JSON.stringify(t)));
+      if (mine.length === 0 || recheckError) return;
+      try {
+        for (const [k, v] of await recheckContrast(page, mine)) rechecked.set(k, v);
+      } catch (err) {
+        recheckError = firstLine(err);
+      }
+    };
+    let capture: PageCapture | null = null;
+    let captureError: string | null = null;
     try {
-      const capture = await capturePage(page, affectedTargets(raw));
-      return { raw, capture, captureError: null };
+      capture = await capturePage(page, affectedTargets(raw), onView);
     } catch (err) {
-      return { raw, capture: null, captureError: firstLine(err) };
+      captureError = firstLine(err);
     }
+    const applied = applyContrastRecheck(raw, rechecked);
+    return {
+      raw: applied.raw,
+      capture,
+      captureError,
+      contrastRecheck: { checked: rechecked.size, changed: applied.changed, error: recheckError },
+    };
   });
   if (!opened.ok) return opened;
   if ('analysisError' in opened.value) {
@@ -129,6 +169,7 @@ export async function scanPage(
     raw: opened.value.raw,
     capture: opened.value.capture,
     captureError: opened.value.captureError,
+    contrastRecheck: opened.value.contrastRecheck,
     finalUrl: opened.finalUrl,
     httpStatus: opened.httpStatus,
     blockedRequests: opened.blockedRequests,

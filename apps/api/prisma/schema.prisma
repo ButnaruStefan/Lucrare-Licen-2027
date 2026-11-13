@@ -95,9 +95,9 @@ model LegalProfile {
   projectId      String   @unique @map("project_id")
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   framework      String   @default("RO_OUG_112_2018") // cadrul normativ evaluat
-  answers        Json     // raspunsurile brute la chestionar
-  status         String   // ex. "in_scope", "out_of_scope", "uncertain"
-  assessment     Json     // concluzia structurata: aplicabilitate, articole aplicabile etc.
+  answers        Json // raspunsurile brute la chestionar
+  status         String // ex. "in_scope", "out_of_scope", "uncertain"
+  assessment     Json // concluzia structurata: aplicabilitate, articole aplicabile etc.
   catalogVersion String   @map("catalog_version") // versiunea catalogului la momentul evaluarii
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -147,13 +147,13 @@ model Scan {
   status         ScanStatus @default(queued)
   wcagProfile    String     @default("WCAG_2_2_AA") @map("wcag_profile") // standardul verificat
   config         Json // viewport, limba, timeout etc. — fixate la creare
-  engineName      String?    @map("engine_name") // ex. "axe-core"
-  engineVersion   String?    @map("engine_version") // ex. "4.13.0"
-  browserVersion  String?    @map("browser_version") // ex. "Chrome 155.0.8059.40"
-  catalogVersion  String?    @map("catalog_version") // versiunea catalogului normativ la momentul scanarii
-  rawAxeResult    Json?      @map("raw_axe_result") // rezultatul brut, pastrat neschimbat ca dovada
-  errorCode       String?    @map("error_code") // ex. "NAVIGATION_TIMEOUT" (doar daca a esuat)
-  errorMessage    String?    @map("error_message")
+  engineName     String?    @map("engine_name") // ex. "axe-core"
+  engineVersion  String?    @map("engine_version") // ex. "4.13.0"
+  browserVersion String?    @map("browser_version") // ex. "Chrome 155.0.8059.40"
+  catalogVersion String?    @map("catalog_version") // versiunea catalogului normativ la momentul scanarii
+  rawAxeResult   Json?      @map("raw_axe_result") // rezultatul brut, pastrat neschimbat ca dovada
+  errorCode      String?    @map("error_code") // ex. "NAVIGATION_TIMEOUT" (doar daca a esuat)
+  errorMessage   String?    @map("error_message")
   createdAt      DateTime   @default(now()) @map("created_at")
   startedAt      DateTime?  @map("started_at")
   finishedAt     DateTime?  @map("finished_at")
@@ -171,15 +171,19 @@ model Scan {
 // Interfata deseneaza peste ea chenarele elementelor afectate ("harta problemelor").
 // Separata de "scans" ca lista scanarilor sa nu incarce niciodata imaginile.
 model ScanScreenshot {
-  scanId     String   @id @map("scan_id")
-  scan       Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  image      Bytes // imaginea (WebP), cel mult cateva sute de KB
-  format     String // tipul imaginii, ex. "webp"
-  width      Int // latimea capturii, in pixeli CSS
-  height     Int // inaltimea capturii (taiata la limita, daca pagina e foarte lunga)
-  pageHeight Int      @map("page_height") // inaltimea reala a paginii
-  truncated  Boolean // true = pagina era mai lunga decat captura
-  createdAt  DateTime @default(now()) @map("created_at")
+  scanId       String   @id @map("scan_id")
+  scan         Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  image        Bytes // imaginea (WebP), cel mult cateva sute de KB
+  format       String // tipul imaginii, ex. "webp"
+  width        Int // latimea capturii, in pixeli CSS
+  height       Int // inaltimea capturii (taiata la limita, daca pagina e foarte lunga)
+  pageHeight   Int      @map("page_height") // inaltimea reala a paginii
+  truncated    Boolean // true = pagina era mai lunga decat captura
+  // Captura facuta ecran cu ecran: inaltimea unui ecran si derularea la care a fost fotografiat
+  // fiecare (ecranele sunt unul sub altul in imagine). null / [] = o singura imagine a paginii.
+  frameHeight  Int?     @map("frame_height")
+  frameOffsets Int[]    @default([]) @map("frame_offsets")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("scan_screenshots")
 }
@@ -219,10 +223,10 @@ model AffectedElement {
   fingerprint    String
   // Pozitia elementului in captura paginii (pixeli CSS, fata de coltul paginii).
   // null = elementul nu se vede in captura (ascuns, fara dimensiune sau intr-un iframe).
-  boxX      Int? @map("box_x")
-  boxY      Int? @map("box_y")
-  boxWidth  Int? @map("box_width")
-  boxHeight Int? @map("box_height")
+  boxX           Int?       @map("box_x")
+  boxY           Int?       @map("box_y")
+  boxWidth       Int?       @map("box_width")
+  boxHeight      Int?       @map("box_height")
 
   @@index([ruleResultId])
   @@index([fingerprint])

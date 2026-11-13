@@ -2944,10 +2944,43 @@ button:disabled {
   width: 100%;
 }
 
+.issue-map__canvas {
+  overflow: hidden;
+}
+
+/* Imaginea are toate ecranele unul sub altul; fiecare ecran o decupeaza la partea lui */
 .issue-map__image {
+  position: absolute;
+  left: 0;
   display: block;
   width: 100%;
-  height: 100%;
+  max-width: none;
+}
+
+/* Ecranele capturii, despartite ca fotografii separate */
+.issue-map__frame + .issue-map__frame {
+  margin-top: 0.75rem;
+}
+
+.issue-map__frame-label {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 0.3rem 0.75rem;
+  background: var(--surface);
+  border-block: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.issue-map__intro {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .issue-map__boxes {

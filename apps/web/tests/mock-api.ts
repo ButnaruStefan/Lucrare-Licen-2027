@@ -64,8 +64,11 @@ export function makeScan(overrides: Partial<Scan> = {}): Scan {
       format: 'webp',
       width: 1366,
       height: 2000,
-      pageHeight: 2000,
+      pageHeight: 1950,
       truncated: false,
+      // Doua ecrane de 1000 px, fotografiate la derularea 0 si 950 (ultimul s-a oprit la capat)
+      frameHeight: 1000,
+      frameOffsets: [0, 950],
     },
     ...overrides,
   });
