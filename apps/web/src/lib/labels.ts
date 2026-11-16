@@ -12,6 +12,7 @@ import type {
   ScanStatus,
   WcagProfile,
 } from '@ro-a11y/shared';
+import { distinctPageLabels } from '@ro-a11y/shared';
 
 /** Aplicabilitatea OUG 112/2018 (din profilul juridic al proiectului). */
 export const APPLICABILITY_LABELS: Record<ApplicabilityStatus, string> = {
@@ -98,4 +99,25 @@ export function formatDuration(startIso: string | null, endIso: string | null): 
   if (!startIso || !endIso) return '—';
   const seconds = Math.max(0, (new Date(endIso).getTime() - new Date(startIso).getTime()) / 1000);
   return seconds < 60 ? `${Math.round(seconds)} s` : `${Math.round(seconds / 60)} min`;
+}
+
+/**
+ * Titlul unei pagini a site-ului, cu litera mare la inceput. Titlurile vin din textul linkurilor
+ * din meniu sau, pentru paginile gasite doar in sitemap.xml, din adresa (ex. "universitati").
+ */
+export function pageTitle(label: string): string {
+  const text = label.trim();
+  return text.charAt(0).toLocaleUpperCase('ro-RO') + text.slice(1);
+}
+
+/**
+ * Numele distincte ale paginilor unui audit (dupa adresa): paginile cu acelasi nume primesc
+ * contextul din adresa (ex. "Evenimente › Iasi (EN)"), cu litera mare la inceput.
+ */
+export function auditPageTitles(
+  pages: ReadonlyArray<{ pageUrl: string; label: string | null }>,
+): Map<string, string> {
+  const named = pages.filter((p) => p.label).map((p) => ({ url: p.pageUrl, label: p.label! }));
+  const names = distinctPageLabels(named);
+  return new Map([...names].map(([url, label]) => [url, pageTitle(label)]));
 }

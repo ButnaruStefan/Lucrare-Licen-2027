@@ -3,7 +3,8 @@
  * sumarul pe categorii si lista rezultatelor, cu filtre. Daca scanarea are captura paginii,
  * problemele si cazurile de verificat apar langa "harta problemelor" (`IssueMap`): regula
  * de sub mouse, cu focus sau deschisa isi evidentiaza elementele pe captura. Daca pagina face parte dintr-un
- * audit, calea de navigare (breadcrumb) duce inapoi la audit.
+ * audit, calea de navigare (breadcrumb) duce inapoi la audit, iar titlul e cel al paginii
+ * (din meniul site-ului), cu adresa ei dedesubt; altfel titlul e data scanarii.
  *
  * Accesibilitate:
  *   - schimbarea starii scanarii e anuntata de cititorul de ecran (role="status");
@@ -22,7 +23,7 @@ import {
   type ScreenshotInfo,
 } from '@ro-a11y/shared';
 import { ApiRequestError } from '../api/client';
-import { useProject, useScan, useScanResults } from '../api/queries';
+import { useAuditOfScan, useProject, useScan, useScanResults } from '../api/queries';
 import { ScanStatusBadge } from '../components/Badges';
 import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
 import { IssueMap } from '../components/IssueMap';
@@ -33,6 +34,7 @@ import {
   CATEGORY_LABELS,
   formatDate,
   formatDuration,
+  auditPageTitles,
   IMPACT_LABELS,
   WCAG_PROFILE_LABELS,
 } from '../lib/labels';
@@ -61,6 +63,9 @@ export function ScanPage() {
 function ScanView({ scan }: { scan: Scan }) {
   const project = useProject(scan.projectId);
   const results = useScanResults(scan.id, scan.status === 'completed');
+  // Pagina unui audit are titlul ei (din meniul site-ului); o scanare separata, doar data
+  const audit = useAuditOfScan(scan.auditId);
+  const label = audit.data ? auditPageTitles(audit.data.pages).get(scan.pageUrl) : undefined;
 
   return (
     <>
@@ -75,8 +80,14 @@ function ScanView({ scan }: { scan: Scan }) {
         )}
         <span aria-hidden="true">›</span> Scanare
       </p>
-      <PageHeading title={`Scanare din ${formatDate(scan.createdAt)}`} />
-      <p className="lead url">{scan.pageUrl}</p>
+      <PageHeading title={label ?? `Scanare din ${formatDate(scan.createdAt)}`} />
+      <p className="lead">
+        <a href={scan.pageUrl} className="url" target="_blank" rel="noopener noreferrer">
+          {scan.pageUrl}
+          <span className="visually-hidden"> (se deschide într-o filă nouă)</span>
+        </a>
+      </p>
+      {label && <p className="muted scan-date">Scanată pe {formatDate(scan.createdAt)}</p>}
 
       <div role="status" className="scan-status">
         <StatusText scan={scan} />

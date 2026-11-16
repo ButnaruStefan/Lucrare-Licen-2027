@@ -14,6 +14,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import {
   AUDIT_ID,
   completedAudit,
+  discovered,
   DISCOVERED_PAGES,
   HOSTILE_HTML,
   makeAudit,
@@ -692,6 +693,24 @@ describe('harta problemelor', () => {
 });
 
 describe('auditul pe mai multe pagini', () => {
+  it('pagina unui audit are ca titlu titlul paginii (cu litera mare), apoi adresa si data', async () => {
+    const audit = completedAudit();
+    const inAudit = audit.pages.find((p) => p.label === 'declaratie accesibilitate')!;
+    await mockApi(page, {
+      audit,
+      scanSequence: [makeScan({ id: inAudit.scanId, auditId: AUDIT_ID, pageUrl: inAudit.pageUrl })],
+    });
+    await page.goto(`${baseUrl}/scanari/${inAudit.scanId}`);
+    await page.getByRole('heading', { level: 1, name: 'Declaratie accesibilitate' }).waitFor();
+    await page.getByRole('link', { name: new RegExp(inAudit.pageUrl) }).waitFor();
+    await page.getByText(/^Scanată pe /).waitFor();
+
+    // In lista paginilor auditului, acelasi titlu, tot cu litera mare
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+    await page.getByRole('link', { name: 'Declaratie accesibilitate' }).waitFor();
+    expect(await axeViolations()).toEqual([]);
+  });
+
   const proposed = DISCOVERED_PAGES.filter((p) => p.proposed);
 
   it('pornirea unui audit duce la pagina auditului', async () => {
@@ -723,12 +742,15 @@ describe('auditul pe mai multe pagini', () => {
     // Grupul mare isi ascunde paginile nepropuse; pagina aleatorie ramane vizibila
     await page.getByText(/Arată încă \d+ pagini/).waitFor();
     expect(await page.getByRole('checkbox', { name: /rapoarte/ }).isVisible()).toBe(true);
-    // Ce nu a fost verificat: servicii externe si documente
+    // Ce nu a fost verificat: servicii externe si documente, cu adresa completa a linkului
     await page
       .locator('li', { hasText: 'Plăți online' })
-      .getByText('https://www.ghiseul.ro')
+      .getByText('https://www.ghiseul.ro/ghiseul/public/taxe')
       .waitFor();
-    await page.getByText('Hotărârea nr. 12/2026').waitFor();
+    await page
+      .locator('li', { hasText: 'Hotărârea nr. 12/2026' })
+      .getByText(/hcl-12\.pdf$/)
+      .waitFor();
     expect(await axeViolations()).toEqual([]);
   });
 
@@ -758,6 +780,85 @@ describe('auditul pe mai multe pagini', () => {
     expect(urls).toContain(`${PROJECT.baseUrl}primaria/organigrama`);
     expect(urls).not.toContain(`${PROJECT.baseUrl}primaria/conducerea`);
     expect(urls.at(-1)).toBe(`${PROJECT.baseUrl}pagina-noua`);
+  });
+
+  it('la 20 de pagini alese restul nu mai pot fi bifate; paginile cu acelasi nume se deosebesc', async () => {
+    const sitemap = (path: string, label: string) => ({
+      ...discovered(path, label, null),
+      region: 'sitemap' as const,
+    });
+    const audit = makeAudit();
+    audit.discovery!.pages = [
+      ...DISCOVERED_PAGES,
+      sitemap('evenimente/iasi', 'Iasi'),
+      sitemap('voluntariat/iasi', 'Iasi'),
+      sitemap('en/evenimente/iasi', 'Iasi'),
+      ...Array.from({ length: 14 }, (_, i) => sitemap(`oportunitati/o-${i}`, `Oportunitate ${i}`)),
+    ];
+    await mockApi(page, { audit });
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+    // Grupurile mari isi arata toate paginile (dupa ce formularul apare)
+    await page.getByRole('heading', { name: 'Alege paginile de verificat' }).waitFor();
+    for (const more of await page.getByText(/Arată încă \d+ pagini/).all()) await more.click();
+
+    // Acelasi nume ("Iasi"), deosebit prin contextul din adresa
+    await page.getByRole('checkbox', { name: /^Evenimente › Iasi \/evenimente/ }).waitFor();
+    await page.getByRole('checkbox', { name: /^Voluntariat › Iasi / }).waitFor();
+    await page.getByRole('checkbox', { name: /^Evenimente › Iasi \(EN\)/ }).waitFor();
+
+    // Bifam pana la limita
+    const free = page.getByRole('checkbox', { checked: false, disabled: false });
+    while (!(await page.getByText('20 pagini alese').isVisible())) await free.first().check();
+    await page.getByText('Ai ajuns la limită: debifează o pagină ca să alegi alta.').waitFor();
+    expect(await free.count()).toBe(0);
+    expect(await page.getByRole('checkbox', { disabled: true }).count()).toBeGreaterThan(0);
+
+    // Nici adaugarea manuala nu mai e posibila
+    await page
+      .getByLabel('Adaugă o pagină care lipsește (opțional)')
+      .fill(`${PROJECT.baseUrl}pagina-noua`);
+    await page.getByRole('button', { name: 'Adaugă pagina' }).click();
+    await page.getByText(/Ai ales deja 20 de pagini/).waitFor();
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('o pagina care nu exista e verificata pe server si respinsa langa camp', async () => {
+    await mockApi(page, {
+      pageCheck: () => ({
+        exists: false,
+        code: 'NOT_FOUND',
+        message: 'Pagina nu există pe site (serverul a răspuns cu 404).',
+      }),
+    });
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+    const field = page.getByLabel('Adaugă o pagină care lipsește (opțional)');
+    await field.fill(`${PROJECT.baseUrl}nuexistsigur`);
+    await page.getByRole('button', { name: 'Adaugă pagina' }).click();
+
+    await page.getByText('Pagina nu există pe site (serverul a răspuns cu 404).').waitFor();
+    expect(await page.getByRole('group', { name: 'Adăugate de tine' }).count()).toBe(0);
+    await expect
+      .poll(() => field.evaluate((el) => el === document.activeElement), { timeout: 10_000 })
+      .toBe(true);
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('o adresa care redirectioneaza e adaugata cu pagina finala', async () => {
+    await mockApi(page, {
+      pageCheck: () => ({ exists: true, url: `${PROJECT.baseUrl}pagina-noua`, redirected: true }),
+    });
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+    await page
+      .getByLabel('Adaugă o pagină care lipsește (opțional)')
+      .fill(`${PROJECT.baseUrl}pagina-veche`);
+    await page.getByRole('button', { name: 'Adaugă pagina' }).click();
+
+    const added = page.getByRole('group', { name: 'Adăugate de tine' });
+    await added.getByText('/pagina-noua').waitFor();
+    expect(await added.getByText('/pagina-veche').count()).toBe(0);
+    await page
+      .getByText('Adresa redirecționează: am adăugat pagina finală, /pagina-noua.')
+      .waitFor();
   });
 
   it('o adresa de pe alt site e respinsa langa camp, iar focusul merge pe el', async () => {

@@ -3,7 +3,8 @@
  *
  * Paginile sunt grupate pe sectiuni (meniul din care fac parte), cu cele propuse automat deja
  * bifate si motivul propunerii afisat langa ele. Utilizatorul poate bifa, debifa sau adauga
- * manual o adresa de pe acelasi site. Paginile interzise de robots.txt apar nebifate si
+ * manual o adresa de pe acelasi site; inainte de a fi adaugata, serverul verifica daca pagina
+ * exista (si e o pagina web), iar daca adresa redirectioneaza, se adauga adresa finala. Paginile interzise de robots.txt apar nebifate si
  * marcate: nu sunt propuse automat, dar utilizatorul le poate alege, constient.
  * Folosit de pagina auditului (`AuditPage`).
  *
@@ -11,15 +12,25 @@
  *   - fiecare sectiune e un grup (fieldset + legend), fiecare pagina o casuta cu eticheta;
  *   - numarul de pagini alese e anuntat de cititorul de ecran (role="status");
  *   - grupurile mari isi ascund paginile nepropuse intr-un <details>, ca lista sa ramana scurta;
- *   - la o eroare, focusul ajunge pe mesaj (sau pe campul gresit).
+ *   - la o eroare, focusul ajunge pe mesaj (sau pe campul gresit);
+ *   - la limita de pagini (AUDIT_MAX_PAGES), casutele nebifate se dezactiveaza, iar mesajul
+ *     anuntat spune sa debifezi o pagina ca sa alegi alta.
+ * Paginile cu acelasi nume (ex. doua "Iasi") primesc contextul din adresa (`distinctPageLabels`).
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { AUDIT_MAX_PAGES, type Audit, type DiscoveredPage, type Discovery } from '@ro-a11y/shared';
-import { useSelectAuditPages } from '../api/queries';
+import {
+  AUDIT_MAX_PAGES,
+  distinctPageLabels,
+  type Audit,
+  type DiscoveredPage,
+  type Discovery,
+} from '@ro-a11y/shared';
+import { useCheckAuditPage, useSelectAuditPages } from '../api/queries';
+import { ApiRequestError } from '../api/client';
 import { ErrorMessage } from './Feedback';
 import { TextField } from './TextField';
 import { useFocusFirstInvalid } from '../lib/focus';
-import { SELECTION_REASON_LABELS } from '../lib/labels';
+import { pageTitle, SELECTION_REASON_LABELS } from '../lib/labels';
 
 /** Cate pagini arata un grup inainte de "Arata inca N pagini". */
 const VISIBLE_PER_GROUP = 6;
@@ -62,6 +73,9 @@ export function PageSelectionForm({ audit }: { audit: Audit }) {
   const [manual, setManual] = useState<string[]>([]);
   const [manualInput, setManualInput] = useState('');
   const [manualError, setManualError] = useState<string | undefined>();
+  /** Confirmarea ultimei pagini adaugate (anuntata de cititorul de ecran). */
+  const [manualNote, setManualNote] = useState<string | null>(null);
+  const checkPage = useCheckAuditPage(audit.id);
   const [localError, setLocalError] = useState<string | null>(null);
   const [failedSubmits, setFailedSubmits] = useState(0);
   /** Creste la fiecare trimitere respinsa (local sau de server): mutam focusul pe mesaj. */
@@ -78,6 +92,9 @@ export function PageSelectionForm({ audit }: { audit: Audit }) {
   const groups = groupPages(discovery);
   const proposedCount = discovery.pages.filter((p) => p.proposed).length;
   const chosenCount = checked.size + manual.length;
+  // La limita, nu se mai pot alege pagini noi (doar debifa)
+  const atLimit = chosenCount >= AUDIT_MAX_PAGES;
+  const names = distinctPageLabels(discovery.pages);
   const scopeHost = new URL(discovery.finalUrl).hostname.replace(/^www\./, '');
 
   function toggle(url: string, on: boolean) {
@@ -87,33 +104,78 @@ export function PageSelectionForm({ audit }: { audit: Audit }) {
     setChecked(next);
   }
 
-  function addManual() {
+  function rejectManual(message: string) {
+    setManualError(message);
+    setManualNote(null);
+    setFailedSubmits((n) => n + 1);
+  }
+
+  /** Adauga in lista o adresa (daca nu e deja), bifand-o daca e printre paginile gasite. */
+  function include(value: string) {
+    const known = discovery.pages.find((p) => p.url === value);
+    if (known) toggle(known.url, true);
+    else if (!manual.includes(value)) setManual((list) => [...list, value]);
+  }
+
+  async function addManual() {
+    if (checkPage.isPending) return;
     let url: URL;
     try {
       url = new URL(manualInput.trim());
     } catch {
-      setManualError('Adresa nu este validă (ex. https://site.ro/pagina).');
-      setFailedSubmits((n) => n + 1);
+      rejectManual('Adresa nu este validă (ex. https://site.ro/pagina).');
       return;
     }
     if (
       !['http:', 'https:'].includes(url.protocol) ||
       url.hostname.replace(/^www\./, '') !== scopeHost
     ) {
-      setManualError(`Pagina trebuie să fie de pe site-ul auditat (${discovery.scope}).`);
-      setFailedSubmits((n) => n + 1);
+      rejectManual(`Pagina trebuie să fie de pe site-ul auditat (${discovery.scope}).`);
       return;
     }
     url.hash = '';
     const value = url.toString();
-    const known = discovery.pages.find((p) => p.url === value);
-    if (known) {
-      toggle(known.url, true);
-    } else if (!manual.includes(value)) {
-      setManual([...manual, value]);
+    const alreadyChosen = checked.has(value) || manual.includes(value);
+    if (atLimit && !alreadyChosen) {
+      rejectManual(
+        `Ai ales deja ${AUDIT_MAX_PAGES} de pagini, cât permite un audit. Debifează una ca să adaugi alta.`,
+      );
+      return;
     }
-    setManualInput('');
+    // Pagina e deja printre cele gasite sau adaugate: nu mai e nevoie de verificare
+    if (discovery.pages.some((p) => p.url === value) || manual.includes(value)) {
+      include(value);
+      setManualInput('');
+      setManualError(undefined);
+      setManualNote(`Pagina ${shortPath(value)} este deja în listă și a fost bifată.`);
+      return;
+    }
+
+    // Verificarea pe server: exista? e pagina web? ramane pe site dupa redirectionari?
     setManualError(undefined);
+    setManualNote(null);
+    let result;
+    try {
+      result = await checkPage.mutateAsync({ url: value });
+    } catch (err) {
+      rejectManual(
+        err instanceof ApiRequestError
+          ? err.message
+          : 'Verificarea paginii nu a reușit. Încearcă din nou.',
+      );
+      return;
+    }
+    if (!result.exists) {
+      rejectManual(result.message);
+      return;
+    }
+    include(result.url);
+    setManualInput('');
+    setManualNote(
+      result.redirected
+        ? `Adresa redirecționează: am adăugat pagina finală, ${shortPath(result.url)}.`
+        : `Pagina ${shortPath(result.url)} există și a fost adăugată.`,
+    );
   }
 
   function handleSubmit(event: FormEvent) {
@@ -178,13 +240,25 @@ export function PageSelectionForm({ audit }: { audit: Audit }) {
                   ({group.pages.length} {group.pages.length === 1 ? 'pagină' : 'pagini'})
                 </span>
               </legend>
-              <PageCheckboxes pages={visible} checked={checked} onToggle={toggle} />
+              <PageCheckboxes
+                pages={visible}
+                checked={checked}
+                onToggle={toggle}
+                names={names}
+                full={atLimit}
+              />
               {hidden.length > 0 && (
                 <details className="page-group__more">
                   <summary>
                     Arată încă {hidden.length} {hidden.length === 1 ? 'pagină' : 'pagini'}
                   </summary>
-                  <PageCheckboxes pages={hidden} checked={checked} onToggle={toggle} />
+                  <PageCheckboxes
+                    pages={hidden}
+                    checked={checked}
+                    onToggle={toggle}
+                    names={names}
+                    full={atLimit}
+                  />
                 </details>
               )}
             </fieldset>
@@ -220,11 +294,14 @@ export function PageSelectionForm({ audit }: { audit: Audit }) {
             name="pagina-manuala"
             type="url"
             value={manualInput}
-            onChange={(e) => setManualInput(e.target.value)}
+            onChange={(e) => {
+              setManualInput(e.target.value);
+              setManualNote(null);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                if (manualInput.trim()) addManual();
+                if (manualInput.trim()) void addManual();
               }
             }}
             error={manualError}
@@ -232,16 +309,19 @@ export function PageSelectionForm({ audit }: { audit: Audit }) {
           <button
             type="button"
             className="button-secondary"
-            onClick={addManual}
-            disabled={!manualInput.trim()}
+            onClick={() => void addManual()}
+            disabled={!manualInput.trim() || checkPage.isPending}
           >
-            Adaugă pagina
+            {checkPage.isPending ? 'Se verifică…' : 'Adaugă pagina'}
           </button>
         </div>
+        <p role="status" className="page-selection__note">
+          {checkPage.isPending ? 'Verific dacă pagina există…' : manualNote}
+        </p>
 
         <p role="status" className="page-selection__count">
           {chosenCount === 1 ? '1 pagină aleasă' : `${chosenCount} pagini alese`} (cel mult{' '}
-          {AUDIT_MAX_PAGES})
+          {AUDIT_MAX_PAGES}){atLimit && ' Ai ajuns la limită: debifează o pagină ca să alegi alta.'}
         </p>
         <button type="submit" disabled={select.isPending}>
           {select.isPending ? 'Se pornește...' : `Scanează paginile alese (${chosenCount})`}
@@ -259,10 +339,16 @@ function PageCheckboxes({
   pages,
   checked,
   onToggle,
+  names,
+  full,
 }: {
   pages: DiscoveredPage[];
   checked: Set<string>;
   onToggle: (url: string, on: boolean) => void;
+  /** Numele afisate, distincte (pagini cu acelasi nume primesc contextul din adresa). */
+  names: Map<string, string>;
+  /** S-a ajuns la limita de pagini: cele nebifate nu mai pot fi alese. */
+  full: boolean;
 }) {
   return (
     <ul className="page-list">
@@ -276,10 +362,12 @@ function PageCheckboxes({
               name="pagini"
               value={page.url}
               checked={checked.has(page.url)}
+              disabled={full && !checked.has(page.url)}
               onChange={(e) => onToggle(page.url, e.target.checked)}
             />
             <label htmlFor={id}>
-              {page.label} <span className="url muted">{shortPath(page.url)}</span>
+              {pageTitle(names.get(page.url) ?? page.label)}{' '}
+              <span className="url muted">{shortPath(page.url)}</span>
               {page.proposed && (
                 <>
                   {' '}

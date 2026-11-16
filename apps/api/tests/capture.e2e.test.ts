@@ -255,11 +255,12 @@ describe('calculul pozitiilor (scriptul rulat in pagina)', () => {
 
   afterEach(() => context.close());
 
-  it('Shadow DOM, element ascuns, iframe si selector invalid', async () => {
+  it('Shadow DOM, element ascuns, iframe, selector invalid si display: contents', async () => {
     await page.setContent(`
       <div id="gazda"></div>
       <p id="vizibil" style="margin:0;position:absolute;top:1500px;left:40px;width:100px;height:20px">x</p>
-      <p id="ascuns" style="display:none">y</p>`);
+      <p id="ascuns" style="display:none">y</p>
+      <nav id="continut" style="display:contents"><a href="#" style="position:absolute;top:100px;left:200px;width:80px;height:30px;display:block">a</a></nav>`);
     await page.evaluate(`(() => {
       const root = document.getElementById("gazda").attachShadow({ mode: "open" });
       root.innerHTML = '<a class="in-umbra" href="#" style="display:inline-block;width:50px;height:10px">z</a>';
@@ -272,6 +273,7 @@ describe('calculul pozitiilor (scriptul rulat in pagina)', () => {
         [['#gazda', 'a.in-umbra']],
         ['iframe', 'p'],
         ['p:::invalid'],
+        ['#continut'],
       ])})`,
     );
 
@@ -282,6 +284,8 @@ describe('calculul pozitiilor (scriptul rulat in pagina)', () => {
       expect.objectContaining({ width: 50, height: 10, view: 'full' }), // din Shadow DOM
       null, // dintr-un iframe: nu primeste pozitie
       null, // selector invalid: nu strica restul
+      // display: contents (fara cutie proprie): dreptunghiul continutului (linkul din el)
+      expect.objectContaining({ x: 200, y: 100, width: 80, height: 30, view: 'full' }),
     ]);
   });
 

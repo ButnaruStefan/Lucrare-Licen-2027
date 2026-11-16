@@ -79,59 +79,61 @@ Nu e un crawler: nu merge din link in link, citeste doar pagina de start si site
 
 ## Continut
 
-| Cale                              | Rol                                                                                        |
-| --------------------------------- | ------------------------------------------------------------------------------------------ |
-| `src/index.ts`                    | Pornirea API-ului: citeste configurarea, conecteaza DB, porneste serverul                  |
-| `src/worker.ts`                   | Pornirea worker-ului: porneste browserul, preia scanarile din coada si le proceseaza       |
-| `src/app.ts`                      | Construieste aplicatia Express (middleware + rute). Separat de pornire, pentru teste       |
-| `src/config/env.ts`               | Valideaza variabilele din `.env` la pornire                                                |
-| `src/db/prisma.ts`                | Conexiunea la PostgreSQL prin Prisma                                                       |
-| `src/lib/logger.ts`               | Loguri structurate (Pino), cu date sensibile ascunse                                       |
-| `src/lib/validation.ts`           | Valideaza datele primite; la eroare raspunde 400 cu lista campurilor gresite               |
-| `src/middleware/`                 | Functii care ruleaza pentru fiecare cerere (ID, loguri, erori)                             |
-| `src/routes/`                     | Endpointurile API, pe domenii (`health`, `projects`, `legal-profile`, `scans`, `audits`)   |
-| `src/safety/url-guard.ts`         | Paznicul adreselor (protectie SSRF), folosit in API si pentru fiecare cerere a browserului |
-| `src/scanner/browser.ts`          | Pornirea browserului (Chrome instalat, Edge sau Chromium), cu limite de timp               |
-| `src/scanner/page-scan.ts`        | Deschiderea sigura a unei pagini (`openGuardedPage`) si scanarea ei cu axe-core            |
-| `src/scanner/capture.ts`          | Parcurge pagina ecran cu ecran: captura (WebP) si pozitia elementelor, pentru harta        |
-| `src/scanner/contrast-recheck.ts` | Re-verifica pe ecran contrastul elementelor semnalate (sectiuni estompate la derulare)     |
-| `src/discovery/`                  | Descoperirea paginilor unui audit: linkuri, robots.txt, sitemap.xml, esantionul propus     |
-| `src/audits/`                     | Coada descoperirilor (tabelul `audits`) si procesarea unei descoperiri                     |
-| `src/scanner/normalize.ts`        | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`     |
-| `src/scans/queue.ts`              | Coada de scanari din PostgreSQL: rezervare, finalizare, esec                               |
-| `@ro-a11y/catalog` (pachet)       | Lantul de trasabilitate adaugat fiecarui rezultat (`buildTrace`)                           |
-| `src/scans/process-scan.ts`       | Procesarea completa a unei scanari (verificare, scanare, salvare)                          |
-| `src/scans/worker-loop.ts`        | Un pas al worker-ului: browser pregatit inainte de rezervare, ceas de paza, erori prinse   |
-| `src/generated/`                  | Cod **generat automat** de Prisma. Nu se editeaza si nu e in Git                           |
-| `prisma/schema.prisma`            | Schema bazei de date (tabelele)                                                            |
-| `prisma/migrations/`              | Istoricul modificarilor de schema, ca fisiere SQL                                          |
-| `prisma/seed.ts`                  | Adauga proiectele demo (cele doua site-uri de antrenament)                                 |
-| `prisma.config.ts`                | Configurarea uneltei Prisma                                                                |
-| `tests/`                          | Teste automate (Vitest + Supertest), pe baza de date separata `ro_a11y_test`               |
-| `vitest.config.ts`                | Configurarea testelor (adresa bazei de test, pregatirea ei)                                |
-| `.env.example`                    | Model pentru `.env` (configurarea locala, inclusiv setarile scannerului)                   |
+| Cale                              | Rol                                                                                                  |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/index.ts`                    | Pornirea API-ului: citeste configurarea, conecteaza DB, porneste serverul                            |
+| `src/worker.ts`                   | Pornirea worker-ului: porneste browserul, preia scanarile din coada si le proceseaza                 |
+| `src/app.ts`                      | Construieste aplicatia Express (middleware + rute). Separat de pornire, pentru teste                 |
+| `src/config/env.ts`               | Valideaza variabilele din `.env` la pornire                                                          |
+| `src/db/prisma.ts`                | Conexiunea la PostgreSQL prin Prisma                                                                 |
+| `src/lib/logger.ts`               | Loguri structurate (Pino), cu date sensibile ascunse                                                 |
+| `src/lib/validation.ts`           | Valideaza datele primite; la eroare raspunde 400 cu lista campurilor gresite                         |
+| `src/middleware/`                 | Functii care ruleaza pentru fiecare cerere (ID, loguri, erori)                                       |
+| `src/routes/`                     | Endpointurile API, pe domenii (`health`, `projects`, `legal-profile`, `scans`, `audits`)             |
+| `src/safety/url-guard.ts`         | Paznicul adreselor (protectie SSRF), folosit in API si pentru fiecare cerere a browserului           |
+| `src/safety/page-check.ts`        | Verifica daca o pagina adaugata manual intr-un audit exista (prin paznic, IP verificat la conectare) |
+| `src/scanner/browser.ts`          | Pornirea browserului (Chrome instalat, Edge sau Chromium), cu limite de timp                         |
+| `src/scanner/page-scan.ts`        | Deschiderea sigura a unei pagini (`openGuardedPage`) si scanarea ei cu axe-core                      |
+| `src/scanner/capture.ts`          | Parcurge pagina ecran cu ecran: captura (WebP) si pozitia elementelor, pentru harta                  |
+| `src/scanner/contrast-recheck.ts` | Re-verifica pe ecran contrastul elementelor semnalate (sectiuni estompate la derulare)               |
+| `src/discovery/`                  | Descoperirea paginilor unui audit: linkuri, robots.txt, sitemap.xml, esantionul propus               |
+| `src/audits/`                     | Coada descoperirilor (tabelul `audits`) si procesarea unei descoperiri                               |
+| `src/scanner/normalize.ts`        | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`               |
+| `src/scans/queue.ts`              | Coada de scanari din PostgreSQL: rezervare, finalizare, esec                                         |
+| `@ro-a11y/catalog` (pachet)       | Lantul de trasabilitate adaugat fiecarui rezultat (`buildTrace`)                                     |
+| `src/scans/process-scan.ts`       | Procesarea completa a unei scanari (verificare, scanare, salvare)                                    |
+| `src/scans/worker-loop.ts`        | Un pas al worker-ului: browser pregatit inainte de rezervare, ceas de paza, erori prinse             |
+| `src/generated/`                  | Cod **generat automat** de Prisma. Nu se editeaza si nu e in Git                                     |
+| `prisma/schema.prisma`            | Schema bazei de date (tabelele)                                                                      |
+| `prisma/migrations/`              | Istoricul modificarilor de schema, ca fisiere SQL                                                    |
+| `prisma/seed.ts`                  | Adauga proiectele demo (cele doua site-uri de antrenament)                                           |
+| `prisma.config.ts`                | Configurarea uneltei Prisma                                                                          |
+| `tests/`                          | Teste automate (Vitest + Supertest), pe baza de date separata `ro_a11y_test`                         |
+| `vitest.config.ts`                | Configurarea testelor (adresa bazei de test, pregatirea ei)                                          |
+| `.env.example`                    | Model pentru `.env` (configurarea locala, inclusiv setarile scannerului)                             |
 
 ## Endpointuri existente
 
-| Metoda | Ruta                                        | Raspuns                                                                                                                         |
-| ------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/health`                                   | 200 cat timp procesul ruleaza                                                                                                   |
-| GET    | `/api/v1/health/ready`                      | 200 daca si baza de date raspunde, altfel 503                                                                                   |
-| POST   | `/api/v1/projects`                          | Creeaza un proiect (`name`, `baseUrl`); 201, 400 la date invalide, 409 daca exista deja un proiect pentru aceeasi adresa        |
-| GET    | `/api/v1/projects`                          | Lista proiectelor, cele mai noi primele                                                                                         |
-| GET    | `/api/v1/projects/:projectId`               | Un proiect; 404 daca nu exista                                                                                                  |
-| GET    | `/api/v1/projects/:projectId/legal-profile` | Intrebarile chestionarului OUG 112/2018 si profilul salvat (sau `null`)                                                         |
-| PUT    | `/api/v1/projects/:projectId/legal-profile` | Salveaza raspunsurile si evaluarea lor; 400 daca lipseste un raspuns necesar                                                    |
-| POST   | `/api/v1/projects/:projectId/scans`         | Pune o scanare in coada (202); 400 daca adresa e nesigura sau de pe alt site                                                    |
-| GET    | `/api/v1/projects/:projectId/scans`         | Scanarile separate ale proiectului, cu sumar (paginile unui audit apar in audit)                                                |
-| POST   | `/api/v1/projects/:projectId/audits`        | Porneste un audit pe mai multe pagini (202); `startUrl`, `maxPages` (1-20, implicit 10), profil                                 |
-| GET    | `/api/v1/projects/:projectId/audits`        | Auditurile proiectului, cu starea si progresul                                                                                  |
-| GET    | `/api/v1/audits/:auditId`                   | Un audit: paginile gasite si propuse, ce nu s-a verificat, progresul, paginile scanate                                          |
-| POST   | `/api/v1/audits/:auditId/selection`         | Confirma paginile alese (`urls`, 1-20); 400 pentru o pagina de pe alt site, 409 daca au fost deja alese                         |
-| GET    | `/api/v1/audits/:auditId/results`           | Rezultatele pe tot site-ul: reguli pe pagini si probleme comune                                                                 |
-| GET    | `/api/v1/scans/:scanId`                     | O scanare: stare, configuratie, versiuni, sumar, dimensiunile capturii (`screenshot`)                                           |
-| GET    | `/api/v1/scans/:scanId/screenshot`          | Captura paginii (imagine WebP, memorata de browser); 404 daca scanarea nu are captura                                           |
-| GET    | `/api/v1/scans/:scanId/results`             | Rezultatele pe reguli, cu elementele afectate (si pozitia lor, `box`) si lantul de trasabilitate (filtru `?category=violation`) |
+| Metoda | Ruta                                        | Raspuns                                                                                                                                                    |
+| ------ | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/health`                                   | 200 cat timp procesul ruleaza                                                                                                                              |
+| GET    | `/api/v1/health/ready`                      | 200 daca si baza de date raspunde, altfel 503                                                                                                              |
+| POST   | `/api/v1/projects`                          | Creeaza un proiect (`name`, `baseUrl`); 201, 400 la date invalide, 409 daca exista deja un proiect pentru aceeasi adresa                                   |
+| GET    | `/api/v1/projects`                          | Lista proiectelor, cele mai noi primele                                                                                                                    |
+| GET    | `/api/v1/projects/:projectId`               | Un proiect; 404 daca nu exista                                                                                                                             |
+| GET    | `/api/v1/projects/:projectId/legal-profile` | Intrebarile chestionarului OUG 112/2018 si profilul salvat (sau `null`)                                                                                    |
+| PUT    | `/api/v1/projects/:projectId/legal-profile` | Salveaza raspunsurile si evaluarea lor; 400 daca lipseste un raspuns necesar                                                                               |
+| POST   | `/api/v1/projects/:projectId/scans`         | Pune o scanare in coada (202); 400 daca adresa e nesigura sau de pe alt site                                                                               |
+| GET    | `/api/v1/projects/:projectId/scans`         | Scanarile separate ale proiectului, cu sumar (paginile unui audit apar in audit)                                                                           |
+| POST   | `/api/v1/projects/:projectId/audits`        | Porneste un audit pe mai multe pagini (202); `startUrl`, `maxPages` (1-20, implicit 10), profil                                                            |
+| GET    | `/api/v1/projects/:projectId/audits`        | Auditurile proiectului, cu starea si progresul                                                                                                             |
+| GET    | `/api/v1/audits/:auditId`                   | Un audit: paginile gasite si propuse, ce nu s-a verificat, progresul, paginile scanate                                                                     |
+| POST   | `/api/v1/audits/:auditId/page-check`        | Verifica o pagina adaugata manual (`url`): `{ exists, url, redirected }` sau `{ exists: false, code, message }`; 400 alt site / document, 409 dupa alegere |
+| POST   | `/api/v1/audits/:auditId/selection`         | Confirma paginile alese (`urls`, 1-20); 400 pentru o pagina de pe alt site, 409 daca au fost deja alese                                                    |
+| GET    | `/api/v1/audits/:auditId/results`           | Rezultatele pe tot site-ul: reguli pe pagini si probleme comune                                                                                            |
+| GET    | `/api/v1/scans/:scanId`                     | O scanare: stare, configuratie, versiuni, sumar, dimensiunile capturii (`screenshot`)                                                                      |
+| GET    | `/api/v1/scans/:scanId/screenshot`          | Captura paginii (imagine WebP, memorata de browser); 404 daca scanarea nu are captura                                                                      |
+| GET    | `/api/v1/scans/:scanId/results`             | Rezultatele pe reguli, cu elementele afectate (si pozitia lor, `box`) si lantul de trasabilitate (filtru `?category=violation`)                            |
 
 ## Coduri de eroare ale unei scanari (sau descoperiri) esuate
 

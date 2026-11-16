@@ -26,6 +26,7 @@ import type {
   LinkRegion,
   ScanConfig,
 } from '@ro-a11y/shared';
+import { distinctPageLabels } from '@ro-a11y/shared';
 import type { RequestGuard } from '../safety/url-guard';
 import { openGuardedPage, type PageFailure } from '../scanner/page-scan';
 import { classifyLink, dedupeKey, normalizePageUrl, scopeFor, scopeLabel } from './links';
@@ -189,7 +190,12 @@ function labelFromUrl(url: string): string {
   } catch {
     // adresa cu caractere codificate gresit: pastram forma originala
   }
-  return decoded.replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ');
+  const words = decoded
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[-_]+/g, ' ')
+    .trim();
+  // Litera mare la inceput, ca la titlurile din meniu (ex. "universitati" -> "Universitati")
+  return words.charAt(0).toLocaleUpperCase('ro-RO') + words.slice(1);
 }
 
 export interface DiscoverOptions {
@@ -276,7 +282,10 @@ export function buildDiscovery(
   for (const link of data.links) consider(link.href, link.text, link.section, link.region);
   for (const loc of data.sitemapLocs) consider(loc, '', null, 'sitemap');
 
-  const pages = [...candidates.values()];
+  // Numele care se repeta (ex. /evenimente/iasi si /voluntariat/iasi, ambele "Iasi") primesc
+  // contextul din adresa, ca utilizatorul sa le deosebeasca
+  const names = distinctPageLabels([...candidates.values()]);
+  const pages = [...candidates.values()].map((page) => ({ ...page, label: names.get(page.url)! }));
   // Propunerea automata foloseste doar paginile permise de robots.txt
   const proposal = proposeSample(
     startUrl,

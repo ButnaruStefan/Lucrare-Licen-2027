@@ -9,6 +9,7 @@ import {
   auditResultsSchema,
   auditSchema,
   legalProfileAnswersSchema,
+  pageCheckSchema,
   projectSchema,
   ruleResultSchema,
   scanConfigSchema,
@@ -17,6 +18,7 @@ import {
   type AuditResults,
   type DiscoveredPage,
   type LegalProfile,
+  type PageCheck,
   type Project,
   type RuleResult,
   type Scan,
@@ -191,7 +193,7 @@ export const RESULTS: RuleResult[] = [
 export const AUDIT_ID = '33333333-3333-4333-8333-333333333333';
 const SITE = PROJECT.baseUrl;
 
-function discovered(
+export function discovered(
   path: string,
   label: string,
   section: string | null,
@@ -254,7 +256,11 @@ export function makeAudit(overrides: Partial<Audit> = {}): Audit {
       linksFound: 42,
       pages: DISCOVERED_PAGES,
       external: [
-        { origin: 'https://www.ghiseul.ro', url: 'https://www.ghiseul.ro/', label: 'Plăți online' },
+        {
+          origin: 'https://www.ghiseul.ro',
+          url: 'https://www.ghiseul.ro/ghiseul/public/taxe',
+          label: 'Plăți online',
+        },
       ],
       documents: [{ url: `${SITE}hcl-12.pdf`, label: 'Hotărârea nr. 12/2026', extension: 'pdf' }],
       excluded: { non_http: 2, same_page: 3 },
@@ -370,6 +376,8 @@ export interface MockApiOptions {
   selection?: { status: number; body: unknown };
   /** Primeste corpul cererii de selectie (ca testul sa verifice paginile trimise). */
   onSelection?: (body: unknown) => void;
+  /** Raspunsul verificarii unei pagini adaugate manual (implicit: exista, fara redirectionare). */
+  pageCheck?: (url: string) => PageCheck;
 }
 
 /** Data fixa a evaluarii in profilul simulat. */
@@ -450,6 +458,11 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
     const res = options.selection ?? { status: 200, body: completedAudit() };
     if (res.status === 200) audit = auditSchema.parse(res.body);
     return route.fulfill(json(res.body, res.status));
+  });
+  await page.route('**/api/v1/audits/*/page-check', (route) => {
+    const { url } = route.request().postDataJSON() as { url: string };
+    const result = options.pageCheck?.(url) ?? { exists: true, url, redirected: false };
+    return route.fulfill(json(pageCheckSchema.parse(result)));
   });
   await page.route('**/api/v1/audits/*/results', (route) => route.fulfill(json(AUDIT_RESULTS)));
   await page.route(/\/api\/v1\/audits\/[^/]+$/, (route) => route.fulfill(json(audit)));

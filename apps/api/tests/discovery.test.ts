@@ -4,6 +4,7 @@
  * construirea rezultatului descoperirii.
  */
 import { describe, expect, it } from 'vitest';
+import { distinctPageLabels } from '@ro-a11y/shared';
 import { buildDiscovery } from '../src/discovery/discover';
 import { classifyLink, dedupeKey, scopeFor, scopeLabel } from '../src/discovery/links';
 import { parseRobots } from '../src/discovery/robots';
@@ -244,7 +245,8 @@ describe('buildDiscovery', () => {
       [`${START}admin/`, 'footer', false, true],
       [`${START}declaratie-accesibilitate`, 'sitemap', true, false],
     ]);
-    expect(discovery.pages[3]!.label).toBe('declaratie accesibilitate');
+    // Pagina gasita doar in sitemap: titlul din adresa, cu litera mare
+    expect(discovery.pages[3]!.label).toBe('Declaratie accesibilitate');
     expect(discovery.pages.some((p) => p.selected)).toBe(false);
     expect(discovery.documents).toEqual([
       { url: `${START}hcl.pdf`, label: 'Hotărâre', extension: 'pdf' },
@@ -257,5 +259,34 @@ describe('buildDiscovery', () => {
     expect(discovery.robots).toEqual({ found: true, blocked: 1 });
     expect(discovery.sitemap).toEqual({ found: true, urls: 2 });
     expect(discovery.linksFound).toBe(6);
+  });
+});
+
+describe('distinctPageLabels', () => {
+  const site = 'https://cvisor.ro/';
+  const page = (path: string, label: string) => ({ url: `${site}${path}`, label });
+
+  it('numele care se repeta primesc sectiunile parinte si limba; celelalte raman la fel', () => {
+    const names = distinctPageLabels([
+      page('evenimente/iasi', 'Iasi'),
+      page('voluntariat/iasi', 'Iasi'),
+      page('en/evenimente/iasi', 'Iasi'),
+      page('universitati', 'Universitati'),
+      page('en/universitati', 'Universitati'),
+      page('contact', 'Contact'),
+    ]);
+    expect([...names.values()]).toEqual([
+      'Evenimente › Iasi',
+      'Voluntariat › Iasi',
+      'Evenimente › Iasi (EN)',
+      'Universitati',
+      'Universitati (EN)',
+      'Contact',
+    ]);
+  });
+
+  it('daca tot se repeta (aceeasi cale, alti parametri), se adauga calea', () => {
+    const names = distinctPageLabels([page('stiri?p=1', 'Stiri'), page('stiri?p=2', 'Stiri')]);
+    expect([...names.values()]).toEqual(['Stiri (/stiri?p=1)', 'Stiri (/stiri?p=2)']);
   });
 });

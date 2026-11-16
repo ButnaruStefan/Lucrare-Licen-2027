@@ -12,6 +12,9 @@
  * - Elementele cat toata pagina (ex. <html> la "html-has-lang") nu primesc chenar: ar acoperi
  *   tot. Regulile lor apar ca etichete "Pentru toata pagina", iar cand sunt active, conturul
  *   capturii se coloreaza.
+ * - Numarul regulii e o eticheta lipita de chenar, pe dinafara (in stanga lui; deasupra, sub
+ *   el sau in colt cand nu are loc), ca sa nu acopere textul din chenar si sa nu fie taiata de
+ *   marginea ecranului.
  * - Fara regula activa, chenarele sunt doar contur si numarul apare pe primul element al
  *   fiecarei reguli (harta ramane lizibila); regula activa isi numeroteaza toate elementele.
  *
@@ -36,6 +39,30 @@ export interface MapRule {
 
 /** Peste ce parte din latimea si inaltimea capturii un element e considerat "toata pagina". */
 const PAGE_LEVEL_SHARE = 0.9;
+
+/**
+ * Cat loc (in pixeli de imagine) trebuie sa fie langa un chenar ca eticheta cu numarul sa stea
+ * acolo. Eticheta are ~20 px pe ecran, iar captura e afisata micsorata (cam la jumatate).
+ */
+const LABEL_ROOM = 40;
+
+/**
+ * Unde sta eticheta cu numarul, pe dinafara chenarului, ca sa nu acopere continutul lui:
+ *   - in stanga (de obicei marginea libera a paginii; nu cade nici peste chenarele care il
+ *     cuprind, care incep de regula in aceeasi coloana);
+ *   - deasupra, daca chenarul e lipit de marginea stanga;
+ *   - sub el, daca e lipit si de marginea de sus a ecranului;
+ *   - in coltul lui, pe dinauntru, daca nu are loc nicaieri (ex. un antet cat ecranul).
+ */
+function labelPlacement(
+  box: { x: number; y: number; height: number },
+  frame: { top: number; height: number },
+): 'left' | 'above' | 'below' | 'inside' {
+  if (box.x >= LABEL_ROOM) return 'left';
+  if (box.y - frame.top >= LABEL_ROOM) return 'above';
+  if (frame.top + frame.height - (box.y + box.height) >= LABEL_ROOM) return 'below';
+  return 'inside';
+}
 
 /** Spatiul lasat deasupra elementului cand captura deruleaza pana la el, in pixeli de ecran. */
 const SCROLL_MARGIN = 48;
@@ -207,7 +234,7 @@ export function IssueMap({
               <div className="issue-map__boxes" aria-hidden="true">
                 {markers
                   .filter((m) => m.frame.index === frame.index)
-                  .map(({ rule, number, element, box }) => (
+                  .map(({ rule, number, element, box, frame: f }) => (
                     <div
                       key={element.id}
                       data-element-id={element.id}
@@ -223,7 +250,11 @@ export function IssueMap({
                     >
                       {(rule.id === activeRuleId ||
                         firstOfRule.has(`${rule.id}:${element.id}`)) && (
-                        <span className="issue-map__number">{number}</span>
+                        <span
+                          className={`issue-map__number issue-map__number--${labelPlacement(box, f)}`}
+                        >
+                          {number}
+                        </span>
                       )}
                     </div>
                   ))}

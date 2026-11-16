@@ -17,6 +17,7 @@ import {
   auditSchema,
   legalProfileResponseSchema,
   legalProfileSchema,
+  pageCheckSchema,
   projectListSchema,
   projectSchema,
   ruleResultListSchema,
@@ -30,6 +31,7 @@ import {
   type CreateScanInput,
   type LegalProfileAnswers,
   type LegalProfileResponse,
+  type PageCheckInput,
 } from '@ro-a11y/shared';
 import { apiRequest } from './client';
 
@@ -242,6 +244,30 @@ export function useSelectAuditPages(auditId: string) {
         queryKey: queryKeys.projectAudits(audit.projectId),
       });
     },
+  });
+}
+
+/**
+ * Auditul din care face parte o scanare (pentru titlul paginii), doar daca face parte dintr-unul.
+ * Aceeasi cheie ca `useAudit`, deci datele deja incarcate de pagina auditului sunt refolosite.
+ */
+export function useAuditOfScan(auditId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.audit(auditId ?? ''),
+    queryFn: ({ signal }) =>
+      apiRequest(`/api/v1/audits/${encodeURIComponent(auditId!)}`, auditSchema, { signal }),
+    enabled: auditId !== null,
+  });
+}
+
+/** Verifica o pagina adaugata manual (exista, e pagina web, e pe site) inainte de a o adauga. */
+export function useCheckAuditPage(auditId: string) {
+  return useMutation({
+    mutationFn: (input: PageCheckInput) =>
+      apiRequest(`/api/v1/audits/${encodeURIComponent(auditId)}/page-check`, pageCheckSchema, {
+        method: 'POST',
+        body: input,
+      }),
   });
 }
 

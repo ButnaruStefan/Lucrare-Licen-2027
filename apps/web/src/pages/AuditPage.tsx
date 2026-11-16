@@ -30,7 +30,9 @@ import { PageHeading } from '../components/PageHeading';
 import { PageSelectionForm } from '../components/PageSelectionForm';
 import {
   EXCLUSION_LABELS,
+  auditPageTitles,
   formatDate,
+  pageTitle,
   SELECTION_REASON_LABELS,
   WCAG_PROFILE_LABELS,
 } from '../lib/labels';
@@ -225,23 +227,24 @@ function AuditOverview({ audit, results }: { audit: Audit; results: AuditResults
 
 /** Paginile auditului, in ordinea scanarii; fiecare rand duce la scanarea paginii. */
 function PagesList({ audit }: { audit: Audit }) {
+  const titles = auditPageTitles(audit.pages);
   return (
     <ol className="page-rows">
       {audit.pages.map((page) => (
-        <PageRow key={page.scanId} page={page} />
+        <PageRow key={page.scanId} page={page} title={titles.get(page.pageUrl) ?? null} />
       ))}
     </ol>
   );
 }
 
-function PageRow({ page }: { page: AuditPageItem }) {
+function PageRow({ page, title }: { page: AuditPageItem; title: string | null }) {
   const path = new URL(page.pageUrl).pathname;
   const reasons = page.reasons.map((r) => SELECTION_REASON_LABELS[r]).join(', ');
   return (
     <li className="page-row">
       <div className="page-row__main">
         <Link to={`/scanari/${page.scanId}`} className="page-row__name">
-          {page.label ?? page.pageUrl}
+          {title ?? page.pageUrl}
         </Link>
         <span className="page-row__path">{path}</span>
       </div>
@@ -280,14 +283,17 @@ function DiscoveryDetails({ discovery }: { discovery: Discovery }) {
         <div className="info-panel">
           <h3>Servicii externe ({discovery.external.length})</h3>
           <p className="muted">
-            Linkuri spre alte site-uri (ex. plăți online, portaluri). Fac parte din serviciul
-            public, dar nu sunt scanate în acest audit; pot fi auditate separat, ca proiect nou.
+            Linkuri spre alte site-uri (ex. plăți online, portaluri), cu numele lor din pagină și
+            adresa completă (primul link spre fiecare site). Fac parte din serviciul public, dar nu
+            sunt scanate în acest audit; pot fi auditate separat, ca proiect nou.
           </p>
           {discovery.external.length > 0 ? (
             <ul className="audit-page-links">
               {discovery.external.map((service) => (
                 <li key={service.origin}>
-                  {service.label} <span className="url muted">{service.origin}</span>
+                  {service.label}
+                  {/* Adresa completa a linkului din pagina (nu doar domeniul) */}
+                  <span className="url muted info-panel__url">{service.url}</span>
                 </li>
               ))}
             </ul>
@@ -305,7 +311,8 @@ function DiscoveryDetails({ discovery }: { discovery: Discovery }) {
             <ul className="audit-page-links">
               {discovery.documents.map((doc) => (
                 <li key={doc.url}>
-                  {doc.label} <span className="tag">{doc.extension.toUpperCase()}</span>
+                  {pageTitle(doc.label)} <span className="tag">{doc.extension.toUpperCase()}</span>
+                  <span className="url muted info-panel__url">{doc.url}</span>
                 </li>
               ))}
             </ul>

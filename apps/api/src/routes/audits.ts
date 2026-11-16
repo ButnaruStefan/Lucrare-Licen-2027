@@ -6,6 +6,9 @@
  * - GET  /api/v1/projects/:projectId/audits — auditurile proiectului, cele mai noi primele
  * - GET  /api/v1/audits/:auditId            — un audit: starea, paginile gasite si propuse,
  *                                             progresul scanarii paginilor alese
+ * - POST /api/v1/audits/:auditId/page-check — verifica o pagina adaugata manual, inainte de a
+ *                                             o pune in lista: exista, e pagina web, e de pe
+ *                                             site-ul auditat (cererea trece prin paznic)
  * - POST /api/v1/audits/:auditId/selection  — confirma paginile alese; fiecare devine o
  *                                             scanare obisnuita, pusa in coada
  * - GET  /api/v1/audits/:auditId/results    — rezultatele adunate de pe toate paginile:
@@ -34,12 +37,15 @@ import {
   type CommonIssue,
   type DiscoveredPage,
   type Impact,
+  type PageCheck,
+  pageCheckInputSchema,
 } from '@ro-a11y/shared';
 import { CATALOG_VERSION, remediationFor } from '@ro-a11y/catalog';
 import type { Database } from '../db/prisma';
 import { HttpError } from '../middleware/errors';
 import { validate } from '../lib/validation';
 import { checkUrl, type UrlGuardOptions } from '../safety/url-guard';
+import { checkPage } from '../safety/page-check';
 import { classifyLink, dedupeKey, scopeFor } from '../discovery/links';
 import { isBestPractice } from '../scanner/normalize';
 import { loadSummaries } from './scans';
@@ -48,7 +54,11 @@ export interface AuditsDeps {
   db: Database;
   guardOptions: UrlGuardOptions;
   scanTimeoutMs: number;
+  /** Limita de timp pentru verificarea unei pagini adaugate manual (implicit 10 s). */
+  pageCheckTimeoutMs?: number;
 }
+
+const PAGE_CHECK_TIMEOUT_MS = 10_000;
 
 const LIST_LIMIT = 50;
 const IMPACT_ORDER: Array<Impact | null> = ['critical', 'serious', 'moderate', 'minor', null];
@@ -228,7 +238,12 @@ async function loadAuditResults(db: Database, auditId: string): Promise<AuditRes
   };
 }
 
-export function auditsRouter({ db, guardOptions, scanTimeoutMs }: AuditsDeps): Router {
+export function auditsRouter({
+  db,
+  guardOptions,
+  scanTimeoutMs,
+  pageCheckTimeoutMs = PAGE_CHECK_TIMEOUT_MS,
+}: AuditsDeps): Router {
   const router = Router();
 
   router.post('/api/v1/projects/:projectId/audits', async (req, res) => {
@@ -294,6 +309,37 @@ export function auditsRouter({ db, guardOptions, scanTimeoutMs }: AuditsDeps): R
     const row = await db.audit.findUnique({ where: { id: req.params.auditId } });
     if (!row) throw auditNotFound();
     res.json(await loadAuditDto(db, row));
+  });
+
+  router.post('/api/v1/audits/:auditId/page-check', async (req, res) => {
+    if (!isUuid(req.params.auditId)) throw auditNotFound();
+    const input = validate(pageCheckInputSchema, req.body ?? {});
+    const row = await db.audit.findUnique({ where: { id: req.params.auditId } });
+    if (!row) throw auditNotFound();
+    const discovery = parseDiscovery(row);
+    if (row.status !== 'awaiting_selection' || !discovery) {
+      throw new HttpError(
+        409,
+        'AUDIT_NOT_AWAITING_SELECTION',
+        'Paginile acestui audit au fost deja alese sau nu au fost încă găsite.',
+      );
+    }
+    // Aceleasi reguli ca la selectie: din sectiunea auditata, nu un document
+    const scope = scopeFor(discovery.finalUrl);
+    const result = classifyLink(input.url, scope, discovery.finalUrl);
+    if (result.kind !== 'page') {
+      const message =
+        result.kind === 'document'
+          ? 'Documentele (PDF, Word, Excel) nu pot fi verificate automat.'
+          : `Pagina trebuie să fie de pe site-ul auditat (${discovery.scope}).`;
+      throw new HttpError(400, 'PAGE_NOT_IN_AUDIT', message, [{ field: 'url', message }]);
+    }
+    const check: PageCheck = await checkPage(result.url, {
+      guard: guardOptions,
+      timeoutMs: pageCheckTimeoutMs,
+      inScope: (url) => classifyLink(url, scope, discovery.finalUrl).kind === 'page',
+    });
+    res.json(check);
   });
 
   router.post('/api/v1/audits/:auditId/selection', async (req, res) => {

@@ -35,6 +35,7 @@
  * Selectorii vin din axe-core (`node.target`): un sir = selector CSS in documentul principal;
  * mai multe elemente in lista = elementul e intr-un iframe; o lista in lista = Shadow DOM.
  * Elementele din iframe-uri nu primesc pozitie (ar trebui adunata si pozitia cadrului).
+ * Un element cu "display: contents" (fara cutie proprie) primeste dreptunghiul continutului lui.
  */
 import type { Page } from 'playwright';
 
@@ -149,7 +150,15 @@ export const ELEMENT_BOXES_SCRIPT = `(targets) => {
       return null; // selector invalid
     }
     if (!element || hiddenByCapture(element)) return null;
-    const rect = element.getBoundingClientRect();
+    let rect = element.getBoundingClientRect();
+    // "display: contents": elementul nu are cutie proprie (0 x 0), dar continutul lui se vede
+    // (ex. <nav style="display:contents"> cu linkurile meniului). Luam dreptunghiul care
+    // cuprinde tot continutul (Range.getBoundingClientRect).
+    if ((rect.width < 1 || rect.height < 1) && getComputedStyle(element).display === "contents") {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      rect = range.getBoundingClientRect();
+    }
     if (rect.width < 1 || rect.height < 1) return null; // ascuns sau fara dimensiune
     const inX = rect.right > 0 && rect.left < vw;
     const inY = rect.bottom > 0 && rect.top < vh;

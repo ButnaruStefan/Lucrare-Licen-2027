@@ -5,7 +5,8 @@
  *   1. descoperirea: worker-ul deschide pagina de start si gaseste paginile site-ului
  *      (`discoverySchema`: pagini candidate, servicii externe, documente, ce a fost exclus si de ce);
  *   2. selectia: aplicatia propune un esantion, iar utilizatorul il confirma sau il modifica
- *      (`auditSelectionSchema`);
+ *      (`auditSelectionSchema`); o pagina adaugata manual e verificata intai
+ *      (`pageCheckSchema`: exista, e pagina web, e de pe acelasi site);
  *   3. scanarea: fiecare pagina aleasa devine o scanare obisnuita; rezultatele se aduna pe
  *      tot site-ul (`auditResultsSchema`: reguli pe pagini si probleme comune).
  *
@@ -134,6 +135,41 @@ export const auditSelectionSchema = z.object({
     }),
 });
 export type AuditSelectionInput = z.input<typeof auditSelectionSchema>;
+
+/** Verificarea unei pagini adaugate manual, inainte de a o pune in lista: exista? */
+export const pageCheckInputSchema = z.object({ url: projectUrlSchema });
+export type PageCheckInput = z.input<typeof pageCheckInputSchema>;
+
+/** De ce o pagina adaugata manual nu poate fi folosita. */
+export const PAGE_CHECK_FAILURES = [
+  'NOT_FOUND',
+  'HTTP_ERROR',
+  'NOT_HTML',
+  'UNREACHABLE',
+  'TIMEOUT',
+  'TOO_MANY_REDIRECTS',
+  'UNSAFE_URL',
+  'OUTSIDE_SITE',
+] as const;
+
+/**
+ * Rezultatul verificarii: pagina exista (cu adresa finala, dupa redirectionari) sau motivul
+ * pentru care nu poate fi folosita, cu un mesaj pentru utilizator.
+ */
+export const pageCheckSchema = z.discriminatedUnion('exists', [
+  z.object({
+    exists: z.literal(true),
+    /** Adresa finala (alta decat cea introdusa, daca serverul a redirectionat). */
+    url: z.string(),
+    redirected: z.boolean(),
+  }),
+  z.object({
+    exists: z.literal(false),
+    code: z.enum(PAGE_CHECK_FAILURES),
+    message: z.string(),
+  }),
+]);
+export type PageCheck = z.infer<typeof pageCheckSchema>;
 
 /** O pagina scanata in cadrul auditului. */
 export const auditPageSchema = z.object({

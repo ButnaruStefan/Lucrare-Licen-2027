@@ -8,4 +8,5 @@ export * from './projects';
 export * from './legal-profile';
 export * from './scans';
 export * from './audits';
+export * from './page-labels';
 export * from './traceability';

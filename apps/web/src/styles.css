@@ -1266,6 +1266,30 @@ button:disabled {
   font-weight: 600;
 }
 
+/* Data scanarii, sub titlul si adresa paginii */
+.scan-date {
+  margin-top: -0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Adresa completa sub numele unui link (servicii externe, documente) */
+.info-panel__url {
+  display: block;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+/* Confirmarea paginii adaugate manual (sau "Verific dacă pagina există…") */
+.page-selection__note {
+  margin: -0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.page-selection__note:empty {
+  display: none;
+}
+
 .audit-page__url {
   display: block;
   font-weight: 400;
@@ -3043,20 +3067,47 @@ button:disabled {
 
 /* Numarul regulii, in coltul chenarului */
 .issue-map__number {
+  /* Eticheta lipita de chenar, pe dinafara (ca o fila de dosar): nu acopera continutul */
   position: absolute;
-  top: -0.7rem;
-  left: -0.7rem;
-  min-width: 1.35rem;
-  height: 1.35rem;
-  padding: 0 0.3rem;
+  bottom: 100%;
+  left: -2px;
+  z-index: 1;
+  min-width: 1.3rem;
+  height: 1.2rem;
+  padding: 0 0.35rem;
   display: grid;
   place-items: center;
-  border-radius: 999px;
+  border-radius: 4px 4px 0 0;
   color: #ffffff;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 800;
   line-height: 1;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* Implicit: in stanga chenarului, aliniata cu marginea lui de sus */
+.issue-map__number--left {
+  top: -2px;
+  right: 100%;
+  bottom: auto;
+  left: auto;
+  border-radius: 4px 0 0 4px;
+}
+
+/* Chenarul e lipit de marginea de sus a ecranului: eticheta trece sub el */
+.issue-map__number--below {
+  top: 100%;
+  bottom: auto;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Chenarul umple ecranul pe inaltime: eticheta sta in coltul lui, pe dinauntru */
+.issue-map__number--inside {
+  top: 0;
+  bottom: auto;
+  left: 0;
+  border-radius: 0 0 4px 0;
 }
 
 .issue-map__box--violation .issue-map__number {
