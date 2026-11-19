@@ -8,6 +8,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   apiErrorSchema,
   ruleResultListSchema,
+  scanLayoutSchema,
   scanConfigSchema,
   scanListSchema,
   scanSchema,
@@ -59,6 +60,39 @@ describe('POST /api/v1/projects/:projectId/scans', () => {
       pageUrl: 'https://exemplu.ro/contact',
       config: { wcagProfile: 'WCAG_2_1_AA', includeBestPractices: false },
     });
+  });
+
+  it('se poate alege ce se verifica: doar aspectul, ambele; nu nimic (400)', async () => {
+    const project = await createProject();
+    const url = `/api/v1/projects/${project.id}/scans`;
+
+    const layoutOnly = await request(app)
+      .post(url)
+      .send({ checks: { accessibility: false, layout: true } });
+    expect(layoutOnly.status).toBe(202);
+    expect(scanSchema.parse(layoutOnly.body).config.checks).toEqual({
+      accessibility: false,
+      layout: true,
+    });
+
+    const both = await request(app)
+      .post(url)
+      .send({ checks: { accessibility: true, layout: true } });
+    expect(scanSchema.parse(both.body).config.checks).toEqual({
+      accessibility: true,
+      layout: true,
+    });
+
+    const none = await request(app)
+      .post(url)
+      .send({ checks: { accessibility: false, layout: false } });
+    expect(none.status).toBe(400);
+    expect(apiErrorSchema.parse(none.body).error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('o scanare veche, fara alegerea verificarilor, a verificat doar accesibilitatea', () => {
+    const config = scanConfigSchema.parse({ wcagProfile: 'WCAG_2_1_AA' });
+    expect(config.checks).toEqual({ accessibility: true, layout: false });
   });
 
   it('respinge o pagina de pe alt site (400 PAGE_NOT_IN_PROJECT)', async () => {
@@ -360,5 +394,147 @@ describe('GET scanari si rezultate', () => {
       (await request(app).get(`/api/v1/scans/${scan.id}/results?category=altceva`)).status,
     ).toBe(400);
     expect((await request(app).get('/api/v1/scans/nu-e-uuid')).status).toBe(404);
+  });
+});
+
+describe('verificarea aspectului paginii', () => {
+  async function createLayoutScan(withLayout: boolean) {
+    const project = await createProject();
+    const scan = await testDb.scan.create({
+      data: {
+        projectId: project.id,
+        pageUrl: 'https://exemplu.ro/',
+        config: scanConfigSchema.parse({ checks: { accessibility: false, layout: true } }),
+      },
+    });
+    await completeScan(testDb, scan.id, {
+      raw: null,
+      results: [],
+      layout: withLayout
+        ? {
+            error: null,
+            result: {
+              widths: [1400, 1340, 320],
+              breakpoints: [
+                { feature: 'min-width', px: 768, text: '(min-width: 768px)', source: null },
+              ],
+              metaViewport: 'width=device-width',
+              durationMs: 4200,
+              partial: false,
+              issues: [
+                {
+                  kind: 'media-queries-suprapuse',
+                  level: 'possible',
+                  widthMin: 768,
+                  widthMax: 768,
+                  elements: [],
+                  details: { rules: [{ text: '(max-width: 768px)', source: null }] },
+                  fingerprint: 'm1',
+                  image: null,
+                  boxes: [],
+                },
+                {
+                  kind: 'derulare-orizontala',
+                  level: 'visible',
+                  widthMin: 320,
+                  widthMax: 1160,
+                  elements: [{ selector: '#lat', htmlSnippet: '<div id="lat">', text: 'Tabel' }],
+                  details: { overflowPx: 400, pageWidth: 1200, edgeX: 800 },
+                  fingerprint: 'd1',
+                  image: {
+                    data: Buffer.from([0xff, 0xd8, 0xff]),
+                    format: 'jpeg',
+                    width: 1200,
+                    height: 150,
+                    viewportWidth: 800,
+                  },
+                  boxes: [{ x: 0, y: 24, width: 1200, height: 100 }],
+                },
+              ],
+            },
+          }
+        : { result: null, error: 'Pagina s-a inchis' },
+      finalUrl: 'https://exemplu.ro/',
+      httpStatus: 200,
+      engineVersion: null,
+      browserVersion: 'Chrome 155',
+    });
+    return { project, scan };
+  }
+
+  it('o scanare doar de aspect: fara axe-core, cu sumarul si semnalele (sigure primele)', async () => {
+    const { scan, project } = await createLayoutScan(true);
+
+    const dto = scanSchema.parse((await request(app).get(`/api/v1/scans/${scan.id}`)).body);
+    expect(dto.engineName).toBeNull();
+    expect(dto.layout).toEqual({ visible: 1, possible: 1, info: 0, failed: false });
+    const listed = scanListSchema.parse(
+      (await request(app).get(`/api/v1/projects/${project.id}/scans`)).body,
+    ).items[0]!;
+    expect(listed.layout).toEqual(dto.layout);
+
+    const res = await request(app).get(`/api/v1/scans/${scan.id}/layout`);
+    expect(res.status).toBe(200);
+    const layout = scanLayoutSchema.parse(res.body);
+    expect(layout).toMatchObject({
+      widths: [1400, 1340, 320],
+      metaViewport: 'width=device-width',
+      partial: false,
+      error: null,
+    });
+    expect(layout.issues.map((i) => i.kind)).toEqual([
+      'derulare-orizontala',
+      'media-queries-suprapuse',
+    ]);
+    const scroll = layout.issues[0]!;
+    expect(scroll.image).toEqual({
+      url: `/api/v1/scans/${scan.id}/layout/issues/${scroll.id}/image`,
+      width: 1200,
+      height: 150,
+      viewportWidth: 800,
+    });
+    expect(layout.issues[1]!.image).toBeNull();
+
+    const image = await request(app).get(scroll.image!.url);
+    expect(image.status).toBe(200);
+    expect(image.headers['content-type']).toBe('image/jpeg');
+    expect([...image.body]).toEqual([0xff, 0xd8, 0xff]);
+
+    // Imaginea unui semnal fara captura, sau a unui semnal din alta scanare: 404
+    const noImage = await request(app).get(
+      `/api/v1/scans/${scan.id}/layout/issues/${layout.issues[1]!.id}/image`,
+    );
+    expect(noImage.status).toBe(404);
+    const other = await createLayoutScan(true);
+    const wrongScan = await request(app).get(
+      `/api/v1/scans/${other.scan.id}/layout/issues/${scroll.id}/image`,
+    );
+    expect(wrongScan.status).toBe(404);
+  });
+
+  it('o verificare esuata e salvata cu motivul; fara verificare, ruta raspunde 404', async () => {
+    const { scan } = await createLayoutScan(false);
+    const dto = scanSchema.parse((await request(app).get(`/api/v1/scans/${scan.id}`)).body);
+    expect(dto.layout).toEqual({ visible: 0, possible: 0, info: 0, failed: true });
+    const layout = scanLayoutSchema.parse(
+      (await request(app).get(`/api/v1/scans/${scan.id}/layout`)).body,
+    );
+    expect(layout.error).toBe('Pagina s-a inchis');
+    expect(layout.issues).toEqual([]);
+
+    const project = await createProject();
+    const plain = await testDb.scan.create({
+      data: { projectId: project.id, pageUrl: 'https://exemplu.ro/', config: {} },
+    });
+    const missing = await request(app).get(`/api/v1/scans/${plain.id}/layout`);
+    expect(missing.status).toBe(404);
+    expect(apiErrorSchema.parse(missing.body).error.code).toBe('LAYOUT_NOT_FOUND');
+  });
+
+  it('stergerea scanarii sterge si verificarea aspectului (cascada)', async () => {
+    const { scan } = await createLayoutScan(true);
+    await testDb.scan.delete({ where: { id: scan.id } });
+    expect(await testDb.scanLayout.count()).toBe(0);
+    expect(await testDb.layoutIssue.count()).toBe(0);
   });
 });

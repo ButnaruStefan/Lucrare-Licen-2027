@@ -12,6 +12,7 @@ npm run dev:fixtures   # porneste serverul pe http://localhost:4000
 | --------------------------------- | ------------------------------------------------------------ |
 | http://localhost:4000/accessible/ | Varianta corecta: scannerul nu trebuie sa gaseasca nimic     |
 | http://localhost:4000/broken/     | Varianta cu 12 probleme detectabile automat + 6 doar manuale |
+| http://localhost:4000/aspect/     | Pagina cu 4 defecte de aranjare (A01-A04), pentru aspect     |
 
 ## Continut
 
@@ -49,3 +50,15 @@ imagine fara `alt`, lista fara eticheta, buton fara nume, contrast insuficient.
 - **Auditul pe 6 pagini ale broken-demo:** `html-has-lang`, `meta-viewport`, `link-name`,
   `landmark-one-main` si `region` apar pe toate paginile (probleme comune); `image-alt`,
   `select-name`, `button-name` si `color-contrast` pe cate 2 pagini.
+
+## Aspectul paginii (`aspect-demo/`)
+
+O singura pagina, folosita de verificarea aspectului (separata de accesibilitate), cu 4 defecte de
+aranjare puse intentionat si marcate in cod (`DEFECT Axx`, `data-defect`):
+
+| Cod | Defect                                                                                      | Semnal asteptat           |
+| --- | ------------------------------------------------------------------------------------------- | ------------------------- |
+| A01 | Titlul si meniul (pozitionat absolut) se suprapun pe ecrane mai inguste de ~700 px          | `elemente-suprapuse`      |
+| A02 | Tabelul cu latime fixa (1100 px) face pagina sa se deruleze pe orizontala                   | `derulare-orizontala`     |
+| A03 | `max-width: 768px` si `min-width: 768px`, ambele active la exact 768 px                     | `media-queries-suprapuse` |
+| A04 | Bara de linkuri cu inaltime fixa si `overflow: hidden` isi pierde linkurile pe doua randuri | `iese-din-container`      |

@@ -1,9 +1,11 @@
 /**
  * Procesarea completa a unei scanari rezervate din coada:
  *   1. verifica din nou adresa (intre crearea scanarii si rulare, DNS-ul se poate schimba);
- *   2. scaneaza pagina (browser + axe-core);
+ *   2. scaneaza pagina in browser: accesibilitatea (axe-core) si / sau aspectul paginii,
+ *      dupa ce a ales utilizatorul;
  *   3. normalizeaza rezultatul si il salveaza (impreuna cu captura paginii si pozitiile
- *      elementelor, pentru harta problemelor), sau salveaza motivul esecului.
+ *      elementelor, pentru harta problemelor, si cu semnalele de aspect), sau salveaza
+ *      motivul esecului.
  *
  * Primeste toate dependentele din exterior (baza de date, browser, paznic), deci poate fi
  * folosita la fel de worker si de teste.
@@ -18,6 +20,7 @@ import type { Browser } from 'playwright';
 import type { Database } from '../db/prisma';
 import type { Logger } from '../lib/logger';
 import { checkUrl, createRequestGuard, type UrlGuardOptions } from '../safety/url-guard';
+import { LAYOUT_BUDGET_MS } from '../scanner/layout-audit';
 import { normalizeAxeResults } from '../scanner/normalize';
 import { scanPage } from '../scanner/page-scan';
 import { completeScan, failScan, type ClaimedScan } from './queue';
@@ -37,9 +40,12 @@ export interface ProcessScanResult {
   browserHealthy: boolean;
 }
 
-/** Limita totala de timp a scanarii */
-export function defaultScanTimeLimitMs(pageTimeoutMs: number): number {
-  return pageTimeoutMs * 2 + 30_000;
+/**
+ * Limita totala de timp a scanarii. Verificarea aspectului are limita ei (LAYOUT_BUDGET_MS)
+ * pentru masuratori, plus timp pentru capturi.
+ */
+export function defaultScanTimeLimitMs(pageTimeoutMs: number, layout = false): number {
+  return pageTimeoutMs * 2 + 30_000 + (layout ? LAYOUT_BUDGET_MS + 30_000 : 0);
 }
 
 /** Clasa custom pentru a prinde timeout-ul scanarii (mosteneste Error)*/
@@ -68,7 +74,9 @@ export async function processScan(
 ): Promise<ProcessScanResult> {
   const { db, browser, browserVersion, guardOptions, logger } = deps;
   const log = logger.child({ scanId: scan.id, pageUrl: scan.pageUrl });
-  const timeLimitMs = deps.scanTimeLimitMs ?? defaultScanTimeLimitMs(scan.config.timeoutMs);
+  const timeLimitMs =
+    deps.scanTimeLimitMs ??
+    defaultScanTimeLimitMs(scan.config.timeoutMs, scan.config.checks.layout);
 
   try {
     // Verificarea adresei si scanarea, impreuna, sub aceeasi limita de timp.
@@ -113,28 +121,52 @@ export async function processScan(
       return { browserHealthy: true };
     }
 
-    // Fara captura, scanarea ramane valida: doar harta problemelor nu va fi disponibila.
-    if (!outcome.capture) log.warn({ reason: outcome.captureError }, 'Captura paginii a esuat');
-    if (outcome.contrastRecheck.error) {
-      log.warn({ reason: outcome.contrastRecheck.error }, 'Re-verificarea contrastului s-a oprit');
+    const { raw } = outcome;
+    if (raw) {
+      // Fara captura, scanarea ramane valida: doar harta problemelor nu va fi disponibila.
+      if (!outcome.capture) log.warn({ reason: outcome.captureError }, 'Captura paginii a esuat');
+      if (outcome.contrastRecheck.error) {
+        log.warn(
+          { reason: outcome.contrastRecheck.error },
+          'Re-verificarea contrastului s-a oprit',
+        );
+      }
+      log.info(
+        { checked: outcome.contrastRecheck.checked, changed: outcome.contrastRecheck.changed },
+        'Contrast re-verificat pe ecran',
+      );
     }
-    log.info(
-      { checked: outcome.contrastRecheck.checked, changed: outcome.contrastRecheck.changed },
-      'Contrast re-verificat pe ecran',
-    );
+    if (scan.config.checks.layout) {
+      if (outcome.layout) {
+        log.info(
+          {
+            widths: outcome.layout.widths.length,
+            issues: outcome.layout.issues.length,
+            durationMs: outcome.layout.durationMs,
+            partial: outcome.layout.partial,
+          },
+          'Aspectul paginii verificat',
+        );
+      } else {
+        log.warn({ reason: outcome.layoutError }, 'Verificarea aspectului a esuat');
+      }
+    }
     const boxes = outcome.capture?.boxes ?? new Map();
-    const results = normalizeAxeResults(outcome.raw, outcome.finalUrl, boxes);
+    const results = raw ? normalizeAxeResults(raw, outcome.finalUrl, boxes) : [];
     await completeScan(db, scan.id, {
-      raw: outcome.raw,
+      raw,
       results,
       capture: outcome.capture,
+      layout: scan.config.checks.layout
+        ? { result: outcome.layout, error: outcome.layoutError }
+        : null,
       finalUrl: outcome.finalUrl,
       httpStatus: outcome.httpStatus,
-      engineVersion: outcome.raw.testEngine.version,
+      engineVersion: raw?.testEngine.version ?? null,
       browserVersion,
     });
     log.info(
-      { violations: outcome.raw.violations.length, incomplete: outcome.raw.incomplete.length },
+      { violations: raw?.violations.length ?? null, incomplete: raw?.incomplete.length ?? null },
       'Scanare terminata',
     );
     return { browserHealthy: true };

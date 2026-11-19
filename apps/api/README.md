@@ -26,11 +26,13 @@ worker.ts (proces separat)
   │               └─> discovery/sample.ts  (esantionul propus)
   └─> scans/queue.ts             (2. altfel, rezerva urmatoarea scanare "queued")
       └─> scans/process-scan.ts
-            ├─> scanner/page-scan.ts (Chrome + axe-core; fiecare cerere trece prin paznic)
-            │     ├─> scanner/capture.ts (parcurge pagina ecran cu ecran: captura + pozitii)
-            │     └─> scanner/contrast-recheck.ts (contrastul re-verificat pe ecran)
+            ├─> scanner/page-scan.ts (Chrome; fiecare cerere trece prin paznic; ruleaza doar
+            │     │                    verificarile alese: accesibilitatea si / sau aspectul)
+            │     ├─> axe-core + scanner/capture.ts (captura + pozitii, pentru harta)
+            │     ├─> scanner/contrast-recheck.ts (contrastul re-verificat pe ecran)
+            │     └─> scanner/layout-audit.ts (aspectul paginii, de la 1400 la 320 px)
             ├─> scanner/normalize.ts (rezultatul brut → tabelele noastre)
-            └─> scans/queue.ts       (salveaza rezultatele si captura, sau motivul esecului)
+            └─> scans/queue.ts       (salveaza rezultatele, captura si aspectul, sau motivul esecului)
 ```
 
 ## Harta problemelor, pe scurt
@@ -61,6 +63,26 @@ Captura se salveaza in tabelul `scan_screenshots` (bytea), in aceeasi tranzactie
 pozitiile, in coloanele `box_*` din `affected_elements`. Interfata deseneaza chenarele peste
 imagine. Elementele ascunse sau din iframe-uri nu primesc pozitie. Un esec al capturii nu strica
 scanarea: doar harta lipseste.
+
+## Aspectul paginii, pe scurt
+
+O verificare separata de accesibilitate (fara criterii WCAG si fara legatura cu legislatia),
+aleasa la pornire (`config.checks.layout`). Metoda vine din lucrarea Walsh, Kapfhammer, McMinn,
+"Automated Layout Failure Detection for Responsive Web Pages without an Explicit Oracle" (ISSTA
+2017): pagina e comparata cu ea insasi la latimi vecine ale ferestrei.
+
+1. eticheta meta viewport si regulile `@media` ale paginii, prin Chrome DevTools Protocol
+   (`CSS.getMediaQueries`, vede si foile de stil de pe alte domenii);
+2. fereastra se ingusteaza de la 1400 la 320 px, din 60 in 60, plus latimile din jurul
+   breakpoint-urilor paginii; la fiecare latime, un script masoara aranjarea (`layout-model.ts`);
+3. regulile (`layout-rules.ts`, functii simple, testate fara browser) gasesc semnalele: derulare
+   orizontala, continut taiat la marginea paginii, elemente suprapuse, continut iesit din
+   containerul care il taie, media queries active simultan, meta viewport lipsa sau cu latime fixa.
+   Un semnal e raportat doar daca la latimea vecina, mai mare, totul era in regula;
+4. pentru cele mai importante semnale, o captura decupata la latimea problemei (JPEG, cel mult 10).
+
+Rezultatul se salveaza in `scan_layouts` si `layout_issues`. Limita: 45 s pentru masuratori, apoi
+verificarea e marcata "partiala". Un esec nu strica scanarea (motivul e salvat).
 
 ## Auditul pe mai multe pagini, pe scurt
 
@@ -96,6 +118,9 @@ Nu e un crawler: nu merge din link in link, citeste doar pagina de start si site
 | `src/scanner/page-scan.ts`        | Deschiderea sigura a unei pagini (`openGuardedPage`) si scanarea ei cu axe-core                      |
 | `src/scanner/capture.ts`          | Parcurge pagina ecran cu ecran: captura (WebP) si pozitia elementelor, pentru harta                  |
 | `src/scanner/contrast-recheck.ts` | Re-verifica pe ecran contrastul elementelor semnalate (sectiuni estompate la derulare)               |
+| `src/scanner/layout-audit.ts`     | Verificarea aspectului: latimile, masuratorile, semnalele si capturile decupate                      |
+| `src/scanner/layout-model.ts`     | Scripturile rulate in pagina pentru aspect (masurarea aranjarii, descrierea elementelor)             |
+| `src/scanner/layout-rules.ts`     | Regulile aspectului (comparatia intre latimi vecine), fara browser                                   |
 | `src/discovery/`                  | Descoperirea paginilor unui audit: linkuri, robots.txt, sitemap.xml, esantionul propus               |
 | `src/audits/`                     | Coada descoperirilor (tabelul `audits`) si procesarea unei descoperiri                               |
 | `src/scanner/normalize.ts`        | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`               |
@@ -114,26 +139,28 @@ Nu e un crawler: nu merge din link in link, citeste doar pagina de start si site
 
 ## Endpointuri existente
 
-| Metoda | Ruta                                        | Raspuns                                                                                                                                                    |
-| ------ | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/health`                                   | 200 cat timp procesul ruleaza                                                                                                                              |
-| GET    | `/api/v1/health/ready`                      | 200 daca si baza de date raspunde, altfel 503                                                                                                              |
-| POST   | `/api/v1/projects`                          | Creeaza un proiect (`name`, `baseUrl`); 201, 400 la date invalide, 409 daca exista deja un proiect pentru aceeasi adresa                                   |
-| GET    | `/api/v1/projects`                          | Lista proiectelor, cele mai noi primele                                                                                                                    |
-| GET    | `/api/v1/projects/:projectId`               | Un proiect; 404 daca nu exista                                                                                                                             |
-| GET    | `/api/v1/projects/:projectId/legal-profile` | Intrebarile chestionarului OUG 112/2018 si profilul salvat (sau `null`)                                                                                    |
-| PUT    | `/api/v1/projects/:projectId/legal-profile` | Salveaza raspunsurile si evaluarea lor; 400 daca lipseste un raspuns necesar                                                                               |
-| POST   | `/api/v1/projects/:projectId/scans`         | Pune o scanare in coada (202); 400 daca adresa e nesigura sau de pe alt site                                                                               |
-| GET    | `/api/v1/projects/:projectId/scans`         | Scanarile separate ale proiectului, cu sumar (paginile unui audit apar in audit)                                                                           |
-| POST   | `/api/v1/projects/:projectId/audits`        | Porneste un audit pe mai multe pagini (202); `startUrl`, `maxPages` (1-20, implicit 10), profil                                                            |
-| GET    | `/api/v1/projects/:projectId/audits`        | Auditurile proiectului, cu starea si progresul                                                                                                             |
-| GET    | `/api/v1/audits/:auditId`                   | Un audit: paginile gasite si propuse, ce nu s-a verificat, progresul, paginile scanate                                                                     |
-| POST   | `/api/v1/audits/:auditId/page-check`        | Verifica o pagina adaugata manual (`url`): `{ exists, url, redirected }` sau `{ exists: false, code, message }`; 400 alt site / document, 409 dupa alegere |
-| POST   | `/api/v1/audits/:auditId/selection`         | Confirma paginile alese (`urls`, 1-20); 400 pentru o pagina de pe alt site, 409 daca au fost deja alese                                                    |
-| GET    | `/api/v1/audits/:auditId/results`           | Rezultatele pe tot site-ul: reguli pe pagini si probleme comune                                                                                            |
-| GET    | `/api/v1/scans/:scanId`                     | O scanare: stare, configuratie, versiuni, sumar, dimensiunile capturii (`screenshot`)                                                                      |
-| GET    | `/api/v1/scans/:scanId/screenshot`          | Captura paginii (imagine WebP, memorata de browser); 404 daca scanarea nu are captura                                                                      |
-| GET    | `/api/v1/scans/:scanId/results`             | Rezultatele pe reguli, cu elementele afectate (si pozitia lor, `box`) si lantul de trasabilitate (filtru `?category=violation`)                            |
+| Metoda | Ruta                                                 | Raspuns                                                                                                                                                    |
+| ------ | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/health`                                            | 200 cat timp procesul ruleaza                                                                                                                              |
+| GET    | `/api/v1/health/ready`                               | 200 daca si baza de date raspunde, altfel 503                                                                                                              |
+| POST   | `/api/v1/projects`                                   | Creeaza un proiect (`name`, `baseUrl`); 201, 400 la date invalide, 409 daca exista deja un proiect pentru aceeasi adresa                                   |
+| GET    | `/api/v1/projects`                                   | Lista proiectelor, cele mai noi primele                                                                                                                    |
+| GET    | `/api/v1/projects/:projectId`                        | Un proiect; 404 daca nu exista                                                                                                                             |
+| GET    | `/api/v1/projects/:projectId/legal-profile`          | Intrebarile chestionarului OUG 112/2018 si profilul salvat (sau `null`)                                                                                    |
+| PUT    | `/api/v1/projects/:projectId/legal-profile`          | Salveaza raspunsurile si evaluarea lor; 400 daca lipseste un raspuns necesar                                                                               |
+| POST   | `/api/v1/projects/:projectId/scans`                  | Pune o scanare in coada (202); 400 daca adresa e nesigura sau de pe alt site                                                                               |
+| GET    | `/api/v1/projects/:projectId/scans`                  | Scanarile separate ale proiectului, cu sumar (paginile unui audit apar in audit)                                                                           |
+| POST   | `/api/v1/projects/:projectId/audits`                 | Porneste un audit pe mai multe pagini (202); `startUrl`, `maxPages` (1-20, implicit 10), profil                                                            |
+| GET    | `/api/v1/projects/:projectId/audits`                 | Auditurile proiectului, cu starea si progresul                                                                                                             |
+| GET    | `/api/v1/audits/:auditId`                            | Un audit: paginile gasite si propuse, ce nu s-a verificat, progresul, paginile scanate                                                                     |
+| POST   | `/api/v1/audits/:auditId/page-check`                 | Verifica o pagina adaugata manual (`url`): `{ exists, url, redirected }` sau `{ exists: false, code, message }`; 400 alt site / document, 409 dupa alegere |
+| POST   | `/api/v1/audits/:auditId/selection`                  | Confirma paginile alese (`urls`, 1-20); 400 pentru o pagina de pe alt site, 409 daca au fost deja alese                                                    |
+| GET    | `/api/v1/audits/:auditId/results`                    | Rezultatele pe tot site-ul: reguli pe pagini si probleme comune                                                                                            |
+| GET    | `/api/v1/scans/:scanId`                              | O scanare: stare, configuratie, versiuni, sumar, dimensiunile capturii (`screenshot`)                                                                      |
+| GET    | `/api/v1/scans/:scanId/screenshot`                   | Captura paginii (imagine WebP, memorata de browser); 404 daca scanarea nu are captura                                                                      |
+| GET    | `/api/v1/scans/:scanId/layout`                       | Verificarea aspectului: latimile, breakpoint-urile, meta viewport, semnalele (404 `LAYOUT_NOT_FOUND` daca nu a fost ceruta)                                |
+| GET    | `/api/v1/scans/:scanId/layout/issues/:issueId/image` | Captura decupata a unui semnal de aspect (JPEG); 404 daca semnalul nu are captura                                                                          |
+| GET    | `/api/v1/scans/:scanId/results`                      | Rezultatele pe reguli, cu elementele afectate (si pozitia lor, `box`) si lantul de trasabilitate (filtru `?category=violation`)                            |
 
 ## Coduri de eroare ale unei scanari (sau descoperiri) esuate
 

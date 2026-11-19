@@ -6,6 +6,8 @@
  * - `createScanSchema`: ce poate trimite utilizatorul cand porneste o scanare.
  * - `scanSchema`: o scanare, asa cum o returneaza API-ul (stare, versiuni, sumar).
  * - `ruleResultSchema`: rezultatul unei reguli axe, cu elementele afectate din pagina.
+ * - `scanChecksSchema`: ce verifica o scanare: accesibilitatea (axe-core, criterii WCAG),
+ *   aspectul paginii (cum se aranjeaza pe ecrane de latimi diferite) sau ambele.
  */
 import { z } from 'zod';
 import { projectUrlSchema } from './projects';
@@ -14,7 +16,27 @@ import { traceSchema } from './traceability';
 export const WCAG_PROFILES = ['WCAG_2_1_AA', 'WCAG_2_2_AA'] as const;
 export type WcagProfile = (typeof WCAG_PROFILES)[number];
 
+/**
+ * Ce verifica o scanare. Cele doua verificari sunt complet separate: aspectul paginii nu are
+ * legatura cu WCAG sau cu legislatia. Cel putin una trebuie aleasa.
+ */
+export const scanChecksSchema = z
+  .object({
+    /** Accesibilitatea: regulile axe-core (criterii WCAG), harta problemelor, trasabilitatea. */
+    accessibility: z.boolean(),
+    /** Aspectul paginii: responsive, breakpoint-uri, elemente suprapuse sau taiate. */
+    layout: z.boolean(),
+  })
+  .refine((checks) => checks.accessibility || checks.layout, {
+    message: 'Alege cel puțin o verificare: accesibilitatea sau aspectul paginii.',
+  });
+export type ScanChecks = z.infer<typeof scanChecksSchema>;
+
+/** Scanarile vechi (dinainte de alegerea verificarilor) au verificat doar accesibilitatea. */
+export const DEFAULT_SCAN_CHECKS: ScanChecks = { accessibility: true, layout: false };
+
 export const scanConfigSchema = z.object({
+  checks: scanChecksSchema.default(DEFAULT_SCAN_CHECKS),
   wcagProfile: z.enum(WCAG_PROFILES).default('WCAG_2_2_AA'),
   /** Include si regulile de "bune practici" (nu sunt criterii WCAG obligatorii). */
   includeBestPractices: z.boolean().default(true),
@@ -35,6 +57,8 @@ export type ScanConfig = z.infer<typeof scanConfigSchema>;
 export const createScanSchema = z.object({
   /** Pagina de scanat; daca lipseste, se scaneaza adresa de baza a proiectului. */
   pageUrl: projectUrlSchema.optional(),
+  /** Ce se verifica; daca lipseste, doar accesibilitatea. */
+  checks: scanChecksSchema.optional(),
   wcagProfile: z.enum(WCAG_PROFILES).optional(),
   includeBestPractices: z.boolean().optional(),
 });
@@ -88,6 +112,18 @@ export const screenshotInfoSchema = z.object({
 });
 export type ScreenshotInfo = z.infer<typeof screenshotInfoSchema>;
 
+/**
+ * Sumarul verificarii aspectului: cate semnale, pe niveluri. `failed` = verificarea nu s-a
+ * putut face (scanarea ramane valida).
+ */
+export const layoutSummarySchema = z.object({
+  visible: z.number().int(),
+  possible: z.number().int(),
+  info: z.number().int(),
+  failed: z.boolean(),
+});
+export type LayoutSummary = z.infer<typeof layoutSummarySchema>;
+
 export const scanSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -115,6 +151,8 @@ export const scanSchema = z.object({
    * esuata, captura nereusita) si in listele de scanari (ca raspunsul sa ramana mic).
    */
   screenshot: screenshotInfoSchema.nullable(),
+  /** Sumarul verificarii aspectului; null daca nu a fost ceruta sau scanarea nu e gata. */
+  layout: layoutSummarySchema.nullable(),
 });
 export type Scan = z.infer<typeof scanSchema>;
 

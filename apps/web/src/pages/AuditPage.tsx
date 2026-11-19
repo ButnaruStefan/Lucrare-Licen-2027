@@ -9,6 +9,10 @@
  *      explicite ale auditului: cate pagini au fost verificate din cate au fost gasite,
  *      serviciile externe si documentele care NU au fost verificate.
  *
+ * Daca auditul verifica si aspectul paginilor (separat de WCAG), sumarul are cifrele lui, iar
+ * fiecare pagina arata cate semnale de aspect are (detaliile sunt pe pagina scanarii). Daca
+ * verifica DOAR aspectul, cifrele si rezultatele de accesibilitate nu apar.
+ *
  * Accesibilitate: schimbarea etapei e anuntata (role="status"); dupa confirmarea paginilor,
  * focusul ajunge pe titlul sectiunii de progres (formularul dispare, focusul nu se pierde).
  */
@@ -36,6 +40,7 @@ import {
   SELECTION_REASON_LABELS,
   WCAG_PROFILE_LABELS,
 } from '../lib/labels';
+import { checksLabel } from '../lib/layout-labels';
 
 export function AuditPage() {
   const { auditId = '' } = useParams();
@@ -59,7 +64,8 @@ export function AuditPage() {
 
 function AuditView({ audit }: { audit: Audit }) {
   const project = useProject(audit.projectId);
-  const results = useAuditResults(audit.id, audit.status === 'completed');
+  const { checks } = audit.config;
+  const results = useAuditResults(audit.id, audit.status === 'completed' && checks.accessibility);
   const progressHeading = useRef<HTMLHeadingElement>(null);
   const previousStatus = useRef(audit.status);
 
@@ -86,7 +92,9 @@ function AuditView({ audit }: { audit: Audit }) {
           {audit.startUrl}
         </a>
         <span aria-hidden="true"> · </span>
-        {WCAG_PROFILE_LABELS[audit.config.wcagProfile]}
+        {checks.accessibility
+          ? `${checksLabel(checks)} (${WCAG_PROFILE_LABELS[audit.config.wcagProfile]})`
+          : checksLabel(checks)}
       </p>
 
       <div role="status" className="scan-status">
@@ -99,7 +107,7 @@ function AuditView({ audit }: { audit: Audit }) {
 
       {showPages && <AuditOverview audit={audit} results={results.data} />}
 
-      {audit.status === 'completed' && (
+      {audit.status === 'completed' && checks.accessibility && (
         <>
           {results.isPending && <Loading label="Se încarcă rezultatele..." />}
           {results.isError && <ErrorMessage error={results.error} />}
@@ -183,6 +191,11 @@ function AuditOverview({ audit, results }: { audit: Audit; results: AuditResults
   const count = (value: number | undefined) => (value === undefined ? '—' : value);
   const violations = results?.rules.filter((r) => r.category === 'violation').length;
   const incomplete = results?.rules.filter((r) => r.category === 'incomplete').length;
+  const { checks } = audit.config;
+  // Semnalele de aspect, adunate de pe paginile gata
+  const layouts = audit.pages.flatMap((p) => (p.layout && !p.layout.failed ? [p.layout] : []));
+  const layoutVisible = layouts.reduce((sum, l) => sum + l.visible, 0);
+  const layoutPossible = layouts.reduce((sum, l) => sum + l.possible, 0);
 
   return (
     <section aria-labelledby="sumar-audit" className="overview">
@@ -195,18 +208,34 @@ function AuditOverview({ audit, results }: { audit: Audit; results: AuditResults
         </div>
       </div>
       <dl className="overview__stats">
-        <div className="stat">
-          <dt>Probleme comune</dt>
-          <dd>{count(results?.commonIssues.length)}</dd>
-        </div>
-        <div className="stat stat--violation">
-          <dt>Reguli cu probleme detectate</dt>
-          <dd>{count(violations)}</dd>
-        </div>
-        <div className="stat stat--incomplete">
-          <dt>Reguli de verificat manual</dt>
-          <dd>{count(incomplete)}</dd>
-        </div>
+        {checks.accessibility && (
+          <>
+            <div className="stat">
+              <dt>Probleme comune</dt>
+              <dd>{count(results?.commonIssues.length)}</dd>
+            </div>
+            <div className="stat stat--violation">
+              <dt>Reguli cu probleme detectate</dt>
+              <dd>{count(violations)}</dd>
+            </div>
+            <div className="stat stat--incomplete">
+              <dt>Reguli de verificat manual</dt>
+              <dd>{count(incomplete)}</dd>
+            </div>
+          </>
+        )}
+        {checks.layout && (
+          <>
+            <div className="stat stat--violation">
+              <dt>Semnale de aspect sigure</dt>
+              <dd>{layouts.length > 0 ? layoutVisible : '—'}</dd>
+            </div>
+            <div className="stat stat--incomplete">
+              <dt>Semnale de aspect de confirmat</dt>
+              <dd>{layouts.length > 0 ? layoutPossible : '—'}</dd>
+            </div>
+          </>
+        )}
         <div className="stat">
           <dt>Pagini găsite pe site</dt>
           <dd>{count(audit.discovery?.pages.length)}</dd>
@@ -216,9 +245,17 @@ function AuditOverview({ audit, results }: { audit: Audit; results: AuditResults
         <p className="overview__note">
           Au fost verificate {audit.progress.completed} din {audit.discovery.pages.length}{' '}
           {audit.discovery.pages.length === 1 ? 'pagină găsită' : 'pagini găsite'} pe{' '}
-          {audit.discovery.scope}. Rezultatul <strong>nu</strong> descrie întregul site, iar
-          testarea automată găsește doar o parte din problemele de accesibilitate: zero probleme
-          detectate nu înseamnă conformitate cu WCAG.
+          {audit.discovery.scope}. Rezultatul <strong>nu</strong> descrie întregul site
+          {checks.accessibility ? (
+            <>
+              , iar testarea automată găsește doar o parte din problemele de accesibilitate: zero
+              probleme detectate nu înseamnă conformitate cu WCAG.
+            </>
+          ) : (
+            '.'
+          )}
+          {checks.layout &&
+            ' Semnalele de aspect privesc doar aranjarea paginilor pe ecrane de lățimi diferite; detaliile sunt pe pagina fiecărei scanări.'}
         </p>
       )}
     </section>
@@ -231,13 +268,26 @@ function PagesList({ audit }: { audit: Audit }) {
   return (
     <ol className="page-rows">
       {audit.pages.map((page) => (
-        <PageRow key={page.scanId} page={page} title={titles.get(page.pageUrl) ?? null} />
+        <PageRow
+          key={page.scanId}
+          page={page}
+          title={titles.get(page.pageUrl) ?? null}
+          accessibility={audit.config.checks.accessibility}
+        />
       ))}
     </ol>
   );
 }
 
-function PageRow({ page, title }: { page: AuditPageItem; title: string | null }) {
+function PageRow({
+  page,
+  title,
+  accessibility,
+}: {
+  page: AuditPageItem;
+  title: string | null;
+  accessibility: boolean;
+}) {
   const path = new URL(page.pageUrl).pathname;
   const reasons = page.reasons.map((r) => SELECTION_REASON_LABELS[r]).join(', ');
   return (
@@ -253,14 +303,27 @@ function PageRow({ page, title }: { page: AuditPageItem; title: string | null })
         {page.robotsBlocked && <span className="tag tag--muted">interzisă de robots.txt</span>}
       </div>
       <div className="page-row__result">
-        {page.status === 'completed' && page.summary ? (
+        {page.status === 'completed' && (page.summary || page.layout) ? (
           <>
-            <span className={`count ${page.summary.violations > 0 ? 'count--violation' : ''}`}>
-              {plural(page.summary.violations, 'problemă', 'probleme')}
-            </span>
-            <span className={`count ${page.summary.incomplete > 0 ? 'count--incomplete' : ''}`}>
-              {page.summary.incomplete} de verificat
-            </span>
+            {accessibility && page.summary && (
+              <>
+                <span className={`count ${page.summary.violations > 0 ? 'count--violation' : ''}`}>
+                  {plural(page.summary.violations, 'problemă', 'probleme')}
+                </span>
+                <span className={`count ${page.summary.incomplete > 0 ? 'count--incomplete' : ''}`}>
+                  {page.summary.incomplete} de verificat
+                </span>
+              </>
+            )}
+            {page.layout && (
+              <span
+                className={`count ${page.layout.visible + page.layout.possible > 0 ? 'count--incomplete' : ''}`}
+              >
+                {page.layout.failed
+                  ? 'aspect: neverificat'
+                  : `aspect: ${plural(page.layout.visible + page.layout.possible, 'semnal', 'semnale')}`}
+              </span>
+            )}
           </>
         ) : (
           <ScanStatusBadge status={page.status} />
@@ -356,10 +419,16 @@ function AuditDetails({ audit }: { audit: Audit }) {
         <dd className="url">{audit.startUrl}</dd>
         <dt>Pagini propuse, cel mult</dt>
         <dd>{audit.maxPages}</dd>
-        <dt>Standard</dt>
-        <dd>{WCAG_PROFILE_LABELS[audit.config.wcagProfile]}</dd>
-        <dt>Bune practici incluse</dt>
-        <dd>{audit.config.includeBestPractices ? 'Da' : 'Nu'}</dd>
+        <dt>Verificări</dt>
+        <dd>{checksLabel(audit.config.checks)}</dd>
+        {audit.config.checks.accessibility && (
+          <>
+            <dt>Standard</dt>
+            <dd>{WCAG_PROFILE_LABELS[audit.config.wcagProfile]}</dd>
+            <dt>Bune practici incluse</dt>
+            <dd>{audit.config.includeBestPractices ? 'Da' : 'Nu'}</dd>
+          </>
+        )}
         <dt>Versiunea catalogului normativ</dt>
         <dd>{audit.catalogVersion}</dd>
         <dt>Pornit / pagini găsite / pagini alese / terminat</dt>

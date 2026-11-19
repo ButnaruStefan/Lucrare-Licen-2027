@@ -5,6 +5,7 @@
  *   /             → pagina cu legaturi catre cele doua site-uri
  *   /accessible/  → accessible-demo (varianta corecta)
  *   /broken/      → broken-demo (varianta cu probleme intentionate)
+ *   /aspect/      → aspect-demo (pagina cu defecte de aranjare, pentru verificarea aspectului)
  *   /assets/...   → imaginile comune (shared-assets)
  *   /robots.txt   → regulile pentru programe automate (interzice zona /admin/ a celor doua site-uri)
  *   /sitemap.xml  → lista paginilor; contine si o pagina care nu apare in meniu
@@ -23,6 +24,7 @@ const ROOT = import.meta.dirname;
 const MOUNTS: Record<string, string> = {
   '/accessible/': resolve(ROOT, 'accessible-demo'),
   '/broken/': resolve(ROOT, 'broken-demo'),
+  '/aspect/': resolve(ROOT, 'aspect-demo'),
   '/assets/': resolve(ROOT, 'shared-assets'),
 };
 
@@ -42,6 +44,7 @@ const INDEX_PAGE = `<!doctype html>
       <ul>
         <li><a href="/accessible/">Varianta accesibilă</a></li>
         <li><a href="/broken/">Varianta cu probleme intenționate</a></li>
+        <li><a href="/aspect/">Pagina cu defecte de aranjare (aspectul paginii)</a></li>
       </ul>
     </main>
   </body>
@@ -117,7 +120,7 @@ export function createFixturesServer() {
       return;
     }
 
-    // /accessible si /broken fara "/" la final → redirectionare, ca legaturile relative sa mearga
+    // /accessible, /broken si /aspect fara "/" la final → redirectionare, ca legaturile relative sa mearga
     if (`${urlPath}/` in MOUNTS) {
       res.writeHead(301, { Location: `${urlPath}/` });
       res.end();

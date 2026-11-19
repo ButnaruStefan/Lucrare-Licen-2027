@@ -18,6 +18,8 @@ import {
   IMPACTS,
   SCAN_STATUSES,
   WCAG_PROFILES,
+  layoutSummarySchema,
+  scanChecksSchema,
   scanConfigSchema,
   scanSummarySchema,
 } from './scans';
@@ -121,6 +123,8 @@ export const createAuditSchema = z.object({
     .min(1, { message: 'Alege cel puțin o pagină.' })
     .max(AUDIT_MAX_PAGES, { message: `Un audit poate avea cel mult ${AUDIT_MAX_PAGES} de pagini.` })
     .optional(),
+  /** Ce se verifica pe fiecare pagina; daca lipseste, doar accesibilitatea. */
+  checks: scanChecksSchema.optional(),
   wcagProfile: z.enum(WCAG_PROFILES).optional(),
   includeBestPractices: z.boolean().optional(),
 });
@@ -182,6 +186,8 @@ export const auditPageSchema = z.object({
   status: z.enum(SCAN_STATUSES),
   errorMessage: z.string().nullable(),
   summary: scanSummarySchema.nullable(),
+  /** Sumarul verificarii aspectului paginii (null daca nu a fost ceruta sau nu e gata). */
+  layout: layoutSummarySchema.nullable(),
 });
 export type AuditPage = z.infer<typeof auditPageSchema>;
 

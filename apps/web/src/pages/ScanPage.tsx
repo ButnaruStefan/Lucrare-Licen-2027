@@ -1,6 +1,9 @@
 /**
- * Pagina unei scanari: starea (actualizata automat cat timp ruleaza), detaliile tehnice,
- * sumarul pe categorii si lista rezultatelor, cu filtre. Daca scanarea are captura paginii,
+ * Pagina unei scanari: starea (actualizata automat cat timp ruleaza), detaliile tehnice si
+ * rezultatele verificarilor alese la pornire:
+ *   - accesibilitatea: sumarul pe categorii si lista rezultatelor, cu filtre;
+ *   - aspectul paginii (separat de WCAG): sectiunea "Aspect si afisare" (`LayoutPanel`).
+ * Daca sunt amandoua, sus apar legaturi spre cele doua sectiuni. Daca scanarea are captura paginii,
  * problemele si cazurile de verificat apar langa "harta problemelor" (`IssueMap`): regula
  * de sub mouse, cu focus sau deschisa isi evidentiaza elementele pe captura. Daca pagina face parte dintr-un
  * audit, calea de navigare (breadcrumb) duce inapoi la audit, iar titlul e cel al paginii
@@ -27,6 +30,7 @@ import { useAuditOfScan, useProject, useScan, useScanResults } from '../api/quer
 import { ScanStatusBadge } from '../components/Badges';
 import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
 import { IssueMap } from '../components/IssueMap';
+import { LayoutPanel } from '../components/LayoutPanel';
 import { PageHeading } from '../components/PageHeading';
 import { RuleResultItem, type OtherCategory } from '../components/RuleResultItem';
 import {
@@ -38,6 +42,7 @@ import {
   IMPACT_LABELS,
   WCAG_PROFILE_LABELS,
 } from '../lib/labels';
+import { checksLabel } from '../lib/layout-labels';
 
 export function ScanPage() {
   const { scanId = '' } = useParams();
@@ -62,7 +67,9 @@ export function ScanPage() {
 
 function ScanView({ scan }: { scan: Scan }) {
   const project = useProject(scan.projectId);
-  const results = useScanResults(scan.id, scan.status === 'completed');
+  const { checks } = scan.config;
+  const completed = scan.status === 'completed';
+  const results = useScanResults(scan.id, completed && checks.accessibility);
   // Pagina unui audit are titlul ei (din meniul site-ului); o scanare separata, doar data
   const audit = useAuditOfScan(scan.auditId);
   const label = audit.data ? auditPageTitles(audit.data.pages).get(scan.pageUrl) : undefined;
@@ -95,7 +102,14 @@ function ScanView({ scan }: { scan: Scan }) {
 
       <ScanDetails scan={scan} />
 
-      {scan.status === 'completed' && scan.summary && (
+      {completed && checks.accessibility && checks.layout && (
+        <nav aria-label="Secțiunile rezultatelor" className="section-links">
+          <a href="#sumar">Accesibilitate</a>
+          <a href="#aspect">Aspect și afișare</a>
+        </nav>
+      )}
+
+      {completed && checks.accessibility && scan.summary && (
         <section aria-labelledby="sumar" className="section">
           <h2 id="sumar">Sumar</h2>
           <ul className="summary-grid">
@@ -120,7 +134,7 @@ function ScanView({ scan }: { scan: Scan }) {
         </section>
       )}
 
-      {scan.status === 'completed' && (
+      {completed && checks.accessibility && (
         <section aria-labelledby="rezultate" className="section">
           <h2 id="rezultate">Rezultate pe reguli</h2>
           {results.isPending && <Loading label="Se încarcă rezultatele..." />}
@@ -134,6 +148,8 @@ function ScanView({ scan }: { scan: Scan }) {
           )}
         </section>
       )}
+
+      {completed && checks.layout && <LayoutPanel scan={scan} />}
     </>
   );
 }
@@ -188,10 +204,16 @@ function ScanDetails({ scan }: { scan: Scan }) {
         <dd className="url">{scan.finalUrl ?? '—'}</dd>
         <dt>Cod HTTP</dt>
         <dd>{scan.httpStatus ?? '—'}</dd>
-        <dt>Standard</dt>
-        <dd>{WCAG_PROFILE_LABELS[scan.config.wcagProfile]}</dd>
-        <dt>Bune practici incluse</dt>
-        <dd>{scan.config.includeBestPractices ? 'Da' : 'Nu'}</dd>
+        <dt>Verificări</dt>
+        <dd>{checksLabel(scan.config.checks)}</dd>
+        {scan.config.checks.accessibility && (
+          <>
+            <dt>Standard</dt>
+            <dd>{WCAG_PROFILE_LABELS[scan.config.wcagProfile]}</dd>
+            <dt>Bune practici incluse</dt>
+            <dd>{scan.config.includeBestPractices ? 'Da' : 'Nu'}</dd>
+          </>
+        )}
         <dt>Ecran simulat</dt>
         <dd>
           {scan.config.viewport.width} × {scan.config.viewport.height} pixeli, limba{' '}

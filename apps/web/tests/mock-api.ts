@@ -13,6 +13,7 @@ import {
   projectSchema,
   ruleResultSchema,
   scanConfigSchema,
+  scanLayoutSchema,
   scanSchema,
   type Audit,
   type AuditResults,
@@ -22,6 +23,7 @@ import {
   type Project,
   type RuleResult,
   type Scan,
+  type ScanLayout,
 } from '@ro-a11y/shared';
 
 export const PROJECT: Project = projectSchema.parse({
@@ -33,6 +35,9 @@ export const PROJECT: Project = projectSchema.parse({
 });
 
 const config = scanConfigSchema.parse({});
+
+/** Un fragment HTML rau intentionat in semnalele de aspect: trebuie afisat ca text. */
+const HOSTILE_HTML_LAYOUT = '<table id="program" onmouseover="alert(1)"><script>alert(2)</script>';
 
 export function makeScan(overrides: Partial<Scan> = {}): Scan {
   return scanSchema.parse({
@@ -72,9 +77,80 @@ export function makeScan(overrides: Partial<Scan> = {}): Scan {
       frameHeight: 1000,
       frameOffsets: [0, 950],
     },
+    layout: null,
     ...overrides,
   });
 }
+
+/** O scanare care a verificat doar aspectul paginii (fara axe-core). */
+export function makeLayoutScan(overrides: Partial<Scan> = {}): Scan {
+  return makeScan({
+    config: scanConfigSchema.parse({ checks: { accessibility: false, layout: true } }),
+    engineName: null,
+    engineVersion: null,
+    screenshot: null,
+    layout: { visible: 1, possible: 1, info: 0, failed: false },
+    ...overrides,
+  });
+}
+
+/** Verificarea aspectului simulata: un semnal sigur (cu captura) si unul de confirmat. */
+export const LAYOUT: ScanLayout = scanLayoutSchema.parse({
+  widths: [1400, 1340, 1280, 768, 767, 320],
+  breakpoints: [
+    { feature: 'max-width', px: 768, text: '(max-width: 768px)', source: null },
+    {
+      feature: 'min-width',
+      px: 768,
+      text: '(min-width: 768px)',
+      source: 'https://valea-verde.example/stil.css',
+    },
+  ],
+  metaViewport: 'width=device-width, initial-scale=1',
+  durationMs: 6400,
+  partial: false,
+  error: null,
+  issues: [
+    {
+      id: '55555555-5555-4555-8555-555555555555',
+      kind: 'derulare-orizontala',
+      level: 'visible',
+      widthMin: 320,
+      widthMax: 1080,
+      elements: [
+        {
+          selector: '#program',
+          htmlSnippet: HOSTILE_HTML_LAYOUT,
+          text: 'Program cu publicul',
+        },
+      ],
+      details: { pageWidth: 1124, overflowPx: 424, edgeX: 700 },
+      image: {
+        url: '/api/v1/scans/22222222-2222-4222-8222-222222222222/layout/issues/55555555-5555-4555-8555-555555555555/image',
+        width: 1124,
+        height: 200,
+        viewportWidth: 700,
+      },
+      boxes: [{ x: 24, y: 24, width: 1100, height: 150 }],
+    },
+    {
+      id: '66666666-6666-4666-8666-666666666666',
+      kind: 'media-queries-suprapuse',
+      level: 'possible',
+      widthMin: 768,
+      widthMax: 768,
+      elements: [],
+      details: {
+        rules: [
+          { text: '(max-width: 768px)', source: null },
+          { text: '(min-width: 768px)', source: 'https://valea-verde.example/stil.css' },
+        ],
+      },
+      image: null,
+      boxes: [],
+    },
+  ],
+});
 
 /** Captura simulata a paginii: o imagine PNG de 1 x 1 pixel (alb), intinsa pe toata harta. */
 export const SCREENSHOT_PNG = Buffer.from(
@@ -305,6 +381,7 @@ export function completedAudit(): Audit {
       status: i === chosen.length - 1 ? 'failed' : 'completed',
       errorMessage: i === chosen.length - 1 ? 'Serverul a răspuns cu codul 500.' : null,
       summary: i === chosen.length - 1 ? null : SUMMARY,
+      layout: null,
     })),
   });
 }
@@ -378,6 +455,10 @@ export interface MockApiOptions {
   onSelection?: (body: unknown) => void;
   /** Raspunsul verificarii unei pagini adaugate manual (implicit: exista, fara redirectionare). */
   pageCheck?: (url: string) => PageCheck;
+  /** Verificarea aspectului (implicit: LAYOUT; null = scanarea nu are una, 404). */
+  layout?: ScanLayout | null;
+  /** Primeste corpul cererii de pornire a unei scanari sau a unui audit. */
+  onCreate?: (kind: 'scan' | 'audit', body: unknown) => void;
 }
 
 /** Data fixa a evaluarii in profilul simulat. */
@@ -407,9 +488,13 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
     return route.fulfill(json({ items: projects }));
   });
   await page.route(`**/api/v1/projects/${PROJECT.id}`, (route) => route.fulfill(json(PROJECT)));
-  await page.route(`**/api/v1/projects/${PROJECT.id}/scans`, (route) =>
-    route.fulfill(json({ items: [scans[scans.length - 1]] })),
-  );
+  await page.route(`**/api/v1/projects/${PROJECT.id}/scans`, (route) => {
+    if (route.request().method() === 'POST') {
+      options.onCreate?.('scan', route.request().postDataJSON());
+      return route.fulfill(json(makeScan({ status: 'queued', summary: null }), 202));
+    }
+    return route.fulfill(json({ items: [scans[scans.length - 1]] }));
+  });
   // Profilul juridic: GET trimite intrebarile si profilul; PUT il evalueaza cu motorul real.
   await page.route(`**/api/v1/projects/${PROJECT.id}/legal-profile`, (route) => {
     if (route.request().method() === 'PUT') {
@@ -436,6 +521,7 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
   let audit = options.audit ?? makeAudit();
   await page.route(`**/api/v1/projects/${PROJECT.id}/audits`, (route) => {
     if (route.request().method() === 'POST') {
+      options.onCreate?.('audit', route.request().postDataJSON());
       return route.fulfill(json(makeAudit({ status: 'discovery_queued', discovery: null }), 202));
     }
     return route.fulfill(
@@ -470,6 +556,17 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
   await page.route('**/api/v1/scans/*/screenshot', (route) =>
     route.fulfill({ status: 200, contentType: 'image/png', body: SCREENSHOT_PNG }),
   );
+  await page.route('**/api/v1/scans/*/layout/issues/*/image', (route) =>
+    route.fulfill({ status: 200, contentType: 'image/png', body: SCREENSHOT_PNG }),
+  );
+  await page.route('**/api/v1/scans/*/layout', (route) => {
+    const layout = options.layout === undefined ? LAYOUT : options.layout;
+    if (!layout) {
+      const message = 'Scanarea nu are o verificare a aspectului paginii.';
+      return route.fulfill(json({ error: { code: 'LAYOUT_NOT_FOUND', message } }, 404));
+    }
+    return route.fulfill(json(layout));
+  });
   await page.route('**/api/v1/scans/*/results', (route) =>
     route.fulfill(json({ items: options.results ?? RESULTS })),
   );

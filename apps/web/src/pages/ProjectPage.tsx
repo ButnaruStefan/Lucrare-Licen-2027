@@ -2,13 +2,17 @@
  * Pagina unui proiect: profilul juridic (pe scurt), o "verificare noua" si istoricul auditurilor
  * si al scanarilor.
  *
- * Verificarea noua are un selector sus: "Mai multe pagini" (audit, implicit) sau "O singura
- * pagina" (scanare simpla). Se afiseaza doar formularul ales. Alegerea e pastrata in adresa
- * (?verificare=o-pagina), ca butonul "Inapoi" si linkurile sa o pastreze.
+ * Verificarea noua are doi pasi:
+ *   1. "Ce vrei sa verifici?": accesibilitatea (criteriile WCAG, axe-core), aspectul paginii
+ *      (responsive, elemente suprapuse sau taiate; separat de WCAG) sau ambele;
+ *   2. "Cate pagini?": "Mai multe pagini" (audit, implicit) sau "O singura pagina" (scanare
+ *      simpla). Se afiseaza doar formularul ales.
+ * Alegerile sunt pastrate in adresa (?verifica=aspect&verificare=o-pagina), ca butonul
+ * "Inapoi" si linkurile sa le pastreze.
  *
  * Auditul: worker-ul cauta paginile site-ului, iar utilizatorul alege ce se scaneaza (pe pagina
- * auditului). Scanarea simpla: alegerea paginii (implicit adresa proiectului), a profilului WCAG
- * si includerea "bunelor practici". Dupa pornire, utilizatorul ajunge pe pagina auditului sau a
+ * auditului). Scanarea simpla: alegerea paginii (implicit adresa proiectului) si, daca se
+ * verifica accesibilitatea, a profilului WCAG si includerea "bunelor practici". Dupa pornire, utilizatorul ajunge pe pagina auditului sau a
  * scanarii, unde vede starea actualizata automat. Istoricele se actualizeaza singure cat timp
  * exista lucrari in curs.
  */
@@ -19,6 +23,7 @@ import {
   AUDIT_MAX_PAGES,
   WCAG_PROFILES,
   type Project,
+  type ScanChecks,
   type WcagProfile,
 } from '@ro-a11y/shared';
 import { ApiRequestError } from '../api/client';
@@ -38,6 +43,7 @@ import { PageHeading } from '../components/PageHeading';
 import { TextField } from '../components/TextField';
 import { useFocusFirstInvalid } from '../lib/focus';
 import { formatDate, WCAG_PROFILE_LABELS } from '../lib/labels';
+import { checksLabel } from '../lib/layout-labels';
 
 export function ProjectPage() {
   const { projectId = '' } = useParams();
@@ -112,26 +118,75 @@ function LegalProfileSummary({ projectId }: { projectId: string }) {
 
 type CheckMode = 'multi' | 'single';
 
-/** Verificarea noua: selectorul de mod si formularul ales. */
+/** Verificarile alese, din adresa: ?verifica=aspect | ambele (implicit: accesibilitatea). */
+function checksFromParams(params: URLSearchParams): ScanChecks {
+  const value = params.get('verifica');
+  if (value === 'aspect') return { accessibility: false, layout: true };
+  if (value === 'ambele') return { accessibility: true, layout: true };
+  if (value === 'nimic') return { accessibility: false, layout: false };
+  return { accessibility: true, layout: false };
+}
+
+function checksParam(checks: ScanChecks): string | null {
+  if (checks.accessibility && checks.layout) return 'ambele';
+  if (checks.layout) return 'aspect';
+  if (!checks.accessibility) return 'nimic';
+  return null;
+}
+
+/** Verificarea noua: ce se verifica, cate pagini si formularul ales. */
 function NewCheck({ project }: { project: Project }) {
   const [params, setParams] = useSearchParams();
   const mode: CheckMode = params.get('verificare') === 'o-pagina' ? 'single' : 'multi';
-  const setMode = (next: CheckMode) =>
-    setParams(next === 'single' ? { verificare: 'o-pagina' } : {}, {
-      replace: true,
-      preventScrollReset: true,
-    });
+  const checks = checksFromParams(params);
+  const noneChosen = !checks.accessibility && !checks.layout;
+
+  function update(nextMode: CheckMode, nextChecks: ScanChecks) {
+    const search: Record<string, string> = {};
+    const verifica = checksParam(nextChecks);
+    if (verifica) search.verifica = verifica;
+    if (nextMode === 'single') search.verificare = 'o-pagina';
+    setParams(search, { replace: true, preventScrollReset: true });
+  }
 
   return (
     <section aria-labelledby="verificare-noua" className="section card check">
       <h2 id="verificare-noua">Verificare nouă</h2>
-      <fieldset className="mode-picker">
+      <fieldset
+        className="mode-picker"
+        aria-describedby={noneChosen ? 'nicio-verificare' : undefined}
+      >
         <legend className="mode-picker__legend">Ce vrei să verifici?</legend>
+        <div className="mode-picker__options">
+          <CheckOption
+            checked={checks.accessibility}
+            onChange={(on) => update(mode, { ...checks, accessibility: on })}
+            icon="access"
+            title="Accesibilitatea"
+            description="Criteriile WCAG (axe-core): probleme pentru persoanele cu dizabilități, cu legătura spre EN 301 549 și OUG 112/2018."
+          />
+          <CheckOption
+            checked={checks.layout}
+            onChange={(on) => update(mode, { ...checks, layout: on })}
+            icon="devices"
+            title="Aspectul paginii"
+            badge="Fără legătură cu WCAG"
+            description="Cum se aranjează pagina de la telefon la calculator: elemente suprapuse, tăiate sau ieșite din pagină, breakpoint-uri."
+          />
+        </div>
+        {noneChosen && (
+          <p id="nicio-verificare" className="field__error mode-picker__error">
+            Alege cel puțin o verificare.
+          </p>
+        )}
+      </fieldset>
+      <fieldset className="mode-picker">
+        <legend className="mode-picker__legend">Câte pagini?</legend>
         <div className="mode-picker__options">
           <ModeOption
             value="multi"
             current={mode}
-            onSelect={setMode}
+            onSelect={(next) => update(next, checks)}
             icon="pages"
             title="Mai multe pagini"
             badge="Recomandat"
@@ -140,7 +195,7 @@ function NewCheck({ project }: { project: Project }) {
           <ModeOption
             value="single"
             current={mode}
-            onSelect={setMode}
+            onSelect={(next) => update(next, checks)}
             icon="page"
             title="O singură pagină"
             description="Verifici rapid o pagină anume, de exemplu după o reparație."
@@ -148,9 +203,60 @@ function NewCheck({ project }: { project: Project }) {
         </div>
       </fieldset>
       <div className="check__form" key={mode}>
-        {mode === 'multi' ? <NewAuditForm project={project} /> : <NewScanForm project={project} />}
+        {mode === 'multi' ? (
+          <NewAuditForm project={project} checks={noneChosen ? null : checks} />
+        ) : (
+          <NewScanForm project={project} checks={noneChosen ? null : checks} />
+        )}
       </div>
     </section>
+  );
+}
+
+/**
+ * O verificare (accesibilitate sau aspect): o casuta de bifat nativa (Spatiu o bifeaza),
+ * afisata ca un card, la fel ca optiunile de mai jos. Se pot bifa amandoua.
+ */
+function CheckOption({
+  checked,
+  onChange,
+  icon,
+  title,
+  badge,
+  description,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  icon: IconName;
+  title: string;
+  badge?: string;
+  description: string;
+}) {
+  const id = useId();
+  return (
+    <div className="mode-option mode-option--checkbox">
+      <input
+        id={id}
+        className="mode-option__input"
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-describedby={`${id}-descriere`}
+      />
+      <span className="mode-option__icon">
+        <Icon name={icon} />
+      </span>
+      <span className="mode-option__text">
+        <label htmlFor={id} className="mode-option__title">
+          {title}
+        </label>
+        {badge && <span className="mode-option__badge">{badge}</span>}
+        <span id={`${id}-descriere`} className="mode-option__description">
+          {description}
+        </span>
+      </span>
+      <span className="mode-option__check" aria-hidden="true" />
+    </div>
   );
 }
 
@@ -251,7 +357,7 @@ function ScanOptions({
 }
 
 /** Pornirea unui audit pe mai multe pagini: worker-ul cauta paginile, utilizatorul alege. */
-function NewAuditForm({ project }: { project: Project }) {
+function NewAuditForm({ project, checks }: { project: Project; checks: ScanChecks | null }) {
   const navigate = useNavigate();
   const createAudit = useCreateAudit(project.id);
   const [startUrl, setStartUrl] = useState('');
@@ -277,10 +383,12 @@ function NewAuditForm({ project }: { project: Project }) {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!checks) return;
     createAudit.mutate(
       {
         startUrl: startUrl.trim() || undefined,
         maxPages,
+        checks: checks!,
         wcagProfile,
         includeBestPractices,
       },
@@ -315,20 +423,26 @@ function NewAuditForm({ project }: { project: Project }) {
           ))}
         </select>
       </div>
-      <ScanOptions
-        wcagProfile={wcagProfile}
-        onProfileChange={setWcagProfile}
-        includeBestPractices={includeBestPractices}
-        onBestPracticesChange={setIncludeBestPractices}
-      />
-      <button type="submit" disabled={createAudit.isPending}>
+      {checks?.accessibility && (
+        <ScanOptions
+          wcagProfile={wcagProfile}
+          onProfileChange={setWcagProfile}
+          includeBestPractices={includeBestPractices}
+          onBestPracticesChange={setIncludeBestPractices}
+        />
+      )}
+      <button
+        type="submit"
+        disabled={createAudit.isPending || !checks}
+        aria-describedby={checks ? undefined : 'nicio-verificare'}
+      >
         {createAudit.isPending ? 'Se pornește...' : 'Caută paginile site-ului'}
       </button>
     </form>
   );
 }
 
-function NewScanForm({ project }: { project: Project }) {
+function NewScanForm({ project, checks }: { project: Project; checks: ScanChecks | null }) {
   const navigate = useNavigate();
   const createScan = useCreateScan(project.id);
   const [pageUrl, setPageUrl] = useState('');
@@ -353,8 +467,9 @@ function NewScanForm({ project }: { project: Project }) {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!checks) return;
     createScan.mutate(
-      { pageUrl: pageUrl.trim() || undefined, wcagProfile, includeBestPractices },
+      { pageUrl: pageUrl.trim() || undefined, checks, wcagProfile, includeBestPractices },
       {
         onSuccess: (scan) => navigate(`/scanari/${scan.id}`),
       },
@@ -379,13 +494,19 @@ function NewScanForm({ project }: { project: Project }) {
         error={fieldErrors.pageUrl}
         placeholder={project.baseUrl}
       />
-      <ScanOptions
-        wcagProfile={wcagProfile}
-        onProfileChange={setWcagProfile}
-        includeBestPractices={includeBestPractices}
-        onBestPracticesChange={setIncludeBestPractices}
-      />
-      <button type="submit" disabled={createScan.isPending}>
+      {checks?.accessibility && (
+        <ScanOptions
+          wcagProfile={wcagProfile}
+          onProfileChange={setWcagProfile}
+          includeBestPractices={includeBestPractices}
+          onBestPracticesChange={setIncludeBestPractices}
+        />
+      )}
+      <button
+        type="submit"
+        disabled={createScan.isPending || !checks}
+        aria-describedby={checks ? undefined : 'nicio-verificare'}
+      >
         {createScan.isPending ? 'Se pornește...' : 'Scanează pagina'}
       </button>
     </form>
@@ -469,9 +590,11 @@ function ScanHistory({ projectId }: { projectId: string }) {
               <tr>
                 <th scope="col">Data</th>
                 <th scope="col">Pagina</th>
+                <th scope="col">Verificări</th>
                 <th scope="col">Stare</th>
                 <th scope="col">Probleme detectate</th>
                 <th scope="col">De verificat manual</th>
+                <th scope="col">Semnale de aspect</th>
               </tr>
             </thead>
             <tbody>
@@ -481,11 +604,25 @@ function ScanHistory({ projectId }: { projectId: string }) {
                     <Link to={`/scanari/${scan.id}`}>{formatDate(scan.createdAt)}</Link>
                   </th>
                   <td className="url">{scan.pageUrl}</td>
+                  <td>{checksLabel(scan.config.checks)}</td>
                   <td>
                     <ScanStatusBadge status={scan.status} />
                   </td>
-                  <td>{scan.summary ? scan.summary.violations : '—'}</td>
-                  <td>{scan.summary ? scan.summary.incomplete : '—'}</td>
+                  <td>
+                    {scan.summary && scan.config.checks.accessibility
+                      ? scan.summary.violations
+                      : '—'}
+                  </td>
+                  <td>
+                    {scan.summary && scan.config.checks.accessibility
+                      ? scan.summary.incomplete
+                      : '—'}
+                  </td>
+                  <td>
+                    {scan.layout && !scan.layout.failed
+                      ? scan.layout.visible + scan.layout.possible
+                      : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>

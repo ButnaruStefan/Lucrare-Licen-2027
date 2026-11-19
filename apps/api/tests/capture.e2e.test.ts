@@ -127,7 +127,7 @@ describe('captura site-ului de antrenament', () => {
     expect(capture.height).toBe(capture.pageHeight);
 
     const boxOf = (ruleId: string) => {
-      const node = outcome.raw.violations.find((r) => r.id === ruleId)!.nodes[0]!;
+      const node = outcome.raw!.violations.find((r) => r.id === ruleId)!.nodes[0]!;
       return capture.boxes.get(JSON.stringify(node.target))!;
     };
     const button = boxOf('button-name'); // B08: buton cu fundal #002b7f

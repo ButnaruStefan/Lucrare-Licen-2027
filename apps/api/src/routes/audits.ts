@@ -48,7 +48,7 @@ import { checkUrl, type UrlGuardOptions } from '../safety/url-guard';
 import { checkPage } from '../safety/page-check';
 import { classifyLink, dedupeKey, scopeFor } from '../discovery/links';
 import { isBestPractice } from '../scanner/normalize';
-import { loadSummaries } from './scans';
+import { loadLayoutSummaries, loadSummaries } from './scans';
 
 export interface AuditsDeps {
   db: Database;
@@ -105,10 +105,9 @@ async function loadAuditDto(db: Database, row: AuditRow): Promise<Audit> {
     where: { auditId: row.id },
     orderBy: { createdAt: 'asc' },
   });
-  const summaries = await loadSummaries(
-    db,
-    scans.filter((s) => s.status === 'completed').map((s) => s.id),
-  );
+  const completed = scans.filter((s) => s.status === 'completed').map((s) => s.id);
+  const summaries = await loadSummaries(db, completed);
+  const layouts = await loadLayoutSummaries(db, completed);
   const discovery = parseDiscovery(row);
   const pageInfo = new Map(discovery?.pages.map((p) => [dedupeKey(p.url), p]) ?? []);
   const status = statusOf(row, scans);
@@ -124,6 +123,7 @@ async function loadAuditDto(db: Database, row: AuditRow): Promise<Audit> {
       status: scan.status,
       errorMessage: scan.errorMessage,
       summary: scan.status === 'completed' ? (summaries.get(scan.id) ?? null) : null,
+      layout: scan.status === 'completed' ? (layouts.get(scan.id) ?? null) : null,
     };
   });
 
@@ -264,6 +264,7 @@ export function auditsRouter({
     if (!check.ok) throw new HttpError(400, 'UNSAFE_URL', check.message);
 
     const config = scanConfigSchema.parse({
+      checks: input.checks,
       wcagProfile: input.wcagProfile,
       includeBestPractices: input.includeBestPractices,
       timeoutMs: scanTimeoutMs,

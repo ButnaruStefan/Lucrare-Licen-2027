@@ -271,7 +271,7 @@ const SCROLL_AND_SETTLE_SCRIPT = `async (top) => {
  * fiecare bucata: cele fixe si cele "lipite" pe toata inaltimea paginii (ex. antet sticky al
  * carui parinte e toata pagina). Panourile lipite doar in sectiunea lor raman vizibile.
  */
-const HIDE_OVERLAYS_SCRIPT = `(() => {
+export const HIDE_OVERLAYS_SCRIPT = `(() => {
   const pageHeight = document.documentElement.scrollHeight;
   let hidden = 0;
   for (const el of document.querySelectorAll("body *")) {
@@ -289,7 +289,7 @@ const HIDE_OVERLAYS_SCRIPT = `(() => {
 })()`;
 
 /** Reface pagina: elementele ascunse de noi redevin vizibile, derularea revine sus. */
-const RESTORE_SCRIPT = `(() => {
+export const RESTORE_SCRIPT = `(() => {
   for (const el of document.querySelectorAll("[${HIDDEN_ATTR}]")) {
     const before = el.getAttribute("${HIDDEN_ATTR}");
     el.style.removeProperty("visibility");

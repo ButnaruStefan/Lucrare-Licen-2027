@@ -18,7 +18,9 @@ export type IconName =
   | 'code' // detalii tehnice
   | 'split' // aceeasi regula in alta categorie
   | 'page' // o singura pagina
-  | 'pages'; // mai multe pagini
+  | 'pages' // mai multe pagini
+  | 'access' // verificarea accesibilitatii
+  | 'devices'; // verificarea aspectului (ecran de calculator si telefon)
 
 const PATHS: Record<IconName, string[]> = {
   alert: ['M12 3 2.5 20h19L12 3Z', 'M12 10v4.5', 'M12 17.5h.01'],
@@ -53,6 +55,18 @@ const PATHS: Record<IconName, string[]> = {
     'M9 3h7l4 4v10.5a1.5 1.5 0 0 1-1.5 1.5H9a1.5 1.5 0 0 1-1.5-1.5v-13A1.5 1.5 0 0 1 9 3Z',
     'M16 3v4h4',
     'M4.5 7.5v12A1.5 1.5 0 0 0 6 21h9',
+  ],
+  access: [
+    'M12 6.5a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5Z',
+    'm5 8.5 7 1.5 7-1.5',
+    'M12 10v4.5',
+    'm9 21 3-6.5 3 6.5',
+  ],
+  devices: [
+    'M12.5 15H4a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 4 4h12a1.5 1.5 0 0 1 1.5 1.5V8',
+    'M7 19h5.5',
+    'M9.5 15v4',
+    'M15.5 10h5a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1Z',
   ],
 };
 

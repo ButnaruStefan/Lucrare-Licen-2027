@@ -160,6 +160,7 @@ model Scan {
 
   ruleResults RuleResult[]
   screenshot  ScanScreenshot? // captura paginii (harta problemelor); lipseste daca nu a reusit
+  layout      ScanLayout? // verificarea aspectului paginii; lipseste daca nu a fost ceruta
 
   @@index([projectId, createdAt])
   @@index([status, createdAt]) // worker-ul cauta rapid urmatoarea scanare "queued"
@@ -186,6 +187,46 @@ model ScanScreenshot {
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("scan_screenshots")
+}
+
+// Verificarea aspectului paginii (separata complet de WCAG): fereastra browserului e ingustata
+// pas cu pas, iar aranjarea paginii e comparata cu ea insasi la latimi vecine.
+model ScanLayout {
+  scanId       String        @id @map("scan_id")
+  scan         Scan          @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  widths       Int[] // latimile ferestrei verificate (px), de la mare la mic
+  breakpoints  Json // media queries gasite in CSS-ul paginii (min-width / max-width)
+  metaViewport String?       @map("meta_viewport") // continutul meta viewport (null = lipseste)
+  durationMs   Int           @map("duration_ms") // cat a durat verificarea
+  partial      Boolean       @default(false) // oprita la limita de timp, inainte de toate latimile
+  error        String? // de ce nu s-a putut face verificarea (null = s-a facut)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  issues       LayoutIssue[]
+
+  @@map("scan_layouts")
+}
+
+// Un semnal de aspect (ex. doua elemente care se suprapun intre 780 si 830 px).
+model LayoutIssue {
+  id            String     @id @default(uuid())
+  scanId        String     @map("scan_id")
+  layout        ScanLayout @relation(fields: [scanId], references: [scanId], onDelete: Cascade)
+  kind          String // tipul semnalului, ex. "elemente-suprapuse"
+  level         String // "visible" (sigur se vede), "possible" (de confirmat), "info"
+  widthMin      Int?       @map("width_min") // intervalul de latimi la care apare (null = oricare)
+  widthMax      Int?       @map("width_max")
+  elements      Json // elementele implicate: selector, fragment HTML, text
+  details       Json // masuratori (cu cat iese, cat se suprapun, regulile CSS)
+  fingerprint   String // acelasi semnal pe acelasi element are aceeasi amprenta in scanari diferite
+  image         Bytes? // captura decupata in jurul elementelor, la latimea problemei (JPEG)
+  imageFormat   String?    @map("image_format")
+  imageWidth    Int?       @map("image_width")
+  imageHeight   Int?       @map("image_height")
+  imageViewport Int?       @map("image_viewport") // latimea ferestrei la care a fost facuta captura
+  boxes         Json // chenarele elementelor in captura (pixeli, fata de coltul capturii)
+
+  @@index([scanId])
+  @@map("layout_issues")
 }
 
 // Rezultatul unei reguli axe-core intr-o scanare (ex. "image-alt: violation").

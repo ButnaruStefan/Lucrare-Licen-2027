@@ -8,10 +8,13 @@
  *      o accepta (protectie SSRF). Redirectionarile sunt urmate de noi, pas cu pas, ca fiecare
  *      adresa noua sa fie verificata (browserul, lasat singur, le-ar urma fara verificare);
  *   3. incarca pagina cu limita de timp, asteapta sa se stabilizeze;
- *   4. ofera pagina incarcata functiei primite (scannerul ruleaza axe-core cu etichetele
- *      profilului ales, ex. WCAG 2.2 AA, apoi parcurge pagina ecran cu ecran pentru captura
- *      hartii problemelor si re-verifica pe ecran contrastul elementelor semnalate;
- *      descoperirea citeste linkurile);
+ *   4. ofera pagina incarcata functiei primite. Scannerul ruleaza ce a cerut utilizatorul:
+ *      - accesibilitatea: axe-core cu etichetele profilului ales (ex. WCAG 2.2 AA), apoi
+ *        parcurge pagina ecran cu ecran pentru captura hartii problemelor si re-verifica pe
+ *        ecran contrastul elementelor semnalate;
+ *      - aspectul paginii (separat de WCAG): ingusteaza fereastra pas cu pas si cauta
+ *        elementele suprapuse, taiate sau iesite din pagina (`layout-audit.ts`).
+ *      Descoperirea paginilor unui audit citeste linkurile;
  *   5. inchide contextul, orice s-ar intampla.
  *
  * Nu scrie in baza de date: returneaza rezultatul brut sau motivul esecului.
@@ -22,6 +25,7 @@ import { errors, type Browser, type BrowserContext, type Page } from 'playwright
 import type { ScanConfig, WcagProfile } from '@ro-a11y/shared';
 import type { RequestGuard } from '../safety/url-guard';
 import { capturePage, type PageCapture } from './capture';
+import { auditLayout, type LayoutAuditResult } from './layout-audit';
 import {
   applyContrastRecheck,
   contrastTargets,
@@ -65,13 +69,18 @@ export interface PageFailure {
 export type PageScanOutcome =
   | {
       ok: true;
-      raw: AxeResults;
+      /** Rezultatul axe-core; null daca accesibilitatea nu a fost ceruta. */
+      raw: AxeResults | null;
       /** Captura pentru harta problemelor; null daca nu a reusit (scanarea ramane valida). */
       capture: PageCapture | null;
       /** De ce nu exista captura (pentru jurnal), daca nu exista. */
       captureError: string | null;
       /** Re-verificarea contrastului pe ecran: cate elemente, cate si-au schimbat rezultatul. */
       contrastRecheck: ContrastRecheckSummary;
+      /** Verificarea aspectului; null daca nu a fost ceruta sau nu a reusit. */
+      layout: LayoutAuditResult | null;
+      /** De ce verificarea aspectului nu a reusit (null = a reusit sau nu a fost ceruta). */
+      layoutError: string | null;
       finalUrl: string;
       httpStatus: number;
       blockedRequests: string[];
@@ -110,50 +119,41 @@ function isRedirect(status: number): boolean {
   return status >= 300 && status < 400;
 }
 
-/** Scaneaza pagina cu axe-core (dupa ce a fost deschisa in siguranta). */
+/**
+ * Scaneaza pagina (dupa ce a fost deschisa in siguranta): accesibilitatea si / sau aspectul,
+ * dupa `config.checks`. Pagina e deschisa o singura data pentru ambele verificari.
+ */
 export async function scanPage(
   browser: Browser,
   pageUrl: string,
   config: ScanConfig,
   guard: RequestGuard,
 ): Promise<PageScanOutcome> {
-  const opened = await openGuardedPage(browser, pageUrl, config, guard, async ({ page }) => {
-    let raw: AxeResults;
-    try {
-      raw = await new AxeBuilder({ page }).withTags(axeTagsFor(config)).analyze();
-    } catch (err) {
-      return { analysisError: firstLine(err) };
-    }
-    // Parcurgerea paginii, imediat dupa analiza, pe aceeasi pagina: captura pentru harta si,
-    // pe fiecare ecran, re-verificarea contrastului elementelor semnalate care au intrat in ecran.
-    // Un esec aici nu strica scanarea (raman rezultatele axe initiale).
-    const toRecheck = contrastTargets(raw);
-    const rechecked = new Map<string, RecheckedNode>();
-    let recheckError: string | null = null;
-    const onView = async (entered: unknown[]) => {
-      const mine = entered.filter((t) => toRecheck.has(JSON.stringify(t)));
-      if (mine.length === 0 || recheckError) return;
-      try {
-        for (const [k, v] of await recheckContrast(page, mine)) rechecked.set(k, v);
-      } catch (err) {
-        recheckError = firstLine(err);
+  const opened = await openGuardedPage(
+    browser,
+    pageUrl,
+    config,
+    guard,
+    async ({ page }): Promise<Scanned | AnalysisError> => {
+      const accessibility: AccessibilityResult | AnalysisError = config.checks.accessibility
+        ? await checkAccessibility(page, config)
+        : { raw: null, capture: null, captureError: null, contrastRecheck: NO_RECHECK };
+      if ('analysisError' in accessibility) return accessibility;
+
+      // Aspectul, dupa accesibilitate (ca harta problemelor sa fie fotografiata la latimea
+      // normala). Un esec aici nu strica scanarea.
+      let layout: LayoutAuditResult | null = null;
+      let layoutError: string | null = null;
+      if (config.checks.layout) {
+        try {
+          layout = await auditLayout(page);
+        } catch (err) {
+          layoutError = firstLine(err);
+        }
       }
-    };
-    let capture: PageCapture | null = null;
-    let captureError: string | null = null;
-    try {
-      capture = await capturePage(page, affectedTargets(raw), onView);
-    } catch (err) {
-      captureError = firstLine(err);
-    }
-    const applied = applyContrastRecheck(raw, rechecked);
-    return {
-      raw: applied.raw,
-      capture,
-      captureError,
-      contrastRecheck: { checked: rechecked.size, changed: applied.changed, error: recheckError },
-    };
-  });
+      return { ...accessibility, layout, layoutError };
+    },
+  );
   if (!opened.ok) return opened;
   if ('analysisError' in opened.value) {
     return fail(
@@ -166,14 +166,70 @@ export async function scanPage(
   }
   return {
     ok: true,
-    raw: opened.value.raw,
-    capture: opened.value.capture,
-    captureError: opened.value.captureError,
-    contrastRecheck: opened.value.contrastRecheck,
+    ...opened.value,
     finalUrl: opened.finalUrl,
     httpStatus: opened.httpStatus,
     blockedRequests: opened.blockedRequests,
   };
+}
+
+const NO_RECHECK: ContrastRecheckSummary = { checked: 0, changed: 0, error: null };
+
+interface AnalysisError {
+  analysisError: string;
+}
+interface AccessibilityResult {
+  raw: AxeResults | null;
+  capture: PageCapture | null;
+  captureError: string | null;
+  contrastRecheck: ContrastRecheckSummary;
+}
+interface Scanned extends AccessibilityResult {
+  layout: LayoutAuditResult | null;
+  layoutError: string | null;
+}
+
+/**
+ * Accesibilitatea: axe-core, apoi parcurgerea paginii, imediat dupa analiza, pe aceeasi pagina:
+ * captura pentru harta si, pe fiecare ecran, re-verificarea contrastului elementelor semnalate
+ * care au intrat in ecran. Un esec la captura nu strica scanarea (raman rezultatele axe initiale).
+ */
+async function checkAccessibility(
+  page: Page,
+  config: ScanConfig,
+): Promise<AccessibilityResult | AnalysisError> {
+  let raw: AxeResults;
+  try {
+    raw = await new AxeBuilder({ page }).withTags(axeTagsFor(config)).analyze();
+  } catch (err) {
+    return { analysisError: firstLine(err) };
+  }
+  const toRecheck = contrastTargets(raw);
+  const rechecked = new Map<string, RecheckedNode>();
+  let recheckError: string | null = null;
+  const onView = async (entered: unknown[]) => {
+    const mine = entered.filter((t) => toRecheck.has(JSON.stringify(t)));
+    if (mine.length === 0 || recheckError) return;
+    try {
+      for (const [k, v] of await recheckContrast(page, mine)) rechecked.set(k, v);
+    } catch (err) {
+      recheckError = firstLine(err);
+    }
+  };
+  let capture: PageCapture | null = null;
+  let captureError: string | null = null;
+  try {
+    capture = await capturePage(page, affectedTargets(raw), onView);
+  } catch (err) {
+    captureError = firstLine(err);
+  }
+  const applied = applyContrastRecheck(raw, rechecked);
+  const contrastRecheck: ContrastRecheckSummary = {
+    checked: rechecked.size,
+    changed: applied.changed,
+    error: recheckError,
+  };
+  return { raw: applied.raw, capture, captureError, contrastRecheck };
 }
 
 /**

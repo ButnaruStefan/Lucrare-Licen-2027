@@ -1,0 +1,152 @@
+<!doctype html>
+<!--
+  Pagina de antrenament pentru verificarea ASPECTULUI paginii (separata de accesibilitate).
+  Are defecte de aranjare puse intentionat, fiecare marcat cu DEFECT Axx:
+    A01 - titlul si meniul (pozitionat absolut) se suprapun pe ecrane mai inguste de ~900 px
+    A02 - tabelul cu latime fixa (1100 px) face pagina sa se deruleze pe orizontala
+    A03 - media queries suprapuse: max-width: 768px si min-width: 768px, ambele active la 768 px
+    A04 - bara de linkuri rapide cu inaltime fixa si overflow: hidden isi pierde linkurile
+          cand se rupe pe doua randuri
+  Restul paginii e responsive corect (imagini cu max-width: 100%, text care se rearanjeaza).
+-->
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Primăria Comunei Valea Verde — aspectul paginii</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        color: #1a1a1a;
+        background: #fff;
+      }
+      /* DEFECT A01: meniul e pozitionat absolut in dreapta, peste spatiul titlului */
+      header {
+        position: relative;
+        height: 64px;
+        background: #f2f5f9;
+        border-bottom: 1px solid #d0d7e2;
+      }
+      header h1 {
+        margin: 0;
+        padding-left: 24px;
+        font-size: 24px;
+        line-height: 64px;
+        white-space: nowrap;
+      }
+      header nav {
+        position: absolute;
+        right: 24px;
+        top: 20px;
+        white-space: nowrap;
+      }
+      header nav a {
+        margin-left: 20px;
+        color: #0b4f9c;
+      }
+      /* DEFECT A04: inaltime fixa + overflow hidden: al doilea rand de linkuri dispare */
+      .rapide {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 24px;
+        height: 44px;
+        overflow: hidden;
+        padding: 10px 24px;
+        background: #0b4f9c;
+      }
+      .rapide a {
+        color: #fff;
+      }
+      main {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+      /* DEFECT A02: tabelul are latime fixa, mai mare decat ecranele mici */
+      table {
+        width: 1100px;
+        border-collapse: collapse;
+      }
+      td,
+      th {
+        border: 1px solid #c3cad6;
+        padding: 6px 10px;
+        text-align: left;
+      }
+      /* DEFECT A03: ambele reguli sunt active la exact 768 px */
+      @media (max-width: 768px) {
+        main {
+          padding: 12px;
+        }
+      }
+      @media (min-width: 768px) {
+        main {
+          padding: 32px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1 id="titlu" data-defect="A01">Primăria Comunei Valea Verde</h1>
+      <nav aria-label="Meniu principal">
+        <a href="#">Acasă</a><a href="#">Servicii publice</a><a href="#">Anunțuri</a
+        ><a href="#">Contact</a>
+      </nav>
+    </header>
+    <nav class="rapide" aria-label="Linkuri rapide" data-defect="A04">
+      <a href="#">Taxe și impozite</a><a href="#">Stare civilă</a><a href="#">Urbanism</a>
+      <a href="#">Registrul agricol</a><a id="ultimul-link" href="#">Programări online</a>
+    </nav>
+    <main>
+      <h2>Bine ați venit</h2>
+      <p>
+        Aceasta este o pagină de antrenament. Textul se rearanjează corect pe ecrane mici, iar
+        imaginea de mai jos se micșorează odată cu pagina.
+      </p>
+      <img src="/assets/sediu.svg" width="900" height="300" alt="Sediul primăriei" />
+      <h2>Program cu publicul</h2>
+      <table id="program" data-defect="A02">
+        <thead>
+          <tr>
+            <th>Serviciu</th>
+            <th>Luni</th>
+            <th>Marți</th>
+            <th>Miercuri</th>
+            <th>Joi</th>
+            <th>Vineri</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Registratură</td>
+            <td>08:00–16:00</td>
+            <td>08:00–16:00</td>
+            <td>08:00–18:00</td>
+            <td>08:00–16:00</td>
+            <td>08:00–14:00</td>
+          </tr>
+          <tr>
+            <td>Taxe și impozite</td>
+            <td>08:30–15:30</td>
+            <td>08:30–15:30</td>
+            <td>08:30–17:30</td>
+            <td>08:30–15:30</td>
+            <td>08:30–13:30</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>

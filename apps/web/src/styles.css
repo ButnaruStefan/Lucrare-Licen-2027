@@ -3215,3 +3215,201 @@ button:disabled {
 .issue-map__viewport:focus-visible {
   outline-offset: -3px;
 }
+
+/* --- Alegerea verificarilor (pagina proiectului): casute de bifat afisate ca optiunile --- */
+
+.mode-option--checkbox .mode-option__check {
+  border-radius: 5px;
+}
+
+/* Bifa: un "v" desenat din doua margini ale unui dreptunghi rotit */
+.mode-option--checkbox .mode-option__check::after {
+  inset: auto;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 11px;
+  border: solid var(--accent-text);
+  border-width: 0 2.5px 2.5px 0;
+  border-radius: 0;
+  background: none;
+  transform: rotate(45deg) scale(0);
+}
+
+.mode-option--checkbox:has(.mode-option__input:checked) .mode-option__check {
+  background: var(--accent);
+}
+
+.mode-option--checkbox:has(.mode-option__input:checked) .mode-option__check::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.mode-picker__error {
+  margin: 0.6rem 0 0;
+}
+
+/* Legaturile spre sectiunile paginii unei scanari (accesibilitate, aspect) */
+.section-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 1rem 0 0;
+  font-weight: 600;
+}
+
+/* --- Aspect si afisare (pagina unei scanari) --- */
+
+.layout-panel__intro {
+  max-width: 48rem;
+}
+
+.badge--layout-visible {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.badge--layout-possible {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.badge--layout-info {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
+.layout-issues {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layout-issue {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--warn-text);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.layout-issue--visible {
+  border-left-color: var(--error-text);
+}
+
+.layout-issue__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+}
+
+.layout-issue__title {
+  font-weight: 700;
+}
+
+.layout-issue__range {
+  color: var(--muted);
+  font-size: 0.925rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.layout-issue__body {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.layout-issue__body > p:first-child {
+  margin-top: 0.85rem;
+}
+
+.layout-issue__heading {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 1rem;
+}
+
+.layout-issue__facts {
+  font-weight: 600;
+}
+
+.layout-issue__rules {
+  padding-left: 1.25rem;
+}
+
+.layout-issue__elements {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layout-issue__text {
+  margin: 0 0 0.25rem;
+}
+
+.layout-issue__selector {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.layout-issue__source {
+  font-size: 0.875rem;
+}
+
+/* Captura decupata: imaginea se micsoreaza cu cardul, chenarele (in procente) o urmeaza */
+.layout-shot {
+  margin: 1rem 0 0;
+}
+
+.layout-shot__canvas {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.layout-shot__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.layout-shot__box {
+  position: absolute;
+  min-width: 4px;
+  min-height: 4px;
+  border: 2px solid var(--map-violation);
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.85);
+}
+
+.layout-shot__edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 2px dashed var(--map-incomplete);
+}
+
+.layout-shot__edge-label {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  background: var(--map-incomplete);
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.layout-shot figcaption {
+  margin-top: 0.4rem;
+  font-size: 0.875rem;
+}

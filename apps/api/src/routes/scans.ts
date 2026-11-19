@@ -9,6 +9,10 @@
  *                                             dimensiunile capturii paginii
  * - GET  /api/v1/scans/:scanId/screenshot   — captura paginii (imagine WebP), pentru harta
  *                                             problemelor; 404 daca scanarea nu are captura
+ * - GET  /api/v1/scans/:scanId/layout       — verificarea aspectului paginii (separata de WCAG):
+ *                                             latimile verificate, breakpoint-urile, semnalele;
+ *                                             404 daca nu a fost ceruta
+ * - GET  /api/v1/scans/:scanId/layout/issues/:issueId/image — captura decupata a unui semnal
  * - GET  /api/v1/scans/:scanId/results      — rezultatele pe reguli, cu elementele afectate si
  *                                             lantul de trasabilitate (WCAG -> EN -> OUG 112/2018,
  *                                             cu aplicabilitatea din profilul juridic al proiectului)
@@ -20,14 +24,22 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import {
+  breakpointSchema,
   createScanSchema,
+  elementBoxSchema,
+  layoutDetailsSchema,
+  layoutElementSchema,
   legalAssessmentSchema,
+  LAYOUT_ISSUE_KINDS,
+  LAYOUT_LEVELS,
   ruleResultFilterSchema,
   scanConfigSchema,
   type ResultCategory,
+  type LayoutSummary,
   type RuleResult,
   type RuleResultList,
   type Scan,
+  type ScanLayout,
   type ScanList,
   type ScanSummary,
   type ScreenshotInfo,
@@ -68,6 +80,7 @@ function toScanDto(
   row: ScanRow,
   summary: ScanSummary | null,
   screenshot: ScreenshotInfo | null = null,
+  layout: LayoutSummary | null = null,
 ): Scan {
   return {
     id: row.id,
@@ -89,7 +102,39 @@ function toScanDto(
     finishedAt: iso(row.finishedAt),
     summary: row.status === 'completed' ? summary : null,
     screenshot: row.status === 'completed' ? screenshot : null,
+    layout: row.status === 'completed' ? layout : null,
   };
+}
+
+/**
+ * Sumarul verificarii aspectului (cate semnale, pe niveluri) pentru mai multe scanari odata.
+ * O scanare fara verificarea aspectului nu apare in rezultat.
+ */
+export async function loadLayoutSummaries(
+  db: Database,
+  scanIds: string[],
+): Promise<Map<string, LayoutSummary>> {
+  const result = new Map<string, LayoutSummary>();
+  if (scanIds.length === 0) return result;
+  const layouts = await db.scanLayout.findMany({
+    where: { scanId: { in: scanIds } },
+    select: { scanId: true, error: true },
+  });
+  for (const l of layouts) {
+    result.set(l.scanId, { visible: 0, possible: 0, info: 0, failed: l.error !== null });
+  }
+  const counts = await db.layoutIssue.groupBy({
+    by: ['scanId', 'level'],
+    where: { scanId: { in: scanIds } },
+    _count: { _all: true },
+  });
+  for (const c of counts) {
+    const summary = result.get(c.scanId);
+    if (summary && (c.level === 'visible' || c.level === 'possible' || c.level === 'info')) {
+      summary[c.level] = c._count._all;
+    }
+  }
+  return result;
 }
 
 /** Calculeaza sumarul (reguli si elemente pe categorii) pentru mai multe scanari odata. */
@@ -144,6 +189,9 @@ const IMPACT_ORDER = ['critical', 'serious', 'moderate', 'minor', null];
 function projectNotFound() {
   return new HttpError(404, 'PROJECT_NOT_FOUND', 'Proiectul nu există.');
 }
+function imageNotFound() {
+  return new HttpError(404, 'IMAGE_NOT_FOUND', 'Semnalul nu are o captură.');
+}
 function scanNotFound() {
   return new HttpError(404, 'SCAN_NOT_FOUND', 'Scanarea nu există.');
 }
@@ -174,6 +222,7 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     if (!check.ok) throw new HttpError(400, 'UNSAFE_URL', check.message);
 
     const config = scanConfigSchema.parse({
+      checks: input.checks,
       wcagProfile: input.wcagProfile,
       includeBestPractices: input.includeBestPractices,
       timeoutMs: scanTimeoutMs,
@@ -194,12 +243,13 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
       orderBy: { createdAt: 'desc' },
       take: LIST_LIMIT,
     });
-    const summaries = await loadSummaries(
-      db,
-      rows.filter((r) => r.status === 'completed').map((r) => r.id),
-    );
+    const completed = rows.filter((r) => r.status === 'completed').map((r) => r.id);
+    const summaries = await loadSummaries(db, completed);
+    const layouts = await loadLayoutSummaries(db, completed);
     const body: ScanList = {
-      items: rows.map((r) => toScanDto(r, summaries.get(r.id) ?? null)),
+      items: rows.map((r) =>
+        toScanDto(r, summaries.get(r.id) ?? null, null, layouts.get(r.id) ?? null),
+      ),
     };
     res.json(body);
   });
@@ -208,7 +258,9 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     if (!isUuid(req.params.scanId)) throw scanNotFound();
     const row = await db.scan.findUnique({ where: { id: req.params.scanId } });
     if (!row) throw scanNotFound();
-    const summaries = await loadSummaries(db, row.status === 'completed' ? [row.id] : []);
+    const done = row.status === 'completed' ? [row.id] : [];
+    const summaries = await loadSummaries(db, done);
+    const layouts = await loadLayoutSummaries(db, done);
     // Doar dimensiunile capturii, nu si imaginea (ea vine pe ruta separata)
     const shot = await db.scanScreenshot.findUnique({
       where: { scanId: row.id },
@@ -223,7 +275,80 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
       },
     });
     const screenshot = shot ? { url: `/api/v1/scans/${row.id}/screenshot`, ...shot } : null;
-    res.json(toScanDto(row, summaries.get(row.id) ?? null, screenshot));
+    res.json(
+      toScanDto(row, summaries.get(row.id) ?? null, screenshot, layouts.get(row.id) ?? null),
+    );
+  });
+
+  router.get('/api/v1/scans/:scanId/layout', async (req, res) => {
+    if (!isUuid(req.params.scanId)) throw scanNotFound();
+    const layout = await db.scanLayout.findUnique({
+      where: { scanId: req.params.scanId },
+      include: {
+        // Fara imagini (vin pe ruta separata); doar daca exista una si cat de mare e
+        issues: {
+          omit: { image: true },
+          orderBy: [{ level: 'desc' }, { widthMax: 'desc' }],
+        },
+      },
+    });
+    if (!layout) {
+      throw new HttpError(
+        404,
+        'LAYOUT_NOT_FOUND',
+        'Scanarea nu are o verificare a aspectului paginii.',
+      );
+    }
+    const levelOrder = (level: string) => LAYOUT_LEVELS.indexOf(level as never);
+    const issues = [...layout.issues].sort(
+      (a, b) =>
+        levelOrder(a.level) - levelOrder(b.level) ||
+        (b.widthMax ?? Infinity) - (a.widthMax ?? Infinity),
+    );
+    const body: ScanLayout = {
+      widths: layout.widths,
+      breakpoints: z.array(breakpointSchema).parse(layout.breakpoints),
+      metaViewport: layout.metaViewport,
+      durationMs: layout.durationMs,
+      partial: layout.partial,
+      error: layout.error,
+      issues: issues
+        .filter((i) => (LAYOUT_ISSUE_KINDS as readonly string[]).includes(i.kind))
+        .map((i) => ({
+          id: i.id,
+          kind: i.kind as ScanLayout['issues'][number]['kind'],
+          level: i.level as ScanLayout['issues'][number]['level'],
+          widthMin: i.widthMin,
+          widthMax: i.widthMax,
+          elements: z.array(layoutElementSchema).parse(i.elements),
+          details: layoutDetailsSchema.parse(i.details),
+          image:
+            i.imageFormat && i.imageWidth && i.imageHeight && i.imageViewport
+              ? {
+                  url: `/api/v1/scans/${layout.scanId}/layout/issues/${i.id}/image`,
+                  width: i.imageWidth,
+                  height: i.imageHeight,
+                  viewportWidth: i.imageViewport,
+                }
+              : null,
+          boxes: z.array(elementBoxSchema).parse(i.boxes),
+        })),
+    };
+    res.json(body);
+  });
+
+  router.get('/api/v1/scans/:scanId/layout/issues/:issueId/image', async (req, res) => {
+    if (!isUuid(req.params.scanId) || !isUuid(req.params.issueId)) throw imageNotFound();
+    const issue = await db.layoutIssue.findFirst({
+      where: { id: req.params.issueId, scanId: req.params.scanId },
+      select: { image: true, imageFormat: true },
+    });
+    if (!issue?.image || !issue.imageFormat) throw imageNotFound();
+    res
+      .type(IMAGE_TYPES[issue.imageFormat] ?? 'application/octet-stream')
+      .set('Cache-Control', SCREENSHOT_CACHE)
+      .set('X-Content-Type-Options', 'nosniff')
+      .send(Buffer.from(issue.image));
   });
 
   router.get('/api/v1/scans/:scanId/screenshot', async (req, res) => {

@@ -16,6 +16,7 @@ import { scanConfigSchema, type ScanConfig } from '@ro-a11y/shared';
 import type { Database } from '../db/prisma';
 import type { NormalizedRuleResult } from '../scanner/normalize';
 import type { PageCapture } from '../scanner/capture';
+import type { LayoutAuditResult } from '../scanner/layout-audit';
 
 export interface ClaimedScan {
   id: string;
@@ -42,13 +43,20 @@ export async function claimNextScan(db: Database): Promise<ClaimedScan | null> {
 }
 
 export interface CompletedScanData {
-  raw: AxeResults;
+  /** Rezultatul axe-core; null = accesibilitatea nu a fost ceruta. */
+  raw: AxeResults | null;
   results: NormalizedRuleResult[];
   /** Captura paginii (harta problemelor); null = nu a reusit, scanarea se salveaza oricum. */
   capture?: PageCapture | null;
+  /**
+   * Verificarea aspectului: rezultatul sau motivul esecului. null / lipsa = nu a fost ceruta.
+   * Un esec e salvat si el, ca interfata sa spuna ca verificarea nu s-a putut face.
+   */
+  layout?: { result: LayoutAuditResult | null; error: string | null } | null;
   finalUrl: string;
   httpStatus: number;
-  engineVersion: string;
+  /** Versiunea axe-core; null = accesibilitatea nu a fost verificata. */
+  engineVersion: string | null;
   browserVersion: string;
 }
 
@@ -126,6 +134,41 @@ export async function completeScan(db: Database, scanId: string, data: Completed
             },
           });
         }
+        // verificarea aspectului: masuratorile si semnalele, cu capturile lor decupate
+        if (data.layout) {
+          const layout = data.layout.result;
+          await tx.scanLayout.create({
+            data: {
+              scanId,
+              widths: layout?.widths ?? [],
+              breakpoints: (layout?.breakpoints ?? []) as object,
+              metaViewport: layout?.metaViewport ?? null,
+              durationMs: layout?.durationMs ?? 0,
+              partial: layout?.partial ?? false,
+              error: layout ? null : (data.layout.error ?? 'Verificarea aspectului a eșuat.'),
+            },
+          });
+          if (layout && layout.issues.length > 0) {
+            await tx.layoutIssue.createMany({
+              data: layout.issues.map((issue) => ({
+                scanId,
+                kind: issue.kind,
+                level: issue.level,
+                widthMin: issue.widthMin,
+                widthMax: issue.widthMax,
+                elements: issue.elements as object,
+                details: issue.details as object,
+                fingerprint: issue.fingerprint,
+                image: issue.image ? new Uint8Array(issue.image.data) : null,
+                imageFormat: issue.image?.format ?? null,
+                imageWidth: issue.image?.width ?? null,
+                imageHeight: issue.image?.height ?? null,
+                imageViewport: issue.image?.viewportWidth ?? null,
+                boxes: issue.boxes as object,
+              })),
+            });
+          }
+        }
         // in tabela scan actualizam statusul scanarii la 'completed' si adaugam rezultatele
         await tx.scan.update({
           where: { id: scanId },
@@ -134,10 +177,11 @@ export async function completeScan(db: Database, scanId: string, data: Completed
             finishedAt: new Date(),
             finalUrl: data.finalUrl,
             httpStatus: data.httpStatus,
-            engineName: 'axe-core',
+            engineName: data.raw ? 'axe-core' : null,
             engineVersion: data.engineVersion,
             browserVersion: data.browserVersion,
-            rawAxeResult: data.raw as unknown as object,
+            // rezultatul brut axe, doar daca s-a verificat accesibilitatea (altfel ramane null)
+            ...(data.raw ? { rawAxeResult: data.raw as unknown as object } : {}),
           },
         });
       },

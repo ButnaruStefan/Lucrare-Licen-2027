@@ -137,6 +137,64 @@ describe('POST /api/v1/projects/:projectId/audits', () => {
     expect(apiErrorSchema.parse(res.body).error.details?.[0]?.field).toBe(field);
   });
 
+  it('verificarile alese (doar aspectul) trec pe fiecare pagina; sumarul aspectului apare pe pagini', async () => {
+    const project = await createProject();
+    const created = await request(app)
+      .post(`/api/v1/projects/${project.id}/audits`)
+      .send({ checks: { accessibility: false, layout: true } });
+    expect(created.status).toBe(202);
+    const auditId = created.body.id as string;
+    expect(auditSchema.parse(created.body).config.checks).toEqual({
+      accessibility: false,
+      layout: true,
+    });
+    const claimed = await claimNextDiscovery(testDb);
+    await saveDiscovery(testDb, claimed!.id, discoveryFixture());
+    await request(app)
+      .post(`/api/v1/audits/${auditId}/selection`)
+      .send({ urls: [SITE] });
+
+    const scan = await claimNextScan(testDb);
+    expect(scan!.config.checks).toEqual({ accessibility: false, layout: true });
+    await completeScan(testDb, scan!.id, {
+      raw: null,
+      results: [],
+      layout: {
+        error: null,
+        result: {
+          widths: [1400, 320],
+          breakpoints: [],
+          metaViewport: null,
+          durationMs: 1000,
+          partial: false,
+          issues: [
+            {
+              kind: 'fara-meta-viewport',
+              level: 'visible',
+              widthMin: null,
+              widthMax: null,
+              elements: [],
+              details: {},
+              fingerprint: 'v',
+              image: null,
+              boxes: [],
+            },
+          ],
+        },
+      },
+      finalUrl: SITE,
+      httpStatus: 200,
+      engineVersion: null,
+      browserVersion: 'Chrome test',
+    });
+    const audit = auditSchema.parse((await request(app).get(`/api/v1/audits/${auditId}`)).body);
+    expect(audit.status).toBe('completed');
+    expect(audit.pages[0]!.layout).toEqual({ visible: 1, possible: 0, info: 0, failed: false });
+    // Fara accesibilitate, rezultatele pe reguli sunt goale
+    const results = await request(app).get(`/api/v1/audits/${auditId}/results`);
+    expect(results.body).toMatchObject({ pagesScanned: 1, rules: [], commonIssues: [] });
+  });
+
   it('respinge o pagina de start de pe alt site sau dintr-o retea interna', async () => {
     const project = await createProject();
     const other = await request(app)

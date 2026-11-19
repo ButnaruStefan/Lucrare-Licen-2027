@@ -7,7 +7,8 @@
  *
  * O scanare in curs ("queued" sau "running") este reverificata periodic, pana se termina.
  * La fel un audit pe mai multe pagini, cat timp cauta paginile sau le scaneaza.
- * Profilul juridic (OUG 112/2018) al unui proiect se citeste si se salveaza tot de aici.
+ * Profilul juridic (OUG 112/2018) al unui proiect se citeste si se salveaza tot de aici, la fel
+ * si verificarea aspectului unei pagini (separata de accesibilitate).
  */
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +22,7 @@ import {
   projectListSchema,
   projectSchema,
   ruleResultListSchema,
+  scanLayoutSchema,
   scanListSchema,
   scanSchema,
   type AuditList,
@@ -45,6 +47,7 @@ export const queryKeys = {
   legalProfile: (id: string) => ['projects', id, 'legal-profile'] as const,
   scan: (id: string) => ['scans', id] as const,
   scanResults: (id: string) => ['scans', id, 'results'] as const,
+  scanLayout: (id: string) => ['scans', id, 'layout'] as const,
   projectAudits: (id: string) => ['projects', id, 'audits'] as const,
   audit: (id: string) => ['audits', id] as const,
   auditResults: (id: string) => ['audits', id, 'results'] as const,
@@ -121,6 +124,18 @@ export function useScanResults(scanId: string, enabled: boolean) {
     queryKey: queryKeys.scanResults(scanId),
     queryFn: ({ signal }) =>
       apiRequest(`/api/v1/scans/${encodeURIComponent(scanId)}/results`, ruleResultListSchema, {
+        signal,
+      }),
+    enabled,
+  });
+}
+
+/** Verificarea aspectului paginii: latimile verificate, breakpoint-urile si semnalele. */
+export function useScanLayout(scanId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.scanLayout(scanId),
+    queryFn: ({ signal }) =>
+      apiRequest(`/api/v1/scans/${encodeURIComponent(scanId)}/layout`, scanLayoutSchema, {
         signal,
       }),
     enabled,

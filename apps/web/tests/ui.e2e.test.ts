@@ -17,7 +17,9 @@ import {
   discovered,
   DISCOVERED_PAGES,
   HOSTILE_HTML,
+  LAYOUT,
   makeAudit,
+  makeLayoutScan,
   makeScan,
   mockApi,
   PROJECT,
@@ -945,6 +947,135 @@ describe('navigare si tastatura', () => {
     await page.goto(`${baseUrl}/despre`);
 
     await page.getByRole('heading', { level: 1, name: 'Despre și limitări' }).waitFor();
+    expect(await axeViolations()).toEqual([]);
+  });
+});
+
+describe('verificarea aspectului paginii', () => {
+  it('pe pagina proiectului se alege ce se verifica; cel putin o verificare e obligatorie', async () => {
+    const created: unknown[] = [];
+    await mockApi(page, { onCreate: (_, body) => created.push(body) });
+    await page.goto(`${baseUrl}/proiecte/${PROJECT.id}?verificare=o-pagina`);
+
+    const accessibility = page.getByRole('checkbox', { name: 'Accesibilitatea' });
+    const layout = page.getByRole('checkbox', { name: 'Aspectul paginii' });
+    await page.getByRole('group', { name: 'Ce vrei să verifici?' }).waitFor();
+    await page.getByRole('group', { name: 'Câte pagini?' }).waitFor();
+    // Implicit: doar accesibilitatea, cu optiunile WCAG
+    expect(await accessibility.isChecked()).toBe(true);
+    expect(await layout.isChecked()).toBe(false);
+    await page.getByLabel('Standardul verificat').waitFor();
+
+    // Fara nicio verificare: mesaj, iar butonul nu porneste nimic
+    await page.getByText('Accesibilitatea', { exact: true }).click();
+    await page.getByText('Alege cel puțin o verificare.').waitFor();
+    const submit = page.getByRole('button', { name: 'Scanează pagina' });
+    expect(await submit.isDisabled()).toBe(true);
+    expect(await axeViolations()).toEqual([]);
+
+    // Doar aspectul: optiunile WCAG dispar, cererea trimite verificarile alese
+    await page.getByText('Aspectul paginii', { exact: true }).click();
+    await expect.poll(() => layout.isChecked()).toBe(true);
+    expect(page.url()).toContain('verifica=aspect');
+    expect(await page.getByLabel('Standardul verificat').count()).toBe(0);
+    expect(await axeViolations()).toEqual([]);
+    await submit.click();
+    await page.waitForURL(`**/scanari/${SCAN_ID}`);
+    expect(created).toEqual([
+      expect.objectContaining({ checks: { accessibility: false, layout: true } }),
+    ]);
+  });
+
+  it('o scanare doar de aspect arata semnalele, cu captura si sursa, fara rezultate WCAG', async () => {
+    await mockApi(page, { scanSequence: [makeLayoutScan()] });
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+
+    await page.getByRole('heading', { level: 2, name: 'Aspect și afișare' }).waitFor();
+    await page.getByText('Nu sunt verificări de accesibilitate', { exact: false }).waitFor();
+    expect(await page.getByRole('heading', { name: 'Rezultate pe reguli' }).count()).toBe(0);
+    expect(await page.getByRole('heading', { name: 'Sumar', exact: true }).count()).toBe(0);
+    await page.getByText(`Am verificat pagina la ${LAYOUT.widths.length} lățimi`).waitFor();
+
+    // Semnalul sigur: se deschide din tastatura si arata captura, elementul si sursa regulii
+    const first = page.locator('.layout-issue__summary').first();
+    await first.focus();
+    await page.keyboard.press('Enter');
+    await page.getByText('la lățimi între 320 și 1080 px').waitFor();
+    await page
+      .getByRole('img', {
+        name: 'Captura paginii la lățimea de 700 px, în jurul elementelor implicate.',
+      })
+      .waitFor();
+    await page.getByText('marginea ecranului').waitFor();
+    await page.getByText('Pagina are 1124 px lățime, cu 424 px mai mult decât ecranul.').waitFor();
+    // Fragmentul HTML al paginii scanate e afisat ca text, nu interpretat
+    expect(await page.locator('.layout-issue .element__html').first().innerText()).toBe(
+      LAYOUT.issues[0]!.elements[0]!.htmlSnippet,
+    );
+    await page.getByRole('link', { name: /web\.dev/ }).waitFor();
+
+    // Breakpoint-urile, ca informatie
+    await page.getByText('Breakpoint-urile paginii și eticheta meta viewport').click();
+    await page.getByRole('cell', { name: 'https://valea-verde.example/stil.css' }).waitFor();
+    expect(await axeViolations()).toEqual([]);
+
+    // Modul intunecat
+    const dark = await browser.newContext({ colorScheme: 'dark', locale: 'ro-RO' });
+    const darkPage = await dark.newPage();
+    await mockApi(darkPage, { scanSequence: [makeLayoutScan()] });
+    await darkPage.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    await darkPage.locator('.layout-issue__summary').first().click();
+    await darkPage.getByText('marginea ecranului').waitFor();
+    expect(await axeViolations(darkPage)).toEqual([]);
+    await dark.close();
+  });
+
+  it('cu ambele verificari, pagina scanarii are legaturi spre cele doua sectiuni', async () => {
+    const both = makeScan({
+      config: { ...makeScan().config, checks: { accessibility: true, layout: true } },
+      layout: { visible: 1, possible: 1, info: 0, failed: false },
+    });
+    await mockApi(page, { scanSequence: [both] });
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+
+    const links = page.getByRole('navigation', { name: 'Secțiunile rezultatelor' });
+    await links.getByRole('link', { name: 'Accesibilitate' }).waitFor();
+    await links.getByRole('link', { name: 'Aspect și afișare' }).click();
+    await page.getByRole('heading', { level: 2, name: 'Aspect și afișare' }).waitFor();
+    await page.getByRole('heading', { name: 'Rezultate pe reguli' }).waitFor();
+    expect(page.url()).toContain('#aspect');
+  });
+
+  it('o verificare a aspectului esuata e explicata, fara sa strice restul', async () => {
+    await mockApi(page, {
+      scanSequence: [
+        makeLayoutScan({ layout: { visible: 0, possible: 0, info: 0, failed: true } }),
+      ],
+      layout: { ...LAYOUT, issues: [], error: 'Pagina s-a închis în timpul verificării.' },
+    });
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+    await page.getByText('Verificarea aspectului nu s-a putut face').waitFor();
+    await page.getByText('Pagina s-a închis în timpul verificării.').waitFor();
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('pe pagina auditului, fiecare pagina arata semnalele de aspect', async () => {
+    const audit = completedAudit();
+    const layoutAudit = {
+      ...audit,
+      config: { ...audit.config, checks: { accessibility: false, layout: true } },
+      pages: audit.pages.map((p) =>
+        p.status === 'completed'
+          ? { ...p, summary: null, layout: { visible: 2, possible: 1, info: 0, failed: false } }
+          : p,
+      ),
+    };
+    await mockApi(page, { audit: layoutAudit });
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+
+    await page.getByText('aspect: 3 semnale').first().waitFor();
+    await page.getByText('Semnale de aspect sigure').waitFor();
+    expect(await page.getByText('Reguli cu probleme detectate').count()).toBe(0);
     expect(await axeViolations()).toEqual([]);
   });
 });

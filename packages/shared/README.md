@@ -15,7 +15,8 @@ de TypeScript in cealalta, la compilare, nu in fata utilizatorului.
 | `src/health.ts`        | Forma raspunsurilor `/health` si `/api/v1/health/ready`                                                             |
 | `src/errors.ts`        | Formatul standard al erorilor API                                                                                   |
 | `src/projects.ts`      | Proiectele: crearea (validarea adresei) si forma raspunsului                                                        |
-| `src/scans.ts`         | Scanarile: configuratia, starea, sumarul, captura paginii, rezultatele pe reguli (cu pozitia elementelor)           |
+| `src/scans.ts`         | Scanarile: verificarile alese, configuratia, starea, sumarul, captura paginii, rezultatele pe reguli                |
+| `src/layout.ts`        | Aspectul paginii (separat de WCAG): tipurile de semnale, nivelurile, breakpoint-urile, raspunsul API                |
 | `src/audits.ts`        | Auditurile pe mai multe pagini: paginile gasite, alegerea lor, rezultatele pe site                                  |
 | `src/page-labels.ts`   | Nume distincte pentru paginile unui site (ex. doua pagini "Iasi" devin "Evenimente › Iasi" si "Voluntariat › Iasi") |
 | `src/traceability.ts`  | Lantul de trasabilitate al unei probleme (WCAG, EN, OUG, aplicabilitate)                                            |
