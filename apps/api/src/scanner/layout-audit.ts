@@ -7,14 +7,18 @@
  *      Protocol (CSS.getMediaQueries vede si foile de stil de pe alte domenii, pe care
  *      JavaScript-ul paginii nu le poate citi);
  *   2. ingusteaza fereastra pas cu pas (1400 -> 320 px, din 60 in 60, plus breakpoint-urile
- *      paginii) si masoara aranjarea la fiecare latime (`layout-model.ts`);
+ *      paginii) si masoara aranjarea la fiecare latime (`layout-model.ts`); dupa fiecare
+ *      redimensionare asteapta ca pagina sa se rearanjeze, doar cat e nevoie (timerele scurte
+ *      ale scripturilor ei, cel mult 1 s);
  *   3. compara masuratorile intre latimi vecine (`layout-rules.ts`) si gaseste semnalele;
- *   4. pentru fiecare semnal: descrie elementele (selector, HTML, text) si, pentru cele mai
+ *   4. cauta capetele exacte ale fiecarui interval (cautare binara, intai la breakpoint-uri),
+ *      masurand doar elementele semnalului;
+ *   5. pentru fiecare semnal: descrie elementele (selector, HTML, text) si, pentru cele mai
  *      importante, face o captura decupata in jurul lor, la latimea problemei (JPEG);
- *   5. readuce fereastra la dimensiunea initiala.
+ *   6. readuce fereastra la dimensiunea initiala si functiile paginii (setTimeout) la loc.
  *
  * Are o limita proprie de timp: daca pagina e foarte grea, se opreste si marcheaza verificarea
- * "partiala", fara sa puna in pericol scanarea.
+ * "partiala" (sau capetele unor intervale "aproximative"), fara sa puna in pericol scanarea.
  */
 import { createHash } from 'node:crypto';
 import type { Page } from 'playwright';
@@ -23,22 +27,31 @@ import { HIDE_OVERLAYS_SCRIPT, RESTORE_SCRIPT } from './capture';
 import {
   DESCRIBE_SCRIPT,
   MAX_ELEMENTS,
+  MEASURE_IDS_SCRIPT,
   MEASURE_SCRIPT,
   META_VIEWPORT_SCRIPT,
-  RESIZE_SETTLE_MS,
   SETTLE_SCRIPT,
+  TIMERS_BEGIN_SCRIPT,
+  TIMERS_INSTALL_SCRIPT,
+  TIMERS_RESTORE_SCRIPT,
 } from './layout-model';
 import {
   detectLayoutIssues,
   parseBreakpoints,
+  refineEdge,
+  stateAt,
   sweepWidths,
+  transitionPairs,
   type LayoutFinding,
   type LayoutSnapshot,
   type MediaRuleInfo,
   type Rect,
 } from './layout-rules';
 
-/** Cat poate dura, cel mult, masurarea paginii la toate latimile (alegere proprie). */
+/**
+ * Cat poate dura, cel mult, masurarea paginii la toate latimile si cautarea capetelor exacte
+ * (alegere proprie).
+ */
 export const LAYOUT_BUDGET_MS = 45_000;
 /** Cate capturi decupate facem pe pagina, cel mult (alegere proprie: spatiu in baza de date). */
 export const MAX_LAYOUT_SCREENSHOTS = 10;
@@ -89,19 +102,26 @@ export async function auditLayout(
   const height = original?.height ?? 768;
 
   const metaViewport = (await page.evaluate(META_VIEWPORT_SCRIPT)) as string | null;
-  const medias = await readMediaRules(page).catch(() => [] as MediaRuleInfo[]);
+  const info = await readPageInfo(page).catch(() => ({
+    medias: [] as MediaRuleInfo[],
+    resizeListeners: true,
+  }));
+  const medias = info.medias;
   const breakpoints = parseBreakpoints(medias);
   const widths = sweepWidths(breakpoints);
+  const resize = (width: number) => resizeTo(page, width, height, info.resizeListeners);
+  const outOfTime = () => Date.now() - started > budgetMs;
 
   const snapshots: LayoutSnapshot[] = [];
   let partial = false;
   try {
+    await page.evaluate(TIMERS_INSTALL_SCRIPT);
     for (const width of widths) {
-      if (Date.now() - started > budgetMs) {
+      if (outOfTime()) {
         partial = true;
         break;
       }
-      await resizeTo(page, width, height);
+      await resize(width);
       const measured = (await page.evaluate(`(${MEASURE_SCRIPT})(${MAX_ELEMENTS})`)) as Omit<
         LayoutSnapshot,
         'width'
@@ -110,7 +130,15 @@ export async function auditLayout(
     }
 
     const findings = detectLayoutIssues(snapshots, medias, metaViewport);
-    const issues = await describeAndCapture(page, findings, height, maxScreenshots);
+    await refineFindings(
+      page,
+      findings,
+      snapshots.map((s) => s.width),
+      breakpoints,
+      resize,
+      outOfTime,
+    );
+    const issues = await describeAndCapture(page, findings, resize, maxScreenshots);
     return {
       widths: snapshots.map((s) => s.width),
       breakpoints,
@@ -120,27 +148,138 @@ export async function auditLayout(
       issues,
     };
   } finally {
+    await page.evaluate(TIMERS_RESTORE_SCRIPT).catch(() => {});
     if (original) await page.setViewportSize(original).catch(() => {});
   }
 }
 
-async function resizeTo(page: Page, width: number, height: number): Promise<void> {
+type Resize = (width: number) => Promise<void>;
+
+/** Schimba latimea ferestrei si asteapta ca pagina sa se rearanjeze (SETTLE_SCRIPT). */
+async function resizeTo(
+  page: Page,
+  width: number,
+  height: number,
+  resizeListeners: boolean,
+): Promise<void> {
+  await page.evaluate(TIMERS_BEGIN_SCRIPT);
   await page.setViewportSize({ width, height });
-  await page.evaluate(`(${SETTLE_SCRIPT})(${RESIZE_SETTLE_MS})`);
+  await page.evaluate(`(${SETTLE_SCRIPT})(${resizeListeners})`);
+}
+
+/** Un capat de cautat: intre `bad` (semnalul apare) si latimea vecina masurata `notBad`. */
+interface EdgeTask {
+  finding: LayoutFinding;
+  side: 'widthMax' | 'widthMin';
+  bad: number;
+  notBad: number;
 }
 
 /**
- * Regulile @media ale paginii, prin Chrome DevTools Protocol. Pentru fiecare: textul, fisierul
- * CSS din care vine si conditiile de latime, in pixeli (em si rem sunt convertite de browser).
+ * Capetele exacte ale intervalelor (pe loc, in `findings`): intre ultima latime masurata la care
+ * semnalul apare si latimea vecina la care nu apare, cautare binara (`refineEdge`), masurand doar
+ * elementele semnalului. Capetele de la marginea intervalului verificat (1400 sau 320 px) raman
+ * asa. Daca se termina timpul, semnalul ramane cu capetele masurate si e marcat "aproximativ".
+ *
+ * Capetele cu acelasi interval de cautat (ex. toate cardurile unui carusel, care se strica la
+ * acelasi breakpoint) sunt cautate impreuna: la fiecare latime masuram o singura data elementele
+ * tuturor, iar masuratoarea e refolosita de fiecare cautare care ajunge la acea latime.
  */
-async function readMediaRules(page: Page): Promise<MediaRuleInfo[]> {
+async function refineFindings(
+  page: Page,
+  findings: LayoutFinding[],
+  widths: number[],
+  breakpoints: Breakpoint[],
+  resize: Resize,
+  outOfTime: () => boolean,
+): Promise<void> {
+  const hints = transitionPairs(breakpoints);
+  const groups = new Map<string, EdgeTask[]>();
+  const add = (task: EdgeTask) => {
+    const key = `${task.bad}|${task.notBad}`;
+    groups.set(key, [...(groups.get(key) ?? []), task]);
+  };
+  for (const finding of findings) {
+    if (finding.widthMin === null || finding.widthMax === null) continue;
+    if (stateAt(finding, emptySnapshot) === null) continue;
+    const top = widths.indexOf(finding.widthMax);
+    if (top > 0)
+      add({ finding, side: 'widthMax', bad: finding.widthMax, notBad: widths[top - 1]! });
+    const bottom = widths.indexOf(finding.widthMin);
+    if (bottom >= 0 && bottom < widths.length - 1) {
+      add({ finding, side: 'widthMin', bad: finding.widthMin, notBad: widths[bottom + 1]! });
+    }
+  }
+
+  for (const tasks of groups.values()) {
+    // Derularea depinde doar de latimea paginii: pentru ea nu trebuie masurat niciun element
+    const ids = [
+      ...new Set(
+        tasks.flatMap((t) => (t.finding.kind === 'derulare-orizontala' ? [] : t.finding.ids)),
+      ),
+    ];
+    const measured = new Map<number, LayoutSnapshot>();
+    const measure = async (width: number): Promise<LayoutSnapshot> => {
+      const known = measured.get(width);
+      if (known) return known;
+      await resize(width);
+      const snap = (await page.evaluate(`(${MEASURE_IDS_SCRIPT})(${JSON.stringify(ids)})`)) as Omit<
+        LayoutSnapshot,
+        'width'
+      >;
+      const result = { ...snap, width };
+      measured.set(width, result);
+      return result;
+    };
+    for (const task of tasks) {
+      const isBad = async (width: number) => stateAt(task.finding, await measure(width)) === 'bad';
+      const edge = await refineEdge(task.bad, task.notBad, isBad, hints, outOfTime);
+      task.finding[task.side] = edge.width;
+      if (!edge.exact) task.finding.details = { ...task.finding.details, approximate: true };
+    }
+  }
+}
+
+/** Masuratori goale: doar ca sa aflam daca un semnal depinde de latime (`stateAt` != null). */
+const emptySnapshot: LayoutSnapshot = {
+  width: 0,
+  viewportWidth: 0,
+  scrollWidth: 0,
+  rootClipsX: false,
+  elements: [],
+  overflowing: [],
+  truncated: false,
+};
+
+/**
+ * Prin Chrome DevTools Protocol:
+ *   - regulile @media ale paginii: pentru fiecare, textul, fisierul CSS din care vine si
+ *     conditiile de latime, in pixeli (em si rem sunt convertite de browser);
+ *   - daca pagina asculta evenimentul "resize" al ferestrei (scripturi care se refac cand se
+ *     schimba latimea; vezi SETTLE_SCRIPT).
+ */
+async function readPageInfo(
+  page: Page,
+): Promise<{ medias: MediaRuleInfo[]; resizeListeners: boolean }> {
   const cdp = await page.context().newCDPSession(page);
   try {
     await cdp.send('DOM.enable');
     await cdp.send('CSS.enable');
     const { medias } = await cdp.send('CSS.getMediaQueries');
+    let resizeListeners = true;
+    try {
+      const { result } = await cdp.send('Runtime.evaluate', { expression: 'window' });
+      if (result.objectId) {
+        const { listeners } = await cdp.send('DOMDebugger.getEventListeners', {
+          objectId: result.objectId,
+        });
+        resizeListeners = listeners.some((l) => l.type === 'resize');
+      }
+    } catch {
+      // Nu stim: presupunem ca pagina asculta (asteptarea mai lunga, dar sigura)
+    }
     const pageUrl = page.url();
-    return medias.map((media) => ({
+    const rules = medias.map((media) => ({
       text: media.text,
       source: media.sourceURL && media.sourceURL !== pageUrl ? media.sourceURL : null,
       expressions: (media.mediaList ?? []).flatMap((query) =>
@@ -151,6 +290,7 @@ async function readMediaRules(page: Page): Promise<MediaRuleInfo[]> {
         })),
       ),
     }));
+    return { medias: rules, resizeListeners };
   } finally {
     await cdp.detach().catch(() => {});
   }
@@ -164,7 +304,7 @@ async function readMediaRules(page: Page): Promise<MediaRuleInfo[]> {
 async function describeAndCapture(
   page: Page,
   findings: LayoutFinding[],
-  height: number,
+  resize: Resize,
   maxScreenshots: number,
 ): Promise<LayoutIssueResult[]> {
   const allIds = [...new Set(findings.flatMap((f) => f.ids))];
@@ -211,7 +351,7 @@ async function describeAndCapture(
 
   try {
     for (const [width, items] of byWidth) {
-      await resizeTo(page, width, height);
+      await resize(width);
       await page.evaluate(HIDE_OVERLAYS_SCRIPT);
       for (const { f, index } of items) {
         const ids = f.ids.filter((id) => described.has(id));

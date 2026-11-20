@@ -94,7 +94,10 @@ export function makeLayoutScan(overrides: Partial<Scan> = {}): Scan {
   });
 }
 
-/** Verificarea aspectului simulata: un semnal sigur (cu captura) si unul de confirmat. */
+/**
+ * Verificarea aspectului simulata: un semnal sigur (cu captura), unul de confirmat si unul cu
+ * capetele intervalului aproximative (s-a terminat timpul cautarii lor).
+ */
 export const LAYOUT: ScanLayout = scanLayoutSchema.parse({
   widths: [1400, 1340, 1280, 768, 767, 320],
   breakpoints: [
@@ -146,6 +149,17 @@ export const LAYOUT: ScanLayout = scanLayoutSchema.parse({
           { text: '(min-width: 768px)', source: 'https://valea-verde.example/stil.css' },
         ],
       },
+      image: null,
+      boxes: [],
+    },
+    {
+      id: '77777777-7777-4777-8777-777777777777',
+      kind: 'iese-din-container',
+      level: 'possible',
+      widthMin: 1040,
+      widthMax: 1100,
+      elements: [{ selector: '.card h4', htmlSnippet: '<h4>Iași Today</h4>', text: 'Iași Today' }],
+      details: { overflowPx: 14, approximate: true },
       image: null,
       boxes: [],
     },

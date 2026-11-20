@@ -62,6 +62,11 @@ export const layoutDetailsSchema = z.object({
   metaViewport: z.string().optional(),
   /** Unde e marginea ferestrei in captura (px de la stanga capturii), daca se vede in ea. */
   edgeX: z.number().optional(),
+  /**
+   * Capetele intervalului de latimi sunt aproximative (latimile masurate din 60 in 60 px):
+   * cautarea capetelor exacte nu s-a mai facut, pentru ca s-a terminat timpul verificarii.
+   */
+  approximate: z.boolean().optional(),
 });
 export type LayoutDetails = z.infer<typeof layoutDetailsSchema>;
 

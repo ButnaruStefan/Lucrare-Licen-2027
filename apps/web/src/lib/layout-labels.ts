@@ -100,9 +100,17 @@ export function checksLabel(checks: ScanChecks): string {
   return checks.layout ? 'Aspectul paginii' : 'Accesibilitate';
 }
 
-/** Intervalul de latimi la care apare un semnal, in cuvinte. */
-export function widthRangeLabel(min: number | null, max: number | null): string | null {
+/**
+ * Intervalul de latimi la care apare un semnal, in cuvinte. `approximate` = capetele nu au fost
+ * cautate exact (s-a terminat timpul verificarii), deci sunt cele masurate din 60 in 60 px.
+ */
+export function widthRangeLabel(
+  min: number | null,
+  max: number | null,
+  approximate = false,
+): string | null {
   if (min === null || max === null) return null;
-  if (min === max) return `la lățimea de ${min} px`;
-  return `la lățimi între ${min} și ${max} px`;
+  const about = approximate ? 'aproximativ ' : '';
+  if (min === max) return `${about}la lățimea de ${min} px`;
+  return `${about}la lățimi între ${min} și ${max} px`;
 }

@@ -995,6 +995,8 @@ describe('verificarea aspectului paginii', () => {
     expect(await page.getByRole('heading', { name: 'Rezultate pe reguli' }).count()).toBe(0);
     expect(await page.getByRole('heading', { name: 'Sumar', exact: true }).count()).toBe(0);
     await page.getByText(`Am verificat pagina la ${LAYOUT.widths.length} lățimi`).waitFor();
+    // Capetele cautate exact apar ca atare; cele necautate (limita de timp) sunt "aproximative"
+    await page.getByText('aproximativ la lățimi între 1040 și 1100 px').waitFor();
 
     // Semnalul sigur: se deschide din tastatura si arata captura, elementul si sursa regulii
     const first = page.locator('.layout-issue__summary').first();

@@ -68,7 +68,8 @@ function LayoutResult({ layout }: { layout: ScanLayout }) {
           </>
         )}{' '}
         (în {Math.max(1, Math.round(layout.durationMs / 1000))} s), comparând aranjarea la lățimi
-        vecine.
+        vecine. Pentru fiecare problemă am căutat apoi, pixel cu pixel, lățimea exactă la care
+        începe și cea la care se termină: le poți verifica în modul responsive al browserului.
       </p>
       {layout.partial && (
         <p className="notice notice--info">
@@ -122,7 +123,7 @@ function uniqueBreakpoints(layout: ScanLayout): number {
 
 function LayoutIssueItem({ issue }: { issue: LayoutIssue }) {
   const info = LAYOUT_KIND_INFO[issue.kind];
-  const range = widthRangeLabel(issue.widthMin, issue.widthMax);
+  const range = widthRangeLabel(issue.widthMin, issue.widthMax, issue.details.approximate);
   return (
     <li>
       <details className={`layout-issue layout-issue--${issue.level}`}>

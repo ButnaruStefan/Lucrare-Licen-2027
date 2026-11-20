@@ -12,7 +12,10 @@
  *      taiat voit cu "...";
  *   7. media queries suprapuse (max-width: 768px si min-width: 768px) si breakpoint-urile;
  *   8. lipsa meta viewport;
- *   9. tot fluxul (coada -> worker -> baza de date) cu doar verificarea aspectului: fara axe-core,
+ *   9. o pagina al carei script se reface cu intarziere dupa redimensionare (ca un carusel):
+ *      verificarea asteapta scriptul si gaseste capetele exacte ale intervalului (503-856 px),
+ *      apoi pune la loc functiile paginii;
+ *  10. tot fluxul (coada -> worker -> baza de date) cu doar verificarea aspectului: fara axe-core,
  *      cu semnalele si capturile lor salvate.
  *
  * Are nevoie de browserul din BROWSER_CHANNEL (implicit Google Chrome instalat).
@@ -221,6 +224,45 @@ describe('verificarea aspectului', () => {
     expect(result.issues).toMatchObject([
       { kind: 'fara-meta-viewport', level: 'visible', widthMin: null, elements: [], image: null },
     ]);
+  }, 60_000);
+});
+
+describe('pagini cu scripturi care reactioneaza la redimensionare', () => {
+  it('asteapta scriptul intarziat si gaseste capetele exacte ale intervalului', async () => {
+    // Ca un carusel: la 250 ms dupa ultima redimensionare (mai mult decat asteptarea fixa de
+    // 150 ms de dinainte), scriptul muta linkul sub bara care il taie, doar intre 503 si 856 px.
+    // Capetele nu sunt nici latimi masurate din 60 in 60, nici breakpoint-uri CSS.
+    const result = await audit(`<!doctype html><html lang="ro"><head>${HEAD}
+      <style>
+        #bara { height: 40px; overflow: hidden; padding: 8px; background: #eef; }
+      </style></head><body>
+      <div id="bara"><a id="link" href="#">Programări online</a></div>
+      <main><p>Conținut</p></main>
+      <script>
+        const link = document.getElementById('link');
+        const apply = () => {
+          const w = window.innerWidth;
+          link.style.display = 'block';
+          link.style.marginTop = w >= 503 && w <= 856 ? '60px' : '0';
+        };
+        apply();
+        let timer;
+        window.addEventListener('resize', () => {
+          clearTimeout(timer);
+          timer = setTimeout(apply, 250);
+        });
+        window.__original = window.setTimeout;
+      </script></body></html>`);
+
+    const cut = result.issues.filter((i) => i.kind === 'iese-din-container');
+    expect(cut).toHaveLength(1);
+    expect(cut[0]).toMatchObject({ level: 'visible', widthMin: 503, widthMax: 856 });
+    expect(cut[0]!.details.approximate).toBeUndefined();
+    expect(cut[0]!.elements[0]!.selector).toBe('#link');
+
+    // Functiile paginii sunt puse la loc
+    expect(await page.evaluate('window.setTimeout === window.__original')).toBe(true);
+    expect(await page.evaluate('window.__w4aTimers === undefined')).toBe(true);
   }, 60_000);
 });
 

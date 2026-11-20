@@ -156,21 +156,8 @@ export function sweepWidths(breakpoints: Breakpoint[]): number[] {
   for (let w = MAX_WIDTH; w >= MIN_WIDTH; w -= WIDTH_STEP) widths.add(w);
   widths.add(MIN_WIDTH);
 
-  // Breakpoint-urile folosite de mai multe reguli au prioritate
-  const counts = new Map<number, { count: number; pair: [number, number] }>();
-  for (const bp of breakpoints) {
-    const pair: [number, number] =
-      bp.feature === 'min-width'
-        ? [Math.ceil(bp.px) - 1, Math.ceil(bp.px)]
-        : [Math.floor(bp.px), Math.floor(bp.px) + 1];
-    const key = pair[0];
-    const entry = counts.get(key) ?? { count: 0, pair };
-    entry.count++;
-    counts.set(key, entry);
-  }
-  const ordered = [...counts.values()].sort((a, b) => b.count - a.count || a.pair[0] - b.pair[0]);
   let extra = 0;
-  for (const { pair } of ordered) {
+  for (const pair of transitionPairs(breakpoints)) {
     for (const w of pair) {
       if (extra >= MAX_BREAKPOINT_WIDTHS) break;
       if (w < MIN_WIDTH || w > MAX_WIDTH || widths.has(w)) continue;
@@ -179,6 +166,27 @@ export function sweepWidths(breakpoints: Breakpoint[]): number[] {
     }
   }
   return [...widths].sort((a, b) => b - a);
+}
+
+/**
+ * Pentru fiecare breakpoint, cele doua latimi intre care se schimba regulile: "min-width: 768px"
+ * e activa de la 768 px, deci [767, 768]; "max-width: 768px" e activa pana la 768 px, deci
+ * [768, 769]. Fara dubluri; cele folosite de mai multe reguli primele.
+ */
+export function transitionPairs(breakpoints: Breakpoint[]): Array<[number, number]> {
+  const counts = new Map<number, { count: number; pair: [number, number] }>();
+  for (const bp of breakpoints) {
+    const pair: [number, number] =
+      bp.feature === 'min-width'
+        ? [Math.ceil(bp.px) - 1, Math.ceil(bp.px)]
+        : [Math.floor(bp.px), Math.floor(bp.px) + 1];
+    const entry = counts.get(pair[0]) ?? { count: 0, pair };
+    entry.count++;
+    counts.set(pair[0], entry);
+  }
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count || a.pair[0] - b.pair[0])
+    .map((e) => e.pair);
 }
 
 // ─── Ajutoare ────────────────────────────────────────────────────────────────────────────
@@ -220,7 +228,72 @@ function overflowBeyond(rects: Rect[], box: Rect): number {
   return worst;
 }
 
-type State = 'bad' | 'good' | 'absent';
+/** Starea unui semnal la o latime: stricat, in regula, sau elementul nu se vede (nu comparam). */
+export type State = 'bad' | 'good' | 'absent';
+
+/** Pagina se deruleaza pe orizontala (e mai lata decat fereastra si nu ascunde derularea). */
+function scrollsAt(snap: Pick<LayoutSnapshot, 'rootClipsX' | 'scrollWidth' | 'viewportWidth'>) {
+  return !snap.rootClipsX && snap.scrollWidth > snap.viewportWidth + 1;
+}
+
+/** Fereastra, ca dreptunghi (inalta cat sa cuprinda toata pagina). */
+function viewportRect(snap: Pick<LayoutSnapshot, 'viewportWidth'>): Rect {
+  return [0, -1e7, snap.viewportWidth, 2e7];
+}
+
+/** Taiat la marginea paginii: starea unui element la o latime. */
+function edgeState(snap: LayoutSnapshot, e: MeasuredElement | undefined): State {
+  if (!e || e.fixed || e.inScroller || e.visible.length === 0) return 'absent';
+  const page = viewportRect(snap);
+  if (!e.visible.some((r) => intersect(r, page))) return 'absent'; // complet afara: ascuns voit
+  if (overflowBeyond(e.visible, page) <= TOLERANCE_PX) return 'good';
+  // Daca pagina se deruleaza, continutul se poate vedea: semnalul e "derulare-orizontala"
+  return scrollsAt(snap) ? 'absent' : 'bad';
+}
+
+/** Elemente suprapuse: starea unei perechi la o latime. */
+function collisionState(a: MeasuredElement | undefined, b: MeasuredElement | undefined): State {
+  const shown = (e: MeasuredElement | undefined): e is MeasuredElement =>
+    !!e && !e.fixed && !e.faint && e.visible.length > 0;
+  if (!shown(a) || !shown(b)) return 'absent';
+  return overlapOf(collisionRects(a), collisionRects(b)) ? 'bad' : 'good';
+}
+
+/** Iese din container: starea unui element la o latime. */
+function protrusionState(e: MeasuredElement | undefined): State {
+  if (!e || e.fixed || e.kind === 'media' || e.ellipsis) return 'absent';
+  if (!e.clip) return 'good';
+  const box = e.clip.box;
+  if (!e.rects.some((r) => intersect(r, box))) {
+    // Complet afara pe orizontala: de obicei ascuns voit (ex. un slide de carusel).
+    // Complet sub (sau deasupra) containerului: randul a "cazut" si nu se mai vede.
+    const below = e.rects.every((r) => r[1] >= box[1] + box[3] || r[1] + r[3] <= box[1]);
+    const sideways = e.rects.some((r) => r[0] >= box[0] + box[2] || r[0] + r[2] <= box[0]);
+    return below && !sideways ? 'bad' : 'absent';
+  }
+  return overflowBeyond(e.rects, box) > TOLERANCE_PX ? 'bad' : 'good';
+}
+
+/**
+ * Starea unui semnal deja gasit, la o latime noua (pentru cautarea capetelor exacte). Primeste
+ * masuratorile doar ale elementelor semnalului. null = semnalul nu depinde de latime.
+ */
+export function stateAt(finding: LayoutFinding, snap: LayoutSnapshot): State | null {
+  const map = byId(snap);
+  const [a, b] = finding.ids;
+  switch (finding.kind) {
+    case 'derulare-orizontala':
+      return scrollsAt(snap) ? 'bad' : 'good';
+    case 'taiat-la-marginea-paginii':
+      return edgeState(snap, map.get(a!));
+    case 'elemente-suprapuse':
+      return collisionState(map.get(a!), map.get(b!));
+    case 'iese-din-container':
+      return protrusionState(map.get(a!));
+    default:
+      return null;
+  }
+}
 
 /**
  * Intervalele in care un semnal e "rau", PORNIND de la o latime unde era "bun": de la mare la
@@ -267,7 +340,7 @@ function isAncestor(map: Map<number, MeasuredElement>, ancestor: number, id: num
  */
 export function findHorizontalScroll(snapshots: LayoutSnapshot[]): LayoutFinding[] {
   const widths = snapshots.map((s) => s.width);
-  const scrolls = snapshots.map((s) => !s.rootClipsX && s.scrollWidth > s.viewportWidth + 1);
+  const scrolls = snapshots.map(scrollsAt);
   const findings: LayoutFinding[] = [];
   for (let i = 0; i < scrolls.length; i++) {
     if (!scrolls[i]) continue;
@@ -306,18 +379,7 @@ export function findEdgeCuts(snapshots: LayoutSnapshot[]): LayoutFinding[] {
   const maps = snapshots.map(byId);
   const findings: LayoutFinding[] = [];
   for (const id of ids) {
-    const states = snapshots.map((snap, i): State => {
-      const e = maps[i]!.get(id);
-      if (!e || e.fixed || e.inScroller || e.visible.length === 0) return 'absent';
-      const page: Rect = [0, -1e7, snap.viewportWidth, 2e7];
-      const inside = e.visible.filter((r) => intersect(r, page));
-      if (inside.length === 0) return 'absent'; // complet afara: ascuns voit
-      const out = overflowBeyond(e.visible, page);
-      if (out <= TOLERANCE_PX) return 'good';
-      // Daca pagina se deruleaza, continutul se poate vedea: semnalul e "derulare-orizontala"
-      const scrolls = !snap.rootClipsX && snap.scrollWidth > snap.viewportWidth + 1;
-      return scrolls ? 'absent' : 'bad';
-    });
+    const states = snapshots.map((snap, i) => edgeState(snap, maps[i]!.get(id)));
     for (const run of brokenRuns(states)) {
       const rep = Math.floor((run.from + run.to) / 2);
       const snap = snapshots[rep]!;
@@ -330,7 +392,7 @@ export function findEdgeCuts(snapshots: LayoutSnapshot[]): LayoutFinding[] {
         ids: [id],
         captureWidth: middle(widths, run.from, run.to),
         details: {
-          overflowPx: Math.round(overflowBeyond(e.visible, [0, -1e7, snap.viewportWidth, 2e7])),
+          overflowPx: Math.round(overflowBeyond(e.visible, viewportRect(snap))),
         },
       });
     }
@@ -435,20 +497,7 @@ export function findContainerProtrusions(snapshots: LayoutSnapshot[]): LayoutFin
   const ids = new Set(snapshots.flatMap((s) => s.elements.map((e) => e.id)));
   const findings: LayoutFinding[] = [];
   for (const id of ids) {
-    const states = maps.map((map): State => {
-      const e = map.get(id);
-      if (!e || e.fixed || e.kind === 'media' || e.ellipsis) return 'absent';
-      if (!e.clip) return 'good';
-      const box = e.clip.box;
-      if (!e.rects.some((r) => intersect(r, box))) {
-        // Complet afara pe orizontala: de obicei ascuns voit (ex. un slide de carusel).
-        // Complet sub (sau deasupra) containerului: randul a "cazut" si nu se mai vede.
-        const below = e.rects.every((r) => r[1] >= box[1] + box[3] || r[1] + r[3] <= box[1]);
-        const sideways = e.rects.some((r) => r[0] >= box[0] + box[2] || r[0] + r[2] <= box[0]);
-        return below && !sideways ? 'bad' : 'absent';
-      }
-      return overflowBeyond(e.rects, box) > TOLERANCE_PX ? 'bad' : 'good';
-    });
+    const states = maps.map((map) => protrusionState(map.get(id)));
     for (const run of brokenRuns(states)) {
       const rep = Math.floor((run.from + run.to) / 2);
       const e = maps[rep]!.get(id)!;
@@ -560,4 +609,54 @@ export function detectLayoutIssues(
     kept.push(finding);
   }
   return kept;
+}
+
+// ─── Capetele exacte ale intervalului ────────────────────────────────────────────────────
+
+/** Cate perechi de breakpoint-uri incercam intai, la cautarea unui capat (alegere proprie). */
+export const MAX_HINT_PAIRS = 2;
+
+/**
+ * Capatul exact al unui interval stricat: intre latimea `bad` (semnalul apare) si latimea vecina
+ * `notBad` (nu apare), gaseste ultima latime la care semnalul apare, langa `notBad`. Cautare
+ * binara, ca in lucrarea ReDeCheck ("a binary search [...] to find the exact viewport width"):
+ * pe un gol de 60 px, cel mult 6 masuratori.
+ *
+ * Intai incearca breakpoint-urile paginii din interval (`hints`, perechi de latimi intre care se
+ * schimba regulile CSS): aranjarea se strica aproape mereu la un breakpoint, deci capatul e
+ * adesea gasit din 2 masuratori. Daca nu e acolo, fiecare masuratoare tot ingusteaza intervalul.
+ *
+ * Presupune o singura trecere intre cele doua latimi (daca sunt mai multe, gaseste una dintre ele).
+ * `stop()` = s-a terminat timpul: intoarce capatul gasit pana atunci, cu `exact: false`.
+ */
+export async function refineEdge(
+  bad: number,
+  notBad: number,
+  isBad: (width: number) => Promise<boolean>,
+  hints: Array<[number, number]> = [],
+  stop: () => boolean = () => false,
+): Promise<{ width: number; exact: boolean }> {
+  const probes: number[] = [];
+  for (const pair of hints
+    .filter((p) => between(p[0], bad, notBad) || between(p[1], bad, notBad))
+    .slice(0, MAX_HINT_PAIRS)) {
+    // Intai latimea din pereche mai apropiata de `bad`, apoi cealalta
+    const [near, far] =
+      Math.abs(pair[0] - bad) <= Math.abs(pair[1] - bad) ? pair : [pair[1], pair[0]];
+    probes.push(near, far);
+  }
+  while (Math.abs(bad - notBad) > 1) {
+    if (stop()) return { width: bad, exact: false };
+    let probe = probes.shift();
+    while (probe !== undefined && !between(probe, bad, notBad)) probe = probes.shift();
+    if (probe === undefined) probe = Math.round((bad + notBad) / 2);
+    if (await isBad(probe)) bad = probe;
+    else notBad = probe;
+  }
+  return { width: bad, exact: true };
+}
+
+/** `x` e strict intre `a` si `b`. */
+function between(x: number, a: number, b: number): boolean {
+  return x > Math.min(a, b) && x < Math.max(a, b);
 }

@@ -8,7 +8,9 @@
  *   - continutul care iese din container (partial sau cazut sub el) e raportat; un slide
  *     complet in afara pe orizontala si textul taiat voit cu "..." nu;
  *   - derularea orizontala si taierea la marginea paginii;
- *   - media queries suprapuse si meta viewport.
+ *   - media queries suprapuse si meta viewport;
+ *   - capetele exacte ale unui interval: cautarea binara, breakpoint-urile incercate intai,
+ *     oprirea la limita de timp si starea unui semnal la o latime noua.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -21,7 +23,11 @@ import {
   findMediaClashes,
   MAX_ISSUES_PER_KIND,
   parseBreakpoints,
+  refineEdge,
+  stateAt,
   sweepWidths,
+  transitionPairs,
+  type LayoutFinding,
   type LayoutSnapshot,
   type MeasuredElement,
   type MediaRuleInfo,
@@ -43,6 +49,11 @@ function el(id: number, rects: Rect[], extra: Partial<MeasuredElement> = {}): Me
     clip: null,
     ...extra,
   };
+}
+
+/** O regula @media cu o singura conditie de latime. */
+function media(text: string, feature: string, px: number): MediaRuleInfo {
+  return { text, source: null, expressions: [{ feature, px }] };
 }
 
 function snap(width: number, elements: MeasuredElement[], extra: Partial<LayoutSnapshot> = {}) {
@@ -344,5 +355,103 @@ describe('toate regulile impreuna', () => {
     expect(findings.filter((f) => f.kind === 'elemente-suprapuse')).toHaveLength(
       MAX_ISSUES_PER_KIND,
     );
+  });
+});
+
+describe('capetele exacte ale intervalului', () => {
+  /** Un semnal care apare exact intre 503 si 856 px; numaram cate latimi au fost masurate. */
+  function page() {
+    const probes: number[] = [];
+    const isBad = async (width: number) => {
+      probes.push(width);
+      return width >= 503 && width <= 856;
+    };
+    return { probes, isBad };
+  }
+
+  it('cautarea binara gaseste capatul exact din cel mult 6 masuratori pe un gol de 60 px', async () => {
+    const top = page();
+    // Masurat din 60 in 60: stricat la 800, in regula la 860
+    expect(await refineEdge(800, 860, top.isBad)).toEqual({ width: 856, exact: true });
+    expect(top.probes.length).toBeLessThanOrEqual(6);
+
+    const bottom = page();
+    expect(await refineEdge(560, 500, bottom.isBad)).toEqual({ width: 503, exact: true });
+    expect(bottom.probes.length).toBeLessThanOrEqual(6);
+    expect(bottom.probes.every((w) => w > 500 && w < 560)).toBe(true);
+  });
+
+  it('intai breakpoint-urile paginii: capatul de la un breakpoint e gasit din 2 masuratori', async () => {
+    const top = page();
+    // "max-width: 856px" se schimba intre 856 si 857
+    const hints = transitionPairs(
+      parseBreakpoints([media('(max-width: 856px)', 'max-width', 856)]),
+    );
+    expect(hints).toEqual([[856, 857]]);
+    expect(await refineEdge(800, 860, top.isBad, hints)).toEqual({ width: 856, exact: true });
+    expect(top.probes).toEqual([856, 857]);
+
+    // Un breakpoint din alt loc nu strica cautarea: o masuratoare tot ingusteaza intervalul
+    const other = page();
+    expect(await refineEdge(800, 860, other.isBad, [[829, 830]])).toEqual({
+      width: 856,
+      exact: true,
+    });
+    expect(other.probes.slice(0, 2)).toEqual([829, 830]);
+  });
+
+  it('perechile breakpoint-urilor: min-width N -> [N-1, N], max-width N -> [N, N+1], cele comune primele', () => {
+    const pairs = transitionPairs(
+      parseBreakpoints([
+        media('(min-width: 768px)', 'min-width', 768),
+        media('(max-width: 600px)', 'max-width', 600),
+        media('screen and (min-width: 768px)', 'min-width', 768),
+      ]),
+    );
+    expect(pairs).toEqual([
+      [767, 768],
+      [600, 601],
+    ]);
+  });
+
+  it('la limita de timp se opreste: intoarce capatul gasit pana atunci, marcat aproximativ', async () => {
+    const top = page();
+    let left = 2;
+    const stop = () => left-- <= 0;
+    const edge = await refineEdge(800, 860, top.isBad, [], stop);
+    expect(edge.exact).toBe(false);
+    expect(top.probes).toHaveLength(2);
+    // Tot o latime la care semnalul chiar apare, mai aproape de capat decat 800
+    expect(edge.width).toBeGreaterThanOrEqual(800);
+    expect(edge.width).toBeLessThanOrEqual(856);
+  });
+
+  it('starea unui semnal la o latime noua, din masuratorile doar ale elementelor lui', () => {
+    const finding = (kind: LayoutFinding['kind'], ids: number[]): LayoutFinding => ({
+      kind,
+      level: 'visible',
+      widthMin: 600,
+      widthMax: 800,
+      ids,
+      captureWidth: 700,
+      details: {},
+    });
+    const box: Rect = [0, 0, 300, 40];
+    const clip = { id: 9, box };
+    const inside = snap(700, [el(1, [[10, 10, 50, 20]], { clip })]);
+    const fallen = snap(700, [el(1, [[10, 60, 50, 20]], { clip })]);
+    expect(stateAt(finding('iese-din-container', [1]), inside)).toBe('good');
+    expect(stateAt(finding('iese-din-container', [1]), fallen)).toBe('bad');
+    expect(stateAt(finding('iese-din-container', [1]), snap(700, []))).toBe('absent');
+
+    const apart = snap(700, [el(1, [[0, 0, 100, 20]]), el(2, [[200, 0, 100, 20]])]);
+    const over = snap(700, [el(1, [[0, 0, 100, 20]]), el(2, [[50, 0, 100, 20]])]);
+    expect(stateAt(finding('elemente-suprapuse', [1, 2]), apart)).toBe('good');
+    expect(stateAt(finding('elemente-suprapuse', [1, 2]), over)).toBe('bad');
+
+    expect(stateAt(finding('derulare-orizontala', []), snap(700, [], { scrollWidth: 900 }))).toBe(
+      'bad',
+    );
+    expect(stateAt(finding('media-queries-suprapuse', []), snap(700, []))).toBeNull();
   });
 });

@@ -74,15 +74,21 @@ aleasa la pornire (`config.checks.layout`). Metoda vine din lucrarea Walsh, Kapf
 1. eticheta meta viewport si regulile `@media` ale paginii, prin Chrome DevTools Protocol
    (`CSS.getMediaQueries`, vede si foile de stil de pe alte domenii);
 2. fereastra se ingusteaza de la 1400 la 320 px, din 60 in 60, plus latimile din jurul
-   breakpoint-urilor paginii; la fiecare latime, un script masoara aranjarea (`layout-model.ts`);
+   breakpoint-urilor paginii; dupa fiecare redimensionare se asteapta scripturile paginii care se
+   refac cu intarziere (timerele scurte programate atunci, cel mult 1 s), apoi un script masoara
+   aranjarea (`layout-model.ts`);
 3. regulile (`layout-rules.ts`, functii simple, testate fara browser) gasesc semnalele: derulare
    orizontala, continut taiat la marginea paginii, elemente suprapuse, continut iesit din
    containerul care il taie, media queries active simultan, meta viewport lipsa sau cu latime fixa.
    Un semnal e raportat doar daca la latimea vecina, mai mare, totul era in regula;
-4. pentru cele mai importante semnale, o captura decupata la latimea problemei (JPEG, cel mult 10).
+4. capetele exacte ale fiecarui interval: cautare binara intre ultima latime unde semnalul apare
+   si latimea vecina unde nu apare (intai la breakpoint-urile paginii), masurand doar elementele
+   semnalului;
+5. pentru cele mai importante semnale, o captura decupata la latimea problemei (JPEG, cel mult 10).
 
-Rezultatul se salveaza in `scan_layouts` si `layout_issues`. Limita: 45 s pentru masuratori, apoi
-verificarea e marcata "partiala". Un esec nu strica scanarea (motivul e salvat).
+Rezultatul se salveaza in `scan_layouts` si `layout_issues`. Limita: 45 s pentru masuratori si
+cautarea capetelor, apoi verificarea e marcata "partiala" (sau capetele ramase "aproximative").
+Un esec nu strica scanarea (motivul e salvat).
 
 ## Auditul pe mai multe pagini, pe scurt
 
@@ -119,8 +125,8 @@ Nu e un crawler: nu merge din link in link, citeste doar pagina de start si site
 | `src/scanner/capture.ts`          | Parcurge pagina ecran cu ecran: captura (WebP) si pozitia elementelor, pentru harta                  |
 | `src/scanner/contrast-recheck.ts` | Re-verifica pe ecran contrastul elementelor semnalate (sectiuni estompate la derulare)               |
 | `src/scanner/layout-audit.ts`     | Verificarea aspectului: latimile, masuratorile, semnalele si capturile decupate                      |
-| `src/scanner/layout-model.ts`     | Scripturile rulate in pagina pentru aspect (masurarea aranjarii, descrierea elementelor)             |
-| `src/scanner/layout-rules.ts`     | Regulile aspectului (comparatia intre latimi vecine), fara browser                                   |
+| `src/scanner/layout-model.ts`     | Scripturile rulate in pagina pentru aspect (masurarea aranjarii, asteptarea dupa redimensionare)     |
+| `src/scanner/layout-rules.ts`     | Regulile aspectului (comparatia intre latimi vecine, capetele exacte), fara browser                  |
 | `src/discovery/`                  | Descoperirea paginilor unui audit: linkuri, robots.txt, sitemap.xml, esantionul propus               |
 | `src/audits/`                     | Coada descoperirilor (tabelul `audits`) si procesarea unei descoperiri                               |
 | `src/scanner/normalize.ts`        | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`               |
