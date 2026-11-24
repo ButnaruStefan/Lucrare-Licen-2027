@@ -12,6 +12,7 @@
 import { z } from 'zod';
 import { projectUrlSchema } from './projects';
 import { traceSchema } from './traceability';
+import { manualSummarySchema } from './manual';
 
 export const WCAG_PROFILES = ['WCAG_2_1_AA', 'WCAG_2_2_AA'] as const;
 export type WcagProfile = (typeof WCAG_PROFILES)[number];
@@ -153,6 +154,11 @@ export const scanSchema = z.object({
   screenshot: screenshotInfoSchema.nullable(),
   /** Sumarul verificarii aspectului; null daca nu a fost ceruta sau scanarea nu e gata. */
   layout: layoutSummarySchema.nullable(),
+  /**
+   * Progresul verificarii manuale (facuta de om); null daca scanarea nu verifica
+   * accesibilitatea sau nu e gata.
+   */
+  manual: manualSummarySchema.nullable(),
 });
 export type Scan = z.infer<typeof scanSchema>;
 

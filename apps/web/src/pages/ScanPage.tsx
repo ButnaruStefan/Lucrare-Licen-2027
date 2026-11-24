@@ -2,8 +2,10 @@
  * Pagina unei scanari: starea (actualizata automat cat timp ruleaza), detaliile tehnice si
  * rezultatele verificarilor alese la pornire:
  *   - accesibilitatea: sumarul pe categorii si lista rezultatelor, cu filtre;
+ *   - verificarea manuala (facuta de om, tot de accesibilitate): sectiunea "Verificare manuala"
+ *     (`ManualReviewPanel`);
  *   - aspectul paginii (separat de WCAG): sectiunea "Aspect si afisare" (`LayoutPanel`).
- * Daca sunt amandoua, sus apar legaturi spre cele doua sectiuni. Daca scanarea are captura paginii,
+ * Sus apar legaturi spre sectiuni (accesibilitate, verificare manuala, aspect). Daca scanarea are captura paginii,
  * problemele si cazurile de verificat apar langa "harta problemelor" (`IssueMap`): regula
  * de sub mouse, cu focus sau deschisa isi evidentiaza elementele pe captura. Daca pagina face parte dintr-un
  * audit, calea de navigare (breadcrumb) duce inapoi la audit, iar titlul e cel al paginii
@@ -31,6 +33,7 @@ import { ScanStatusBadge } from '../components/Badges';
 import { EmptyState, ErrorMessage, Loading } from '../components/Feedback';
 import { IssueMap } from '../components/IssueMap';
 import { LayoutPanel } from '../components/LayoutPanel';
+import { ManualReviewPanel } from '../components/ManualReviewPanel';
 import { PageHeading } from '../components/PageHeading';
 import { RuleResultItem, type OtherCategory } from '../components/RuleResultItem';
 import {
@@ -102,10 +105,11 @@ function ScanView({ scan }: { scan: Scan }) {
 
       <ScanDetails scan={scan} />
 
-      {completed && checks.accessibility && checks.layout && (
+      {completed && checks.accessibility && (
         <nav aria-label="Secțiunile rezultatelor" className="section-links">
           <a href="#sumar">Accesibilitate</a>
-          <a href="#aspect">Aspect și afișare</a>
+          <a href="#verificare-manuala">Verificare manuală</a>
+          {checks.layout && <a href="#aspect">Aspect și afișare</a>}
         </nav>
       )}
 
@@ -148,6 +152,8 @@ function ScanView({ scan }: { scan: Scan }) {
           )}
         </section>
       )}
+
+      {completed && checks.accessibility && <ManualReviewPanel scan={scan} />}
 
       {completed && checks.layout && <LayoutPanel scan={scan} />}
     </>

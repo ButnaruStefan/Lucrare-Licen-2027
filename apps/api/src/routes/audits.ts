@@ -49,6 +49,7 @@ import { checkPage } from '../safety/page-check';
 import { classifyLink, dedupeKey, scopeFor } from '../discovery/links';
 import { isBestPractice } from '../scanner/normalize';
 import { loadLayoutSummaries, loadSummaries } from './scans';
+import { loadManualSummaries } from './manual-checks';
 
 export interface AuditsDeps {
   db: Database;
@@ -108,6 +109,7 @@ async function loadAuditDto(db: Database, row: AuditRow): Promise<Audit> {
   const completed = scans.filter((s) => s.status === 'completed').map((s) => s.id);
   const summaries = await loadSummaries(db, completed);
   const layouts = await loadLayoutSummaries(db, completed);
+  const manual = await loadManualSummaries(db, scans);
   const discovery = parseDiscovery(row);
   const pageInfo = new Map(discovery?.pages.map((p) => [dedupeKey(p.url), p]) ?? []);
   const status = statusOf(row, scans);
@@ -124,6 +126,7 @@ async function loadAuditDto(db: Database, row: AuditRow): Promise<Audit> {
       errorMessage: scan.errorMessage,
       summary: scan.status === 'completed' ? (summaries.get(scan.id) ?? null) : null,
       layout: scan.status === 'completed' ? (layouts.get(scan.id) ?? null) : null,
+      manual: manual.get(scan.id) ?? null,
     };
   });
 

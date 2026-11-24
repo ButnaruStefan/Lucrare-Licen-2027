@@ -16,11 +16,13 @@ import {
   completedAudit,
   discovered,
   DISCOVERED_PAGES,
+  HOSTILE_HEADING,
   HOSTILE_HTML,
   LAYOUT,
   makeAudit,
   makeLayoutScan,
   makeScan,
+  MANUAL_FACTS,
   mockApi,
   PROJECT,
   RESULTS,
@@ -1079,5 +1081,116 @@ describe('verificarea aspectului paginii', () => {
     await page.getByText('Semnale de aspect sigure').waitFor();
     expect(await page.getByText('Reguli cu probleme detectate').count()).toBe(0);
     expect(await axeViolations()).toEqual([]);
+  });
+});
+
+describe('verificarea manuala', () => {
+  /** Sectiunea unei verificari (un <details>), dupa titlul ei. */
+  const check = (title: string) =>
+    page.locator('details.manual-check', { has: page.getByText(title, { exact: true }) });
+
+  it('arata cele 6 verificari, progresul, "nu se aplica" automat si titlurile paginii', async () => {
+    await mockApi(page);
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+
+    await page.getByRole('heading', { level: 2, name: 'Verificare manuală' }).waitFor();
+    await page.getByRole('link', { name: 'Verificare manuală' }).waitFor();
+    expect(await page.locator('details.manual-check').count()).toBe(6);
+    // Pagina simulata nu are campuri de formular: o verificare nu se aplica (automat)
+    await page.getByText('0 din 5 verificări făcute').waitFor();
+    const forms = check('Erorile din formulare sunt explicate');
+    expect(await forms.locator('.badge').innerText()).toBe('Nu se aplică (automat)');
+
+    // Se deschide din tastatura; titlurile paginii sunt afisate ca text (nu interpretate)
+    const headings = check('Titlurile reflectă structura paginii');
+    await headings.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await headings.getByText('Titlurile găsite la scanare').waitFor();
+    expect(await headings.locator('.manual-check__headings li').count()).toBe(
+      MANUAL_FACTS.headings.length,
+    );
+    expect(await headings.locator('.manual-check__headings').innerText()).toContain(
+      HOSTILE_HEADING,
+    );
+    expect(await page.locator('img[src="y"]').count()).toBe(0);
+    await headings.getByRole('link', { name: /Easy Checks: Headings/ }).waitFor();
+    await headings.getByRole('link', { name: /WCAG 1\.3\.1/ }).waitFor();
+
+    await forms.locator('summary').click();
+    await forms.getByText('Pagina nu are câmpuri de formular', { exact: false }).waitFor();
+    expect(await axeViolations()).toEqual([]);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('salveaza un rezultat: erorile apar langa campuri, progresul se actualizeaza, se poate sterge', async () => {
+    const saves: Array<[string, unknown]> = [];
+    await mockApi(page, { onManualSave: (id, body) => saves.push([id, body]) });
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+
+    const keyboard = check('Pagina se poate folosi doar cu tastatura');
+    await keyboard.locator('summary').click();
+    await keyboard.getByText('Pune mouse-ul deoparte', { exact: false }).waitFor();
+
+    // Fara rezultat ales: mesaj, nimic trimis
+    await keyboard.getByRole('button', { name: 'Salvează rezultatul' }).click();
+    await keyboard.getByText('Alege un rezultat.').waitFor();
+    expect(saves).toEqual([]);
+
+    // "Nu trece" fara nume si fara note: erorile serverului apar langa campurile lor
+    await keyboard.getByRole('radio', { name: 'Nu trece' }).check();
+    await keyboard.getByRole('button', { name: 'Salvează rezultatul' }).click();
+    await keyboard.getByText('Scrie numele celui care a verificat.').waitFor();
+    await keyboard.getByText('Descrie pe scurt ce nu merge (în note).').waitFor();
+    expect(await keyboard.getByLabel('Note').getAttribute('aria-invalid')).toBe('true');
+    expect(await keyboard.getByLabel('Cine a verificat').getAttribute('aria-invalid')).toBe('true');
+    expect(await axeViolations()).toEqual([]);
+
+    await keyboard.getByLabel('Cine a verificat').fill('Ștefan Butnaru');
+    await keyboard
+      .getByLabel('Note')
+      .fill('Butonul „Trimite” e un span: nu se poate apăsa cu Enter.');
+    await keyboard.getByRole('button', { name: 'Salvează rezultatul' }).click();
+    await keyboard.getByRole('status').getByText('Rezultatul a fost salvat.').waitFor();
+    await expect.poll(() => keyboard.locator('.badge').innerText()).toBe('Nu trece');
+    await page.getByText('1 din 5 verificări făcute, 1 nu trece').waitFor();
+    expect(saves.at(-1)).toEqual([
+      'tastatura',
+      {
+        result: 'fail',
+        evaluator: 'Ștefan Butnaru',
+        notes: 'Butonul „Trimite” e un span: nu se poate apăsa cu Enter.',
+      },
+    ]);
+
+    // Numele e tinut minte pentru urmatoarea verificare
+    const focus = check('Focusul se vede și merge într-o ordine logică');
+    await focus.locator('summary').click();
+    expect(await focus.getByLabel('Cine a verificat').inputValue()).toBe('Ștefan Butnaru');
+
+    // Stergerea: verificarea redevine de facut
+    await keyboard.getByRole('button', { name: 'Șterge rezultatul' }).click();
+    await keyboard.getByText('Rezultatul a fost șters', { exact: false }).waitFor();
+    await expect.poll(() => keyboard.locator('.badge').innerText()).toBe('De verificat');
+    expect(saves.at(-1)).toEqual(['tastatura', null]);
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('pe pagina auditului, fiecare pagina arata progresul verificarii manuale', async () => {
+    await mockApi(page, { audit: completedAudit() });
+    await page.goto(`${baseUrl}/audituri/${AUDIT_ID}`);
+
+    await page.getByText('Verificare manuală făcută').waitFor();
+    await page.getByText('manual: 2/5', { exact: false }).first().waitFor();
+    await page.getByText('(1 nu trec)', { exact: false }).waitFor();
+    expect(await axeViolations()).toEqual([]);
+  });
+
+  it('o scanare doar de aspect nu are verificare manuala', async () => {
+    await mockApi(page, { scanSequence: [makeLayoutScan()] });
+    await page.goto(`${baseUrl}/scanari/${SCAN_ID}`);
+
+    await page.getByRole('heading', { level: 2, name: 'Aspect și afișare' }).waitFor();
+    expect(await page.getByRole('heading', { name: 'Verificare manuală' }).count()).toBe(0);
   });
 });

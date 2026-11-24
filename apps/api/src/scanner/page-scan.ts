@@ -22,10 +22,11 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import type { AxeResults } from 'axe-core';
 import { errors, type Browser, type BrowserContext, type Page } from 'playwright';
-import type { ScanConfig, WcagProfile } from '@ro-a11y/shared';
+import type { PageFacts, ScanConfig, WcagProfile } from '@ro-a11y/shared';
 import type { RequestGuard } from '../safety/url-guard';
 import { capturePage, type PageCapture } from './capture';
 import { auditLayout, type LayoutAuditResult } from './layout-audit';
+import { collectPageFacts } from './page-facts';
 import {
   applyContrastRecheck,
   contrastTargets,
@@ -77,6 +78,11 @@ export type PageScanOutcome =
       captureError: string | null;
       /** Re-verificarea contrastului pe ecran: cate elemente, cate si-au schimbat rezultatul. */
       contrastRecheck: ContrastRecheckSummary;
+      /**
+       * Ce contine pagina (imagini, campuri de formular, titluri), pentru verificarea manuala;
+       * null daca accesibilitatea nu a fost ceruta sau numararea nu a reusit.
+       */
+      pageFacts: PageFacts | null;
       /** Verificarea aspectului; null daca nu a fost ceruta sau nu a reusit. */
       layout: LayoutAuditResult | null;
       /** De ce verificarea aspectului nu a reusit (null = a reusit sau nu a fost ceruta). */
@@ -137,7 +143,13 @@ export async function scanPage(
     async ({ page }): Promise<Scanned | AnalysisError> => {
       const accessibility: AccessibilityResult | AnalysisError = config.checks.accessibility
         ? await checkAccessibility(page, config)
-        : { raw: null, capture: null, captureError: null, contrastRecheck: NO_RECHECK };
+        : {
+            raw: null,
+            capture: null,
+            captureError: null,
+            contrastRecheck: NO_RECHECK,
+            pageFacts: null,
+          };
       if ('analysisError' in accessibility) return accessibility;
 
       // Aspectul, dupa accesibilitate (ca harta problemelor sa fie fotografiata la latimea
@@ -183,6 +195,7 @@ interface AccessibilityResult {
   capture: PageCapture | null;
   captureError: string | null;
   contrastRecheck: ContrastRecheckSummary;
+  pageFacts: PageFacts | null;
 }
 interface Scanned extends AccessibilityResult {
   layout: LayoutAuditResult | null;
@@ -204,6 +217,8 @@ async function checkAccessibility(
   } catch (err) {
     return { analysisError: firstLine(err) };
   }
+  // Ce contine pagina, inainte de parcurgerea pentru captura (verificarea manuala)
+  const pageFacts = await collectPageFacts(page);
   const toRecheck = contrastTargets(raw);
   const rechecked = new Map<string, RecheckedNode>();
   let recheckError: string | null = null;
@@ -229,7 +244,7 @@ async function checkAccessibility(
     changed: applied.changed,
     error: recheckError,
   };
-  return { raw: applied.raw, capture, captureError, contrastRecheck };
+  return { raw: applied.raw, capture, captureError, contrastRecheck, pageFacts };
 }
 
 /**

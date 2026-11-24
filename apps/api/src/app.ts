@@ -13,6 +13,7 @@ import { errorHandler, notFoundHandler } from './middleware/errors';
 import { auditsRouter } from './routes/audits';
 import { healthRouter, type HealthDeps } from './routes/health';
 import { legalProfileRouter } from './routes/legal-profile';
+import { manualChecksRouter } from './routes/manual-checks';
 import { projectsRouter, type ProjectsDeps } from './routes/projects';
 import { scansRouter, type ScansDeps } from './routes/scans';
 
@@ -31,6 +32,7 @@ export function createApp(deps: AppDeps) {
   app.use(projectsRouter(deps));
   app.use(legalProfileRouter(deps));
   app.use(scansRouter(deps));
+  app.use(manualChecksRouter(deps));
   app.use(auditsRouter(deps));
 
   // Trebuie sa fie ultimele: prind tot ce n-a fost tratat mai sus.

@@ -157,6 +157,7 @@ export async function processScan(
       raw,
       results,
       capture: outcome.capture,
+      pageFacts: outcome.pageFacts,
       layout: scan.config.checks.layout
         ? { result: outcome.layout, error: outcome.layoutError }
         : null,

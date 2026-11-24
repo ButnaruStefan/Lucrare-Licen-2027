@@ -4,21 +4,35 @@
  * Testele interfetei nu au nevoie de server, baza de date sau worker reale.
  */
 import type { Page } from 'playwright';
-import { buildTrace, evaluateOug112, OUG_112_QUESTIONS } from '@ro-a11y/catalog';
+import {
+  autoNotApplicableReason,
+  buildTrace,
+  evaluateOug112,
+  MANUAL_CHECKS,
+  MANUAL_CHECKS_VERSION,
+  manualCheckCriteria,
+  OUG_112_QUESTIONS,
+} from '@ro-a11y/catalog';
 import {
   auditResultsSchema,
   auditSchema,
   legalProfileAnswersSchema,
+  manualEvaluationInputSchema,
+  manualStatus,
   pageCheckSchema,
   projectSchema,
   ruleResultSchema,
   scanConfigSchema,
   scanLayoutSchema,
+  scanManualChecksSchema,
   scanSchema,
+  summarizeManual,
   type Audit,
   type AuditResults,
   type DiscoveredPage,
   type LegalProfile,
+  type ManualEvaluation,
+  type PageFacts,
   type PageCheck,
   type Project,
   type RuleResult,
@@ -78,6 +92,7 @@ export function makeScan(overrides: Partial<Scan> = {}): Scan {
       frameOffsets: [0, 950],
     },
     layout: null,
+    manual: null,
     ...overrides,
   });
 }
@@ -396,6 +411,13 @@ export function completedAudit(): Audit {
       errorMessage: i === chosen.length - 1 ? 'Serverul a răspuns cu codul 500.' : null,
       summary: i === chosen.length - 1 ? null : SUMMARY,
       layout: null,
+      // Prima pagina: o verificare manuala picata; celelalte: nimic facut inca
+      manual:
+        i === chosen.length - 1
+          ? null
+          : i === 0
+            ? { total: 6, completed: 2, autoNotApplicable: 1, pending: 3, failed: 1 }
+            : { total: 6, completed: 0, autoNotApplicable: 1, pending: 5, failed: 0 },
     })),
   });
 }
@@ -473,7 +495,32 @@ export interface MockApiOptions {
   layout?: ScanLayout | null;
   /** Primeste corpul cererii de pornire a unei scanari sau a unui audit. */
   onCreate?: (kind: 'scan' | 'audit', body: unknown) => void;
+  /** Ce contine pagina, pentru verificarea manuala (implicit: MANUAL_FACTS). */
+  manualFacts?: PageFacts | null;
+  /** Primeste fiecare salvare (corpul cererii) sau stergere (null) a unei verificari manuale. */
+  onManualSave?: (checkId: string, body: unknown) => void;
 }
+
+/**
+ * Ce contine pagina simulata: imagini, niciun camp de formular (verificarea formularelor nu se
+ * aplica), titluri, dintre care unul cu HTML rau intentionat (trebuie afisat ca text).
+ */
+/** Un titlu cu HTML rau intentionat (verificarea manuala trebuie sa-l afiseze ca text). */
+export const HOSTILE_HEADING =
+  '<b onmouseover="alert(3)">Titlu</b><img src="y" onerror="alert(4)">';
+
+export const MANUAL_FACTS: PageFacts = {
+  images: 4,
+  forms: 0,
+  formFields: 0,
+  headings: [
+    { level: 1, text: 'Primăria Comunei Valea Verde', hidden: false },
+    { level: 2, text: 'Anunțuri', hidden: false },
+    { level: 4, text: HOSTILE_HEADING, hidden: false },
+    { level: 2, text: 'Meniu', hidden: true },
+  ],
+  headingsTruncated: false,
+};
 
 /** Data fixa a evaluarii in profilul simulat. */
 export const LEGAL_PROFILE_DATE = '2026-10-28T10:00:00.000Z';
@@ -580,6 +627,58 @@ export async function mockApi(page: Page, options: MockApiOptions = {}) {
       return route.fulfill(json({ error: { code: 'LAYOUT_NOT_FOUND', message } }, 404));
     }
     return route.fulfill(json(layout));
+  });
+  // Verificarea manuala: tinuta minte cat dureaza testul, ca o baza de date
+  const manualFacts = options.manualFacts === undefined ? MANUAL_FACTS : options.manualFacts;
+  const evaluations = new Map<string, ManualEvaluation>();
+  const manualBody = () => {
+    const checks = MANUAL_CHECKS.map((check) => {
+      const evaluation = evaluations.get(check.id) ?? null;
+      const autoNotApplicable = autoNotApplicableReason(check, manualFacts);
+      return {
+        ...check,
+        steps: [...check.steps],
+        cautions: [...check.cautions],
+        sources: check.sources.map((s) => ({ ...s })),
+        criteria: manualCheckCriteria(check),
+        autoNotApplicable,
+        status: manualStatus(evaluation, autoNotApplicable),
+        evaluation,
+      };
+    });
+    return scanManualChecksSchema.parse({
+      checksVersion: MANUAL_CHECKS_VERSION,
+      facts: manualFacts,
+      checks,
+      summary: summarizeManual(checks.map((c) => c.status)),
+    });
+  };
+  await page.route('**/api/v1/scans/*/manual-checks', (route) => route.fulfill(json(manualBody())));
+  await page.route('**/api/v1/scans/*/manual-checks/*', (route) => {
+    const checkId = route.request().url().split('/').pop()!;
+    if (route.request().method() === 'DELETE') {
+      options.onManualSave?.(checkId, null);
+      evaluations.delete(checkId);
+      return route.fulfill({ status: 204 });
+    }
+    const body = route.request().postDataJSON();
+    options.onManualSave?.(checkId, body);
+    const parsed = manualEvaluationInputSchema.safeParse(body);
+    if (!parsed.success) {
+      const details = parsed.error.issues.map((i) => ({
+        field: i.path.join('.'),
+        message: i.message,
+      }));
+      const message = 'Datele trimise nu sunt valide.';
+      return route.fulfill(json({ error: { code: 'VALIDATION_ERROR', message, details } }, 400));
+    }
+    const saved: ManualEvaluation = {
+      ...parsed.data,
+      checksVersion: MANUAL_CHECKS_VERSION,
+      updatedAt: '2026-11-24T10:00:00.000Z',
+    };
+    evaluations.set(checkId, saved);
+    return route.fulfill(json(saved));
   });
   await page.route('**/api/v1/scans/*/results', (route) =>
     route.fulfill(json({ items: options.results ?? RESULTS })),

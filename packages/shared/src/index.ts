@@ -9,5 +9,6 @@ export * from './legal-profile';
 export * from './scans';
 export * from './audits';
 export * from './layout';
+export * from './manual';
 export * from './page-labels';
 export * from './traceability';

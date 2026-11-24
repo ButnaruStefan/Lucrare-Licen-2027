@@ -13,6 +13,9 @@
  * fiecare pagina arata cate semnale de aspect are (detaliile sunt pe pagina scanarii). Daca
  * verifica DOAR aspectul, cifrele si rezultatele de accesibilitate nu apar.
  *
+ * Verificarea manuala (facuta de om, pe fiecare pagina): sumarul arata cate verificari s-au facut
+ * din cate se aplica, iar fiecare pagina arata progresul ei (ex. "manual: 2/5").
+ *
  * Accesibilitate: schimbarea etapei e anuntata (role="status"); dupa confirmarea paginilor,
  * focusul ajunge pe titlul sectiunii de progres (formularul dispare, focusul nu se pierde).
  */
@@ -196,6 +199,11 @@ function AuditOverview({ audit, results }: { audit: Audit; results: AuditResults
   const layouts = audit.pages.flatMap((p) => (p.layout && !p.layout.failed ? [p.layout] : []));
   const layoutVisible = layouts.reduce((sum, l) => sum + l.visible, 0);
   const layoutPossible = layouts.reduce((sum, l) => sum + l.possible, 0);
+  // Verificarea manuala, adunata de pe paginile gata (fara cele care nu se aplica automat)
+  const manuals = audit.pages.flatMap((p) => (p.manual ? [p.manual] : []));
+  const manualDone = manuals.reduce((sum, m) => sum + m.completed, 0);
+  const manualApplicable = manuals.reduce((sum, m) => sum + m.total - m.autoNotApplicable, 0);
+  const manualFailed = manuals.reduce((sum, m) => sum + m.failed, 0);
 
   return (
     <section aria-labelledby="sumar-audit" className="overview">
@@ -221,6 +229,13 @@ function AuditOverview({ audit, results }: { audit: Audit; results: AuditResults
             <div className="stat stat--incomplete">
               <dt>Reguli de verificat manual</dt>
               <dd>{count(incomplete)}</dd>
+            </div>
+            <div className={`stat ${manualFailed > 0 ? 'stat--violation' : ''}`}>
+              <dt>Verificare manuală făcută</dt>
+              <dd>
+                {manuals.length > 0 ? `${manualDone} din ${manualApplicable}` : '—'}
+                {manualFailed > 0 && <span className="stat__extra"> ({manualFailed} nu trec)</span>}
+              </dd>
             </div>
           </>
         )}
@@ -314,6 +329,15 @@ function PageRow({
                   {page.summary.incomplete} de verificat
                 </span>
               </>
+            )}
+            {accessibility && page.manual && (
+              <span
+                className={`count ${page.manual.failed > 0 ? 'count--violation' : page.manual.pending > 0 ? 'count--incomplete' : ''}`}
+              >
+                manual: {page.manual.completed}/{page.manual.total - page.manual.autoNotApplicable}
+                <span className="visually-hidden"> verificări făcute</span>
+                {page.manual.failed > 0 && `, ${page.manual.failed} nu trec`}
+              </span>
             )}
             {page.layout && (
               <span

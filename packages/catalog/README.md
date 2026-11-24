@@ -19,30 +19,32 @@ concluzie juridica.
 
 ## Surse
 
-| Date                    | Sursa                                                  | Cum e obtinuta                                                                        |
-| ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Criteriile WCAG 2.2     | Recomandarile W3C WCAG 2.2 si WCAG 2.1                 | Generate automat: `npm run genereaza:wcag`                                            |
-| EN 301 549 V3.2.1       | Decizia de punere in aplicare (UE) 2021/1339 (EUR-Lex) | Regula de numerotare (9. + criteriul WCAG), confirmata cu etichetele EN din axe-core  |
-| OUG 112/2018            | Portalul Legislativ (legislatie.just.ro)               | Citate exacte din art. 3 si art. 5, verificate de teste fata de textul oficial salvat |
-| Titluri si remedieri RO | Redactate de autor, pe baza documentatiei W3C si Deque | Marcate in aplicatie ca traducere de lucru / de revizuit                              |
+| Date                    | Sursa                                                                                                                             | Cum e obtinuta                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Criteriile WCAG 2.2     | Recomandarile W3C WCAG 2.2 si WCAG 2.1                                                                                            | Generate automat: `npm run genereaza:wcag`                                                          |
+| EN 301 549 V3.2.1       | Decizia de punere in aplicare (UE) 2021/1339 (EUR-Lex)                                                                            | Regula de numerotare (9. + criteriul WCAG), confirmata cu etichetele EN din axe-core                |
+| OUG 112/2018            | Portalul Legislativ (legislatie.just.ro)                                                                                          | Citate exacte din art. 3 si art. 5, verificate de teste fata de textul oficial salvat               |
+| Titluri si remedieri RO | Redactate de autor, pe baza documentatiei W3C si Deque                                                                            | Marcate in aplicatie ca traducere de lucru / de revizuit                                            |
+| Verificarile manuale    | W3C Easy Checks + sectiunile "Tests" ale tehnicilor WCAG 2.2 (G202, F10, G149, G59, G83, G85, G177, C32, F102, H42) + WCAG-EM 2.0 | Pasi tradusi si adaptati de autor, fiecare cu legatura spre sursa; versiune `MANUAL_CHECKS_VERSION` |
 
 ## Continut
 
-| Cale                               | Rol                                                                               |
-| ---------------------------------- | --------------------------------------------------------------------------------- |
-| `scripts/genereaza-wcag.ts`        | Descarca WCAG 2.2 si 2.1 de la W3C si genereaza catalogul criteriilor             |
-| `src/data/wcag22.json`             | Catalogul generat: 87 de criterii, nivel, principiu, legaturi oficiale            |
-| `src/data/wcag-titluri-ro.ts`      | Titlurile in romana ale criteriilor A si AA (traducere de lucru)                  |
-| `src/data/oug-112-2018-art1-5.txt` | Textul oficial al art. 1-5 din OUG 112/2018, folosit de teste                     |
-| `src/data/remedieri-ro.ts`         | Remedierile in romana: cele frecvente + lista completa (105 reguli)               |
-| `src/data/remedieri/`              | Remedierile restului regulilor axe-core, pe categorii (ARIA, tabele etc.)         |
-| `src/wcag.ts`                      | Accesul la catalogul WCAG                                                         |
-| `src/en301549.ts`                  | Legatura criteriu WCAG -> clauza EN 301 549 V3.2.1, cu statusul verificarii       |
-| `src/legislatie.ts`                | Prevederile din OUG 112/2018 (citate, sursa, status)                              |
-| `src/trace.ts`                     | Motorul de trasabilitate (`buildTrace`) si versiunea catalogului                  |
-| `src/profil-oug112.ts`             | Chestionarul OUG 112/2018 si regulile de evaluare (`evaluateOug112`)              |
-| `tests/catalog.test.ts`            | Verificarea datelor: structura WCAG, concordanta cu axe-core, citatele legale     |
-| `tests/profil-oug112.test.ts`      | Citatele profilului juridic si rezultatul pentru fiecare combinatie de raspunsuri |
+| Cale                               | Rol                                                                                |
+| ---------------------------------- | ---------------------------------------------------------------------------------- |
+| `scripts/genereaza-wcag.ts`        | Descarca WCAG 2.2 si 2.1 de la W3C si genereaza catalogul criteriilor              |
+| `src/data/wcag22.json`             | Catalogul generat: 87 de criterii, nivel, principiu, legaturi oficiale             |
+| `src/data/wcag-titluri-ro.ts`      | Titlurile in romana ale criteriilor A si AA (traducere de lucru)                   |
+| `src/data/oug-112-2018-art1-5.txt` | Textul oficial al art. 1-5 din OUG 112/2018, folosit de teste                      |
+| `src/data/remedieri-ro.ts`         | Remedierile in romana: cele frecvente + lista completa (105 reguli)                |
+| `src/data/remedieri/`              | Remedierile restului regulilor axe-core, pe categorii (ARIA, tabele etc.)          |
+| `src/wcag.ts`                      | Accesul la catalogul WCAG                                                          |
+| `src/verificari-manuale.ts`        | Cele 6 verificari manuale (pasi, criterii, surse) si cand nu se aplica pe o pagina |
+| `src/en301549.ts`                  | Legatura criteriu WCAG -> clauza EN 301 549 V3.2.1, cu statusul verificarii        |
+| `src/legislatie.ts`                | Prevederile din OUG 112/2018 (citate, sursa, status)                               |
+| `src/trace.ts`                     | Motorul de trasabilitate (`buildTrace`) si versiunea catalogului                   |
+| `src/profil-oug112.ts`             | Chestionarul OUG 112/2018 si regulile de evaluare (`evaluateOug112`)               |
+| `tests/catalog.test.ts`            | Verificarea datelor: structura WCAG, concordanta cu axe-core, citatele legale      |
+| `tests/profil-oug112.test.ts`      | Citatele profilului juridic si rezultatul pentru fiecare combinatie de raspunsuri  |
 
 ## Verificari automate
 

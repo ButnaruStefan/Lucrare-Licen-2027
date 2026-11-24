@@ -13,6 +13,7 @@
  *                                             latimile verificate, breakpoint-urile, semnalele;
  *                                             404 daca nu a fost ceruta
  * - GET  /api/v1/scans/:scanId/layout/issues/:issueId/image — captura decupata a unui semnal
+ * - verificarea manuala a unei pagini: rutele din `manual-checks.ts`
  * - GET  /api/v1/scans/:scanId/results      — rezultatele pe reguli, cu elementele afectate si
  *                                             lantul de trasabilitate (WCAG -> EN -> OUG 112/2018,
  *                                             cu aplicabilitatea din profilul juridic al proiectului)
@@ -36,6 +37,7 @@ import {
   scanConfigSchema,
   type ResultCategory,
   type LayoutSummary,
+  type ManualSummary,
   type RuleResult,
   type RuleResultList,
   type Scan,
@@ -50,6 +52,7 @@ import { validate } from '../lib/validation';
 import { checkUrl, type UrlGuardOptions } from '../safety/url-guard';
 import { buildTrace, CATALOG_VERSION } from '@ro-a11y/catalog';
 import { isBestPractice } from '../scanner/normalize';
+import { loadManualSummaries } from './manual-checks';
 
 export interface ScansDeps {
   db: Database;
@@ -81,6 +84,7 @@ function toScanDto(
   summary: ScanSummary | null,
   screenshot: ScreenshotInfo | null = null,
   layout: LayoutSummary | null = null,
+  manual: ManualSummary | null = null,
 ): Scan {
   return {
     id: row.id,
@@ -103,6 +107,7 @@ function toScanDto(
     summary: row.status === 'completed' ? summary : null,
     screenshot: row.status === 'completed' ? screenshot : null,
     layout: row.status === 'completed' ? layout : null,
+    manual: row.status === 'completed' ? manual : null,
   };
 }
 
@@ -246,9 +251,16 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     const completed = rows.filter((r) => r.status === 'completed').map((r) => r.id);
     const summaries = await loadSummaries(db, completed);
     const layouts = await loadLayoutSummaries(db, completed);
+    const manual = await loadManualSummaries(db, rows);
     const body: ScanList = {
       items: rows.map((r) =>
-        toScanDto(r, summaries.get(r.id) ?? null, null, layouts.get(r.id) ?? null),
+        toScanDto(
+          r,
+          summaries.get(r.id) ?? null,
+          null,
+          layouts.get(r.id) ?? null,
+          manual.get(r.id) ?? null,
+        ),
       ),
     };
     res.json(body);
@@ -261,6 +273,7 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     const done = row.status === 'completed' ? [row.id] : [];
     const summaries = await loadSummaries(db, done);
     const layouts = await loadLayoutSummaries(db, done);
+    const manual = await loadManualSummaries(db, [row]);
     // Doar dimensiunile capturii, nu si imaginea (ea vine pe ruta separata)
     const shot = await db.scanScreenshot.findUnique({
       where: { scanId: row.id },
@@ -276,7 +289,13 @@ export function scansRouter({ db, guardOptions, scanTimeoutMs }: ScansDeps): Rou
     });
     const screenshot = shot ? { url: `/api/v1/scans/${row.id}/screenshot`, ...shot } : null;
     res.json(
-      toScanDto(row, summaries.get(row.id) ?? null, screenshot, layouts.get(row.id) ?? null),
+      toScanDto(
+        row,
+        summaries.get(row.id) ?? null,
+        screenshot,
+        layouts.get(row.id) ?? null,
+        manual.get(row.id) ?? null,
+      ),
     );
   });
 

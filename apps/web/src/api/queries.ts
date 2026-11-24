@@ -8,21 +8,24 @@
  * O scanare in curs ("queued" sau "running") este reverificata periodic, pana se termina.
  * La fel un audit pe mai multe pagini, cat timp cauta paginile sau le scaneaza.
  * Profilul juridic (OUG 112/2018) al unui proiect se citeste si se salveaza tot de aici, la fel
- * si verificarea aspectului unei pagini (separata de accesibilitate).
+ * si verificarea aspectului unei pagini (separata de accesibilitate) si verificarea manuala.
  */
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 import {
   auditListSchema,
   auditResultsSchema,
   auditSchema,
   legalProfileResponseSchema,
   legalProfileSchema,
+  manualEvaluationSchema,
   pageCheckSchema,
   projectListSchema,
   projectSchema,
   ruleResultListSchema,
   scanLayoutSchema,
+  scanManualChecksSchema,
   scanListSchema,
   scanSchema,
   type AuditList,
@@ -33,6 +36,8 @@ import {
   type CreateScanInput,
   type LegalProfileAnswers,
   type LegalProfileResponse,
+  type ManualCheckId,
+  type ManualEvaluationInput,
   type PageCheckInput,
 } from '@ro-a11y/shared';
 import { apiRequest } from './client';
@@ -48,6 +53,7 @@ export const queryKeys = {
   scan: (id: string) => ['scans', id] as const,
   scanResults: (id: string) => ['scans', id, 'results'] as const,
   scanLayout: (id: string) => ['scans', id, 'layout'] as const,
+  scanManualChecks: (id: string) => ['scans', id, 'manual-checks'] as const,
   projectAudits: (id: string) => ['projects', id, 'audits'] as const,
   audit: (id: string) => ['audits', id] as const,
   auditResults: (id: string) => ['audits', id, 'results'] as const,
@@ -294,5 +300,45 @@ export function useAuditResults(auditId: string, enabled: boolean) {
         signal,
       }),
     enabled,
+  });
+}
+
+/** Verificarea manuala a unei pagini: cele 6 verificari si starea lor. */
+export function useManualChecks(scanId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.scanManualChecks(scanId),
+    queryFn: ({ signal }) =>
+      apiRequest(
+        `/api/v1/scans/${encodeURIComponent(scanId)}/manual-checks`,
+        scanManualChecksSchema,
+        { signal },
+      ),
+    enabled,
+  });
+}
+
+/**
+ * Salveaza (sau, cu `input: null`, sterge) rezultatul unei verificari manuale. Dupa salvare se
+ * reincarca verificarile paginii, scanarea (progresul) si auditurile (progresul pe pagini).
+ */
+export function useSaveManualCheck(scanId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      checkId,
+      input,
+    }: {
+      checkId: ManualCheckId;
+      input: ManualEvaluationInput | null;
+    }) => {
+      const path = `/api/v1/scans/${encodeURIComponent(scanId)}/manual-checks/${checkId}`;
+      return input
+        ? apiRequest(path, manualEvaluationSchema, { method: 'PUT', body: input })
+        : apiRequest(path, z.null(), { method: 'DELETE' });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.scan(scanId) });
+      await queryClient.invalidateQueries({ queryKey: ['audits'] });
+    },
   });
 }

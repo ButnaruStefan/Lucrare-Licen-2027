@@ -23,6 +23,7 @@ import {
   scanConfigSchema,
   scanSummarySchema,
 } from './scans';
+import { manualSummarySchema } from './manual';
 
 /** Cate pagini propunem implicit si cate pot fi scanate, cel mult, intr-un audit. */
 export const AUDIT_DEFAULT_PAGES = 10;
@@ -188,6 +189,8 @@ export const auditPageSchema = z.object({
   summary: scanSummarySchema.nullable(),
   /** Sumarul verificarii aspectului paginii (null daca nu a fost ceruta sau nu e gata). */
   layout: layoutSummarySchema.nullable(),
+  /** Progresul verificarii manuale pe pagina (null daca nu se verifica accesibilitatea). */
+  manual: manualSummarySchema.nullable(),
 });
 export type AuditPage = z.infer<typeof auditPageSchema>;
 

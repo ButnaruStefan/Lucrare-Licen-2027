@@ -28,7 +28,8 @@ worker.ts (proces separat)
       └─> scans/process-scan.ts
             ├─> scanner/page-scan.ts (Chrome; fiecare cerere trece prin paznic; ruleaza doar
             │     │                    verificarile alese: accesibilitatea si / sau aspectul)
-            │     ├─> axe-core + scanner/capture.ts (captura + pozitii, pentru harta)
+            │     ├─> axe-core + scanner/page-facts.ts (ce contine pagina, pentru verificarea manuala)
+            │     ├─> scanner/capture.ts (captura + pozitii, pentru harta)
             │     ├─> scanner/contrast-recheck.ts (contrastul re-verificat pe ecran)
             │     └─> scanner/layout-audit.ts (aspectul paginii, de la 1400 la 320 px)
             ├─> scanner/normalize.ts (rezultatul brut → tabelele noastre)
@@ -90,6 +91,23 @@ Rezultatul se salveaza in `scan_layouts` si `layout_issues`. Limita: 45 s pentru
 cautarea capetelor, apoi verificarea e marcata "partiala" (sau capetele ramase "aproximative").
 Un esec nu strica scanarea (motivul e salvat).
 
+## Verificarea manuala, pe scurt
+
+Ce nu poate verifica axe-core (ex. daca textul alternativ are sens, daca pagina merge doar cu
+tastatura) verifica un om, pe fiecare pagina scanata pentru accesibilitate. Cele 6 verificari
+(pasii din W3C Easy Checks si din tehnicile WCAG, criteriile, sursele) sunt in
+`@ro-a11y/catalog` (`verificari-manuale.ts`).
+
+1. la scanare, imediat dupa axe-core, `scanner/page-facts.ts` numara ce contine pagina:
+   imaginile, formularele si campurile lor, titlurile (salvat in `scans.page_facts`);
+2. `GET /scans/:id/manual-checks` trimite verificarile cu starea lor: rezultatul salvat de om,
+   altfel "nu se aplica" (detectat automat: pagina fara imagini sau fara campuri), altfel "de facut";
+3. `PUT /scans/:id/manual-checks/:checkId` salveaza rezultatul (cine, note, versiunea pasilor) in
+   `manual_evaluations`; `DELETE` il sterge.
+
+Un rezultat manual nu se completeaza niciodata automat din axe-core. Progresul (`manual`) apare
+in fiecare scanare si pe fiecare pagina a unui audit.
+
 ## Auditul pe mai multe pagini, pe scurt
 
 1. `POST /projects/:id/audits` creeaza un audit `discovery_queued`.
@@ -107,41 +125,42 @@ Nu e un crawler: nu merge din link in link, citeste doar pagina de start si site
 
 ## Continut
 
-| Cale                              | Rol                                                                                                  |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `src/index.ts`                    | Pornirea API-ului: citeste configurarea, conecteaza DB, porneste serverul                            |
-| `src/worker.ts`                   | Pornirea worker-ului: porneste browserul, preia scanarile din coada si le proceseaza                 |
-| `src/app.ts`                      | Construieste aplicatia Express (middleware + rute). Separat de pornire, pentru teste                 |
-| `src/config/env.ts`               | Valideaza variabilele din `.env` la pornire                                                          |
-| `src/db/prisma.ts`                | Conexiunea la PostgreSQL prin Prisma                                                                 |
-| `src/lib/logger.ts`               | Loguri structurate (Pino), cu date sensibile ascunse                                                 |
-| `src/lib/validation.ts`           | Valideaza datele primite; la eroare raspunde 400 cu lista campurilor gresite                         |
-| `src/middleware/`                 | Functii care ruleaza pentru fiecare cerere (ID, loguri, erori)                                       |
-| `src/routes/`                     | Endpointurile API, pe domenii (`health`, `projects`, `legal-profile`, `scans`, `audits`)             |
-| `src/safety/url-guard.ts`         | Paznicul adreselor (protectie SSRF), folosit in API si pentru fiecare cerere a browserului           |
-| `src/safety/page-check.ts`        | Verifica daca o pagina adaugata manual intr-un audit exista (prin paznic, IP verificat la conectare) |
-| `src/scanner/browser.ts`          | Pornirea browserului (Chrome instalat, Edge sau Chromium), cu limite de timp                         |
-| `src/scanner/page-scan.ts`        | Deschiderea sigura a unei pagini (`openGuardedPage`) si scanarea ei cu axe-core                      |
-| `src/scanner/capture.ts`          | Parcurge pagina ecran cu ecran: captura (WebP) si pozitia elementelor, pentru harta                  |
-| `src/scanner/contrast-recheck.ts` | Re-verifica pe ecran contrastul elementelor semnalate (sectiuni estompate la derulare)               |
-| `src/scanner/layout-audit.ts`     | Verificarea aspectului: latimile, masuratorile, semnalele si capturile decupate                      |
-| `src/scanner/layout-model.ts`     | Scripturile rulate in pagina pentru aspect (masurarea aranjarii, asteptarea dupa redimensionare)     |
-| `src/scanner/layout-rules.ts`     | Regulile aspectului (comparatia intre latimi vecine, capetele exacte), fara browser                  |
-| `src/discovery/`                  | Descoperirea paginilor unui audit: linkuri, robots.txt, sitemap.xml, esantionul propus               |
-| `src/audits/`                     | Coada descoperirilor (tabelul `audits`) si procesarea unei descoperiri                               |
-| `src/scanner/normalize.ts`        | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`               |
-| `src/scans/queue.ts`              | Coada de scanari din PostgreSQL: rezervare, finalizare, esec                                         |
-| `@ro-a11y/catalog` (pachet)       | Lantul de trasabilitate adaugat fiecarui rezultat (`buildTrace`)                                     |
-| `src/scans/process-scan.ts`       | Procesarea completa a unei scanari (verificare, scanare, salvare)                                    |
-| `src/scans/worker-loop.ts`        | Un pas al worker-ului: browser pregatit inainte de rezervare, ceas de paza, erori prinse             |
-| `src/generated/`                  | Cod **generat automat** de Prisma. Nu se editeaza si nu e in Git                                     |
-| `prisma/schema.prisma`            | Schema bazei de date (tabelele)                                                                      |
-| `prisma/migrations/`              | Istoricul modificarilor de schema, ca fisiere SQL                                                    |
-| `prisma/seed.ts`                  | Adauga proiectele demo (cele doua site-uri de antrenament)                                           |
-| `prisma.config.ts`                | Configurarea uneltei Prisma                                                                          |
-| `tests/`                          | Teste automate (Vitest + Supertest), pe baza de date separata `ro_a11y_test`                         |
-| `vitest.config.ts`                | Configurarea testelor (adresa bazei de test, pregatirea ei)                                          |
-| `.env.example`                    | Model pentru `.env` (configurarea locala, inclusiv setarile scannerului)                             |
+| Cale                              | Rol                                                                                                       |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`                    | Pornirea API-ului: citeste configurarea, conecteaza DB, porneste serverul                                 |
+| `src/worker.ts`                   | Pornirea worker-ului: porneste browserul, preia scanarile din coada si le proceseaza                      |
+| `src/app.ts`                      | Construieste aplicatia Express (middleware + rute). Separat de pornire, pentru teste                      |
+| `src/config/env.ts`               | Valideaza variabilele din `.env` la pornire                                                               |
+| `src/db/prisma.ts`                | Conexiunea la PostgreSQL prin Prisma                                                                      |
+| `src/lib/logger.ts`               | Loguri structurate (Pino), cu date sensibile ascunse                                                      |
+| `src/lib/validation.ts`           | Valideaza datele primite; la eroare raspunde 400 cu lista campurilor gresite                              |
+| `src/middleware/`                 | Functii care ruleaza pentru fiecare cerere (ID, loguri, erori)                                            |
+| `src/routes/`                     | Endpointurile API, pe domenii (`health`, `projects`, `legal-profile`, `scans`, `manual-checks`, `audits`) |
+| `src/safety/url-guard.ts`         | Paznicul adreselor (protectie SSRF), folosit in API si pentru fiecare cerere a browserului                |
+| `src/safety/page-check.ts`        | Verifica daca o pagina adaugata manual intr-un audit exista (prin paznic, IP verificat la conectare)      |
+| `src/scanner/browser.ts`          | Pornirea browserului (Chrome instalat, Edge sau Chromium), cu limite de timp                              |
+| `src/scanner/page-scan.ts`        | Deschiderea sigura a unei pagini (`openGuardedPage`) si scanarea ei cu axe-core                           |
+| `src/scanner/capture.ts`          | Parcurge pagina ecran cu ecran: captura (WebP) si pozitia elementelor, pentru harta                       |
+| `src/scanner/page-facts.ts`       | Numara ce contine pagina (imagini, campuri de formular, titluri), pentru verificarea manuala              |
+| `src/scanner/contrast-recheck.ts` | Re-verifica pe ecran contrastul elementelor semnalate (sectiuni estompate la derulare)                    |
+| `src/scanner/layout-audit.ts`     | Verificarea aspectului: latimile, masuratorile, semnalele si capturile decupate                           |
+| `src/scanner/layout-model.ts`     | Scripturile rulate in pagina pentru aspect (masurarea aranjarii, asteptarea dupa redimensionare)          |
+| `src/scanner/layout-rules.ts`     | Regulile aspectului (comparatia intre latimi vecine, capetele exacte), fara browser                       |
+| `src/discovery/`                  | Descoperirea paginilor unui audit: linkuri, robots.txt, sitemap.xml, esantionul propus                    |
+| `src/audits/`                     | Coada descoperirilor (tabelul `audits`) si procesarea unei descoperiri                                    |
+| `src/scanner/normalize.ts`        | Transforma rezultatul brut axe in randuri pentru `rule_results` si `affected_elements`                    |
+| `src/scans/queue.ts`              | Coada de scanari din PostgreSQL: rezervare, finalizare, esec                                              |
+| `@ro-a11y/catalog` (pachet)       | Lantul de trasabilitate adaugat fiecarui rezultat (`buildTrace`)                                          |
+| `src/scans/process-scan.ts`       | Procesarea completa a unei scanari (verificare, scanare, salvare)                                         |
+| `src/scans/worker-loop.ts`        | Un pas al worker-ului: browser pregatit inainte de rezervare, ceas de paza, erori prinse                  |
+| `src/generated/`                  | Cod **generat automat** de Prisma. Nu se editeaza si nu e in Git                                          |
+| `prisma/schema.prisma`            | Schema bazei de date (tabelele)                                                                           |
+| `prisma/migrations/`              | Istoricul modificarilor de schema, ca fisiere SQL                                                         |
+| `prisma/seed.ts`                  | Adauga proiectele demo (cele doua site-uri de antrenament)                                                |
+| `prisma.config.ts`                | Configurarea uneltei Prisma                                                                               |
+| `tests/`                          | Teste automate (Vitest + Supertest), pe baza de date separata `ro_a11y_test`                              |
+| `vitest.config.ts`                | Configurarea testelor (adresa bazei de test, pregatirea ei)                                               |
+| `.env.example`                    | Model pentru `.env` (configurarea locala, inclusiv setarile scannerului)                                  |
 
 ## Endpointuri existente
 
@@ -166,6 +185,9 @@ Nu e un crawler: nu merge din link in link, citeste doar pagina de start si site
 | GET    | `/api/v1/scans/:scanId/screenshot`                   | Captura paginii (imagine WebP, memorata de browser); 404 daca scanarea nu are captura                                                                      |
 | GET    | `/api/v1/scans/:scanId/layout`                       | Verificarea aspectului: latimile, breakpoint-urile, meta viewport, semnalele (404 `LAYOUT_NOT_FOUND` daca nu a fost ceruta)                                |
 | GET    | `/api/v1/scans/:scanId/layout/issues/:issueId/image` | Captura decupata a unui semnal de aspect (JPEG); 404 daca semnalul nu are captura                                                                          |
+| GET    | `/api/v1/scans/:scanId/manual-checks`                | Verificarea manuala a paginii: cele 6 verificari, starea lor, ce contine pagina, progresul (404 `MANUAL_REVIEW_NOT_AVAILABLE` fara accesibilitate)         |
+| PUT    | `/api/v1/scans/:scanId/manual-checks/:checkId`       | Salveaza rezultatul unei verificari (`result`, `evaluator`, `notes`; notele obligatorii la `fail`)                                                         |
+| DELETE | `/api/v1/scans/:scanId/manual-checks/:checkId`       | Sterge rezultatul (verificarea redevine de facut)                                                                                                          |
 | GET    | `/api/v1/scans/:scanId/results`                      | Rezultatele pe reguli, cu elementele afectate (si pozitia lor, `box`) si lantul de trasabilitate (filtru `?category=violation`)                            |
 
 ## Coduri de eroare ale unei scanari (sau descoperiri) esuate

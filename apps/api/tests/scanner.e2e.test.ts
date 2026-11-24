@@ -14,7 +14,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Browser } from 'playwright';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { scanConfigSchema } from '@ro-a11y/shared';
+import { pageFactsSchema, scanConfigSchema } from '@ro-a11y/shared';
 import { createFixturesServer } from '@ro-a11y/fixtures';
 import probleme from '@ro-a11y/fixtures/probleme.json' with { type: 'json' };
 import { createLogger } from '../src/lib/logger';
@@ -110,6 +110,12 @@ describe('scannerul pe site-urile de antrenament', () => {
 
     expect(rulesIn(row, 'violation')).toEqual(expectedViolations);
     expect(rulesIn(row, 'incomplete')).toEqual(expectedIncomplete);
+
+    // Ce contine pagina, salvat pentru verificarea manuala: are imagini, formular si titluri
+    const facts = pageFactsSchema.parse(row.pageFacts);
+    expect(facts.images).toBeGreaterThan(0);
+    expect(facts.formFields).toBeGreaterThan(0);
+    expect(facts.headings.length).toBeGreaterThan(0);
   }, 60_000);
 
   it('leaga fiecare problema de elementul marcat in cod (data-problema)', async () => {

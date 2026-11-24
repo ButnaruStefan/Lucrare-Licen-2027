@@ -158,14 +158,44 @@ model Scan {
   startedAt      DateTime?  @map("started_at")
   finishedAt     DateTime?  @map("finished_at")
 
-  ruleResults RuleResult[]
-  screenshot  ScanScreenshot? // captura paginii (harta problemelor); lipseste daca nu a reusit
-  layout      ScanLayout? // verificarea aspectului paginii; lipseste daca nu a fost ceruta
+  ruleResults       RuleResult[]
+  screenshot        ScanScreenshot? // captura paginii (harta problemelor); lipseste daca nu a reusit
+  layout            ScanLayout? // verificarea aspectului paginii; lipseste daca nu a fost ceruta
+  // ce contine pagina (imagini, campuri de formular, titluri), numarat la scanare: decide ce
+  // verificari manuale nu se aplica; null = scanare fara accesibilitate sau mai veche
+  pageFacts         Json?              @map("page_facts")
+  manualEvaluations ManualEvaluation[] // verificarea manuala facuta de om pe aceasta pagina
 
   @@index([projectId, createdAt])
   @@index([status, createdAt]) // worker-ul cauta rapid urmatoarea scanare "queued"
   @@index([auditId])
   @@map("scans")
+}
+
+// Rezultatul unei verificari manuale (facuta de om) pe o pagina scanata. Fara rand = verificarea
+// e "in asteptare" (sau nu se aplica, detectat automat din page_facts). Nu se completeaza
+// niciodata automat din axe-core. Verificarile (pasii, criteriile) sunt in catalog.
+model ManualEvaluation {
+  id            String       @id @default(uuid())
+  scanId        String       @map("scan_id")
+  scan          Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  checkId       String       @map("check_id") // ex. "tastatura" (MANUAL_CHECK_IDS)
+  result        ManualResult
+  evaluator     String // cine a verificat (aplicatia nu are conturi: numele scris de om)
+  notes         String       @default("") // ce a observat
+  checksVersion String       @map("checks_version") // versiunea pasilor dupa care s-a verificat
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  @@unique([scanId, checkId]) // un singur rezultat pe verificare si pagina
+  @@map("manual_evaluations")
+}
+
+enum ManualResult {
+  pass // trece
+  fail // nu trece
+  not_applicable // nu se aplica (decis de om)
+  cannot_determine // nu se poate determina
 }
 
 // Captura paginii scanate, facuta imediat dupa axe-core, in aceeasi sesiune de browser.

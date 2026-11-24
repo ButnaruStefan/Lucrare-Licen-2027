@@ -12,7 +12,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { AxeResults } from 'axe-core';
-import { scanConfigSchema, type ScanConfig } from '@ro-a11y/shared';
+import { scanConfigSchema, type PageFacts, type ScanConfig } from '@ro-a11y/shared';
 import type { Database } from '../db/prisma';
 import type { NormalizedRuleResult } from '../scanner/normalize';
 import type { PageCapture } from '../scanner/capture';
@@ -48,6 +48,8 @@ export interface CompletedScanData {
   results: NormalizedRuleResult[];
   /** Captura paginii (harta problemelor); null = nu a reusit, scanarea se salveaza oricum. */
   capture?: PageCapture | null;
+  /** Ce contine pagina (pentru verificarea manuala); null / lipsa = nu stim. */
+  pageFacts?: PageFacts | null;
   /**
    * Verificarea aspectului: rezultatul sau motivul esecului. null / lipsa = nu a fost ceruta.
    * Un esec e salvat si el, ca interfata sa spuna ca verificarea nu s-a putut face.
@@ -182,6 +184,7 @@ export async function completeScan(db: Database, scanId: string, data: Completed
             browserVersion: data.browserVersion,
             // rezultatul brut axe, doar daca s-a verificat accesibilitatea (altfel ramane null)
             ...(data.raw ? { rawAxeResult: data.raw as unknown as object } : {}),
+            ...(data.pageFacts ? { pageFacts: data.pageFacts as object } : {}),
           },
         });
       },
